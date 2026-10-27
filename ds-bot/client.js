@@ -95,7 +95,6 @@ var ZH = {
   // Sidebar and account menu
   "Bot list": "Bot 列表",
   "Setting up your Main Bot…": "正在设置你的主 Bot…",
-  "Connect plugins": "连接插件",
   "Automation tasks": "自动化任务",
   Connectors: "连接器",
   "Search connectors": "搜索连接器",
@@ -628,6 +627,7 @@ var ZH = {
   "{name} looked up its own chat for “{text}”": "{name} 在自己的对话里查找「{text}」",
   "{name} is typing…": "{name} 正在输入…",
   "{name} didn't answer in time": "{name} 没有及时回应",
+  "The group replies could not be shown": "群里的回复显示不出来",
   "Paused after {count} Bot relays. Waiting: {names}": "Bot 之间已接力 {count} 次，先停下了。还在等：{names}",
   "Continue": "继续",
   "{name} paused for your approval": "{name} 停下来等你批准",
@@ -637,6 +637,7 @@ var ZH = {
   "{name} was cut off by a restart and picked its work back up": "{name} 的工作被重启打断，已经接着做",
   "{name} was cut off by a restart again and stopped": "{name} 的工作又被重启打断，已停下",
   "Picked up its work after a restart": "重启后接着做之前的工作",
+  "Profile updated": "资料已更新",
   "Asked to make the tool call it wrote as text": "工具调用被写成了文字，已让它重新调用",
   "A Bot": "一个 Bot",
   "{name} is waiting for your approval": "{name} 等你批准",
@@ -2338,7 +2339,6 @@ function useLinger(value, ms) {
 }
 
 // src/client/styles.js
-var SKIN_FOOT = ':is(div,footer):not([class*="_footArea"]):has(> div > [data-slot="sidebar.footer.action"] > .bt-connect-wrap)';
 var SHELL_CSS = `
 body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
@@ -2450,6 +2450,12 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-round:hover{background:var(--bt-hover)}
 .bt-round:active{transform:scale(.94)}
 .bt-list{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0;flex:1 1 auto}
+/* Chromium ignores ::-webkit-scrollbar when scrollbar-width or scrollbar-color (inherited) is non-auto. */
+.bt-side:not(.bt-rail)>.bt-list{margin-right:-12px;scrollbar-gutter:stable;scrollbar-width:auto;scrollbar-color:auto}
+.bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar{width:12px}
+.bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar-track{background:transparent}
+.bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar-thumb{border:4px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--bt-ink) 16%,transparent) padding-box}
+.bt-side:not(.bt-rail)>.bt-list:hover::-webkit-scrollbar-thumb{background-color:color-mix(in srgb,var(--bt-ink) 30%,transparent)}
 .bt-tile-wrap{display:flex;justify-content:center;padding:20px 0 15px}
 .bt-tile{display:flex;flex-direction:column;align-items:center;gap:4px;width:95px;padding:6px 8px 4px;border-radius:12px;border:0;background:transparent;color:var(--bt-ink);cursor:pointer;font-family:inherit;transition:background-color .12s ease}
 .bt-tile:hover{background:var(--bt-hover)}
@@ -2469,11 +2475,6 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-rail{align-items:center;padding:0 0 8px}
 .bt-rail .bt-row{justify-content:center;padding:6px 0;min-height:44px}
 .bt-side-foot{display:flex;padding-top:8px}
-.bt-connect{flex:1;height:36px;border-radius:999px;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background-color .12s ease}
-.bt-connect:hover{background:var(--bt-hover)}
-.bt-connect svg{flex:none;width:15px;height:15px}
-.bt-connect-wrap{position:relative;display:flex;flex:1 1 auto;min-width:0}
-.bt-connect-wrap.bt-off{display:none}
 
 .bt-head{position:relative;display:flex;justify-content:center;align-items:center;height:40px;flex:none;pointer-events:none}
 .bt-pill{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;height:40px;padding:7.5px 13.5px 7.5px 7.5px;border-radius:999px;background:var(--bt-main);border:.5px solid var(--bt-line-2);box-shadow:0 2px 8px -1px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;max-width:70%;box-sizing:border-box;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
@@ -2585,6 +2586,7 @@ button.bt-q-opt:active{background:var(--bt-active)}
 .bt-q-submit:disabled{opacity:.4;cursor:default}
 .bt-q-btn{background:var(--bt-hover);color:var(--bt-ink)}
 .bt-q-btn:hover{background:var(--bt-active)}
+.bt-q-submit:focus-visible,.bt-q-btn:focus-visible{outline:2px solid var(--bt-accent);outline-offset:2px}
 .bt-q-foot{display:flex;justify-content:flex-end;gap:8px}
 .bt-q-raised{width:calc(var(--dsh-chat-content-width,748px) - 32px);max-width:calc(100% - 32px);gap:0;padding:0;box-shadow:0 2px 8px rgba(20,20,20,.035),inset 0 0 0 .5px color-mix(in srgb,var(--bt-ink) 5%,transparent)}
 .bt-q-raised .bt-q-head{padding:14px 16px 4px 20px}
@@ -2874,21 +2876,17 @@ button.bt-set-row:hover{background:var(--bt-hover)}
 html:not([data-windows-titlebar]) :not([class*="_collapsed"])>[class*="_logoRow"]{display:none!important}
 html[data-windows-titlebar] :not([class*="_collapsed"])>[class*="_logoRow"]{height:0!important;margin:0!important}
 html[data-windows-titlebar] .bt-side-collapse,html[data-platform=darwin] .bt-side-collapse{display:none}
-/* The footer ends in the Bot row: the whale's settings seat, then Connect plugins. Every
-   other plugin's entry takes a whole row above it, in the shell's order, so none of them
-   squeezes the Bot row. */
+/* The footer ends in the Bot row: the whale's settings seat, then the account menu
+   when no plugin holds that seat. Every other plugin's entry takes a whole row above
+   it, in the shell's order, so none of them squeezes the Bot row. */
 [class*="_footArea"]{grid-template-columns:auto minmax(0,1fr);grid-auto-flow:row dense;align-items:center;gap:4px 9px;padding:8px 6px 6px!important}
 /* DSH hides the footer of a collapsed sidebar under a Windows title bar; the grid
    stays out of that one place. */
 html:not([data-windows-titlebar]) [class*="_footArea"],:not([class*="_collapsed"])>[class*="_footArea"]{display:grid!important}
 [class*="_footArea"]>[class*="_footerActions"],[class*="_footArea"]>[class*="_footerActions"]>div{display:contents!important}
 [class*="_footArea"]>[class*="_footerActions"]>div>*{grid-column:1/-1}
-[class*="_footArea"]>[class*="_footerActions"]>div>.bt-connect-wrap{grid-column:2;order:1}
 [class*="_footArea"]>[class*="_settingsArea"]{grid-column:1;order:1;width:auto!important}
 [class*="_footArea"] button[aria-label="Settings"]{width:auto!important;padding:0!important;background:none!important;border-radius:50%!important;height:auto!important}
-${SKIN_FOOT}{display:flex!important;flex-direction:row!important;align-items:center!important;gap:9px!important}
-${SKIN_FOOT}>div:has(> [data-slot="sidebar.footer.action"]){display:flex!important;align-items:center!important;flex:1 1 auto!important;min-width:0!important}
-${SKIN_FOOT}>div:has(> [data-slot="sidebar.settings"]){order:-1!important;flex:none!important;width:auto!important}
 [class*="_widthHandle"]{display:none!important}
 
 .bt-voice-pane{flex-direction:column;align-items:center;justify-content:center;animation:bt-fade .2s ease-out}
@@ -2928,7 +2926,10 @@ ${SKIN_FOOT}>div:has(> [data-slot="sidebar.settings"]){order:-1!important;flex:n
 /* The same bubble width as beside an avatar column: the share of (100% - 30px), plus the 30px. */
 .bt-astack[data-lead]>.bt-msg{max-width:min(calc(var(--bt-msg-w) * (100% - 30px) + 30px),calc(100% - 52px))}
 .bt-tools{position:absolute;top:50%;left:100%;margin-left:6px;transform:translateY(-50%);display:flex;gap:2px;opacity:0;visibility:hidden;transition:opacity .12s ease,visibility .12s}
-.bt-tools::after{content:"";position:absolute;top:-8px;bottom:-8px;right:100%;width:128px;z-index:-1}
+/* The hover bridge spans only the 6px gap (plus a little overlap) between the
+   bubble's edge and the toolbar: wider, it sits over the bubble's tail and
+   blocks text selection and link clicks there. */
+.bt-tools::after{content:"";position:absolute;top:-8px;bottom:-8px;right:100%;width:10px;z-index:-1}
 .bt-msg:hover>.bt-msg-line>.bt-tools,.bt-msg:focus-within>.bt-msg-line>.bt-tools,.bt-tools[data-open]{opacity:1;visibility:visible}
 /* The flat layout: a Bot's text has no bubble and takes its own share of the column
    (the whole of it unless set). The toolbar floats over the message's top right. */
@@ -2958,7 +2959,6 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-you{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bt-ink) 5%,var(--bt-sidebar));color:var(--bt-ink-2);box-shadow:inset 0 0 0 1px var(--bt-line);transition:background-color .12s ease}
 button:hover .bt-you{background:color-mix(in srgb,var(--bt-ink) 9%,var(--bt-sidebar))}
 .bt-you-wrap{display:inline-flex;padding:0}
-.bt-connect-foot{width:100%;height:36px}
 
 .bt-menu{position:fixed;pointer-events:auto;z-index:60;min-width:200px;padding:6px;border-radius:12px;background:var(--bt-main);border:.5px solid var(--bt-line-2);box-shadow:0 10px 20px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1),0 0 0 1px rgba(228,228,228,.04);display:flex;flex-direction:column;gap:2px;transform-origin:var(--bt-origin,top left);animation:bt-pop-drop ${SPRING_TAP.duration}ms ${SPRING_TAP.easing},bt-veil-in .14s ease-out;font-family:var(--bt-font);box-sizing:border-box}
 .bt-menu button{display:flex;align-items:center;gap:4px;width:100%;min-height:30px;text-align:left;border:0;background:none;border-radius:6px;padding:6px 8px;font:inherit;font-size:13px;line-height:18px;color:var(--bt-ink);cursor:pointer;box-sizing:border-box}
@@ -4232,7 +4232,6 @@ var HANDOFF_CSS = `
 .bt-handoff-dot{flex:none;width:6px;height:6px;border-radius:50%;corner-shape:round;background:var(--bt-green)}
 .bt-handoff.bt-q-raised .bt-q-head{padding-bottom:12px}
 .bt-handoff .bt-q-foot{flex-wrap:wrap}
-.bt-handoff :is(.bt-q-btn,.bt-q-submit):focus-visible{outline:2px solid var(--bt-accent);outline-offset:2px}
 `;
 
 // src/shared/formula.js
@@ -6827,6 +6826,10 @@ var ALWAYS = { chars: -1, lines: 0 };
 var PREVIEW_LINES = 10;
 var PREVIEW_CHARS = 600;
 var FENCE = /^ {0,3}(`{3,}|~{3,})/;
+function cutAt(text, end) {
+  const code = text.charCodeAt(end - 1);
+  return text.slice(0, code >= 55296 && code <= 56319 ? end - 1 : end);
+}
 function moreLines(text, max) {
   let lines = 1;
   for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) {
@@ -6836,22 +6839,43 @@ function moreLines(text, max) {
 }
 function foldPreview(text, limit = FOLD_AT, markdown = true) {
   if (text.length <= limit.chars && !moreLines(text, limit.lines)) return null;
-  let head = text.split("\n", PREVIEW_LINES).join("\n");
+  const body = text.replace(/^(\s*\n)+/, "");
+  if (body.trim() === "") return null;
+  let head = body.split("\n", PREVIEW_LINES).join("\n");
   if (head.length > PREVIEW_CHARS) {
     const cut = head.lastIndexOf("\n", PREVIEW_CHARS);
-    const end = cut > 0 ? cut : PREVIEW_CHARS;
-    const code = head.charCodeAt(end - 1);
-    head = head.slice(0, code >= 55296 && code <= 56319 ? end - 1 : end);
+    head = cutAt(head, cut > 0 ? cut : PREVIEW_CHARS);
   }
+  if (head.trim() === "") head = cutAt(body, PREVIEW_CHARS);
   if (!markdown) return head;
   let open = null;
-  for (const line of head.split("\n")) {
-    const marker = FENCE.exec(line)?.[1];
+  let openLine = -1;
+  let lines = head.split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    const marker = FENCE.exec(lines[i])?.[1];
     if (marker === void 0) continue;
-    if (open === null) open = marker;
-    else if (marker[0] === open[0] && marker.length >= open.length) open = null;
+    if (open === null) {
+      open = marker;
+      openLine = i;
+    } else if (marker[0] === open[0] && marker.length >= open.length) open = null;
   }
-  return open === null ? head : `${head}
+  if (open !== null && lines.slice(openLine + 1).join("").trim() === "") {
+    head = cutAt(body, PREVIEW_CHARS);
+    lines = head.split("\n");
+    open = null;
+    openLine = -1;
+    for (let i = 0; i < lines.length; i += 1) {
+      const marker = FENCE.exec(lines[i])?.[1];
+      if (marker === void 0) continue;
+      if (open === null) {
+        open = marker;
+        openLine = i;
+      } else if (marker[0] === open[0] && marker.length >= open.length) open = null;
+    }
+  }
+  if (open === null) return head;
+  lines[openLine] = open;
+  return `${lines.join("\n")}
 ${open}`;
 }
 var stripLongNote = (text) => text.replace(/^\[A long message: \d+ characters\.[^\]\n]*\]\n/, "");
@@ -7762,6 +7786,7 @@ function TriggerCell({ node, sessionId, useRoster, useSessions, useTurnClock, us
       if (source.handoff === true) return roster.roomsById[sessionId] ? null : (0, import_react13.createElement)(EarlierParts, { sessionId, roster, actions });
       if (source.role === "kickoff" || source.role === "room") return null;
       if (source.role === "secret" || deferred) return null;
+      if (source.role === "update") return (0, import_react13.createElement)("div", { className: "bt-event" }, t("Profile updated"));
       if (source.role === "post") {
         if (source.logged !== void 0) return null;
         if (source.failed !== void 0 || source.resumed === true || source.stopped === true || source.done === true) return null;
@@ -7973,6 +7998,55 @@ function useLiveNote(actions, sessionId, id, entry) {
     return () => actions.noteLive(sessionId, id, null);
   }, [sessionId, id, key]);
 }
+var RELAY_LIST = /"replies"\s*:\s*\[/;
+var PRUNE_MARKER = /\[\.\.\. tool result middle pruned \.\.\.\]/;
+function parseReplies(text) {
+  try {
+    return { replies: JSON.parse(text).replies ?? [], broken: false };
+  } catch {
+  }
+  const replies = [];
+  const head = RELAY_LIST.exec(text);
+  if (head) {
+    for (const piece of text.slice(head.index + head[0].length).split(PRUNE_MARKER)) {
+      const first = piece.indexOf('{"');
+      if (first !== -1) scanReplies(piece, first, replies);
+    }
+  }
+  return { replies, broken: true };
+}
+function scanReplies(text, start, replies) {
+  let depth = 0;
+  let from = -1;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) from = i;
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0 && from >= 0) {
+        try {
+          replies.push(JSON.parse(text.slice(from, i + 1)));
+        } catch {
+        }
+        from = -1;
+      }
+    } else if (ch === "]" && depth === 0) break;
+  }
+}
 function GroupReplies({ sessionId, callId, done, content, roster, actions, useUi, useWork }) {
   const [live, setLive] = (0, import_react13.useState)({ replies: [], speaking: null });
   (0, import_react13.useEffect)(() => {
@@ -7998,17 +8072,18 @@ function GroupReplies({ sessionId, callId, done, content, roster, actions, useUi
     };
   }, [done, sessionId, callId]);
   let replies = live.replies;
+  let broken = false;
   if (done) {
-    try {
-      replies = JSON.parse(contentText(content)).replies ?? [];
-    } catch {
-      replies = [];
-    }
+    const parsed = parseReplies(contentText(content));
+    replies = parsed.replies.length ? parsed.replies : live.replies;
+    broken = parsed.broken;
   }
   const pending = done || !live.speaking ? [] : [live.speaking];
   const speakerTool = useWork?.((work) => work.bots?.[live.speaking]?.tool) ?? void 0;
   const speakerDoing = useWork?.((work) => work.bots?.[live.speaking]?.tool ? workPhrase(work.bots[live.speaking]) : void 0) ?? void 0;
-  if (replies.length === 0 && pending.length === 0) return null;
+  if (replies.length === 0 && pending.length === 0) {
+    return broken ? (0, import_react13.createElement)("div", { className: "bt-group-replies" }, (0, import_react13.createElement)("div", { className: "bt-event" }, t("The group replies could not be shown"))) : null;
+  }
   const room2 = roster.roomsById[sessionId];
   return (0, import_react13.createElement)(
     "div",
@@ -8875,22 +8950,6 @@ function UpdateButton({ useUpdate, actions }) {
     ), document.body) : null
   );
 }
-function ConnectPlugins({ wide, actions }) {
-  return (0, import_react15.createElement)(
-    "span",
-    { className: wide ? "bt-connect-wrap" : "bt-connect-wrap bt-off" },
-    (0, import_react15.createElement)(
-      "button",
-      {
-        type: "button",
-        className: "bt-connect bt-connect-foot",
-        onClick: () => actions.selectPanel("plugins")
-      },
-      (0, import_react15.createElement)(PlugIcon),
-      t("Connect plugins")
-    )
-  );
-}
 function YouAvatar() {
   return (0, import_react15.createElement)(
     "span",
@@ -9182,7 +9241,6 @@ var SIDEBAR_CSS = `
 .bt-side .bt-read-only{margin:4px 8px 6px;padding:8px 10px;border-radius:10px;background:var(--bt-hover);font-size:12px;line-height:1.45;text-align:left}
 [class*="_footArea"]:has(.bt-foot-account){grid-template-columns:auto minmax(0,1fr) auto;column-gap:6px}
 [class*="_footArea"]>[class*="_footerActions"]>div>.bt-foot-account{grid-column:1;order:1;display:inline-flex}
-[class*="_footArea"]:has(.bt-foot-account)>[class*="_footerActions"]>div>.bt-connect-wrap{grid-column:2}
 [class*="_footArea"]:has(.bt-foot-account)>[class*="_settingsArea"]{grid-column:3}
 [class*="_footArea"]:has(.bt-foot-account)>[class*="_settingsArea"] button[class*="_trigger"] [class*="_label"]{display:none!important}
 
@@ -10257,27 +10315,47 @@ function surfaceGroups(install, { onError } = {}) {
     mounted[group] = [];
     disposeAll(disposers, `withdraw ${group}`);
   };
-  return {
+  const mount = (group) => {
+    const disposers = [];
+    try {
+      for (const step of install[group]()) if (step) disposers.push(step());
+      mounted[group] = disposers;
+      return true;
+    } catch (error) {
+      disposeAll(disposers, `roll back ${group}`);
+      console.warn(`[ds-bot] install ${group}`, error);
+      onError?.(group, error);
+      return false;
+    }
+  };
+  let lastWanted = {};
+  const api = {
     reconcile(wanted) {
+      lastWanted = wanted;
       for (const group of [...GROUPS].reverse()) if (!wanted[group]) withdraw(group);
       for (const group of GROUPS) {
         if (!wanted[group] || mounted[group].length > 0) continue;
-        const disposers = [];
-        try {
-          for (const step of install[group]()) if (step) disposers.push(step());
-          mounted[group] = disposers;
-        } catch (error) {
-          disposeAll(disposers, `roll back ${group}`);
-          console.warn(`[ds-bot] install ${group}`, error);
-          onError?.(group, error);
-          break;
-        }
+        if (!mount(group)) break;
       }
+    },
+    // A step can go on with nothing actually contributed — a slot inject whose
+    // callback threw inside the host still returns its disposer. remount takes
+    // the group off and lets the reconcile put it back, so a caller that
+    // notices the contribution is missing can retry instead of trusting
+    // `mounted`. Groups that lean on it (the conversation on the shell's
+    // styles) come off first and go back only through the reconcile — a
+    // failed remount never leaves one stranded.
+    remount(group, wanted = lastWanted) {
+      if (!GROUPS.includes(group)) return;
+      for (const later of GROUPS.slice(GROUPS.indexOf(group) + 1)) withdraw(later);
+      withdraw(group);
+      api.reconcile(wanted);
     },
     dispose() {
       for (const group of [...GROUPS].reverse()) withdraw(group);
     }
   };
+  return api;
 }
 function freePriority(entries2, { priority, key, id }) {
   if (priority === void 0) return void 0;
@@ -10627,11 +10705,11 @@ function EffortRows({ reasoning, current, onPick }) {
         key: row.effort ?? "default",
         type: "button",
         role: "menuitemradio",
-        "aria-checked": row.effort === current,
+        "aria-checked": (row.effort ?? null) === (current ?? null),
         onClick: () => onPick(row.effort)
       },
       (0, import_react21.createElement)("span", { className: "bt-menu-label" }, row.label),
-      (0, import_react21.createElement)("span", { className: "bt-model-tick", "aria-hidden": true }, row.effort === current ? (0, import_react21.createElement)(CheckIcon) : null)
+      (0, import_react21.createElement)("span", { className: "bt-model-tick", "aria-hidden": true }, (row.effort ?? null) === (current ?? null) ? (0, import_react21.createElement)(CheckIcon) : null)
     ))
   );
 }
@@ -12437,7 +12515,7 @@ function startModel(roster) {
 function createPayload({ name, look, image, model, effort, brief }) {
   const payload = { name, color: look.color, avatar: image ? { shape: look.shape, image } : { shape: look.shape } };
   if (model) payload.model = model;
-  if (effort) payload.effort = effort;
+  if (effort !== void 0) payload.effort = effort;
   if (brief) payload.brief = brief;
   return payload;
 }
@@ -12560,7 +12638,7 @@ function CreateBot({ roster, actions, start, brief = "", onBack, canGoBack, onCr
       (0, import_react27.createElement)(ModelMenu, { bot: { id: "new-bot", name: finalName, model: model || void 0, effort }, roster, actions, wide: true, onPick: (ref) => {
         setModel(ref);
         setEffort(void 0);
-      }, onPickEffort: setEffort }),
+      }, onPickEffort: (picked) => setEffort(picked ?? null) }),
       (0, import_react27.createElement)("span", { className: "bt-note" }, (roster.models ?? []).length > 0 ? t("The Bot runs on this model. You can change it later in its details.") : t("Add a provider and a model in DeepSeek Harness first, or pick one in the Bot's chat later."))
     ),
     error ? (0, import_react27.createElement)("div", { className: "bt-error", role: "alert", style: { padding: 0 } }, error) : null,
@@ -19226,6 +19304,24 @@ function apply(ctx) {
     expected2 = target;
     ctx.uiWorkspace.openSession(target);
   }, current: mainView });
+  const homeToMainBot = () => {
+    const snapshot = roster.getSnapshot();
+    if (!snapshot.ready || !snapshot.mainBotId) return;
+    const main = mainView();
+    if (main !== void 0 && snapshot.byId[main] === void 0 && snapshot.roomsById[main] === void 0) {
+      actions.openSession(snapshot.mainBotId);
+    }
+  };
+  const ensureBotHome = () => {
+    if (roster.getSnapshot().ready) homeToMainBot();
+    else {
+      const off = roster.subscribe(() => {
+        if (!roster.getSnapshot().ready) return;
+        off();
+        homeToMainBot();
+      });
+    }
+  };
   const actions = {
     ...teamActions({ call, after, partFor, roster, ui: ui2, live, cards, heldCards, turnClock }),
     // The full-pane overlays sit above the conversation, so opening one must dismiss them
@@ -19313,30 +19409,17 @@ function apply(ctx) {
     // surface closes first so nothing stale reopens on the way back.
     setSurface: (mode) => {
       if (mode !== "bot" && mode !== "agent") return;
-      if (surface.getSnapshot().mode === mode) return;
+      if (surface.getSnapshot().mode === mode) {
+        if (mode === "bot") ensureBotHome();
+        return;
+      }
       if (mode === "agent") {
         ui2.set((state) => ({ ...state, details: null, view: "details", settings: null, palette: null, newChat: null, menu: null, voice: null, exchange: null, memory: null, toast: null }));
       }
       writeMode(mode);
       surface.set((state) => ({ ...state, mode }));
       if (mode !== "bot") return;
-      const home = () => {
-        const snapshot = roster.getSnapshot();
-        if (!snapshot.ready || !snapshot.mainBotId) return;
-        const list = ctx.sessions.list.getSnapshot();
-        const main = Object.values(list.byId ?? {}).find((session) => (session?.retainedBy?.mainView ?? 0) > 0)?.id;
-        if (main !== void 0 && snapshot.byId[main] === void 0 && snapshot.roomsById[main] === void 0) {
-          actions.openSession(snapshot.mainBotId);
-        }
-      };
-      if (roster.getSnapshot().ready) home();
-      else {
-        const off = roster.subscribe(() => {
-          if (!roster.getSnapshot().ready) return;
-          off();
-          home();
-        });
-      }
+      ensureBotHome();
     },
     markUnread: (id) => writeUnread(id, true),
     beginVisit: (id) => {
@@ -19629,7 +19712,6 @@ function apply(ctx) {
     () => shadow("sidebar.brand.mark", { priority: BOT_PRIORITY }, BrandMark),
     () => shadow("sidebar.brand.name", { priority: BOT_PRIORITY }, BrandName),
     () => shadow("sidebar.footer.action", { id: "bot-account", order: -200, inject: face }, FooterAccount),
-    () => shadow("sidebar.footer.action", { id: "bot-connect", order: -100, inject: face }, ConnectPlugins),
     () => shadow("settings.trigger", { priority: BOT_PRIORITY }, YouAvatar),
     // The whale wins the seat over a shell account plugin's own launcher (the
     // Desktop's "··· More"), which comes back in Agent mode.
@@ -19704,6 +19786,7 @@ function apply(ctx) {
       const snapshot = roster.getSnapshot();
       if (snapshot.byId[main] !== void 0 || snapshot.roomsById[main] !== void 0 || agentOfSession(main) !== void 0) return;
       const row = list.byId[main];
+      if (row?.origin === "subagent") return;
       const parent = row?.parentId ?? row?.parentSessionId;
       const forkedFromAgent = parent !== void 0 && agentOfSession(parent) === agentId;
       if (row?.blank !== true && !forkedFromAgent) return;
@@ -19733,11 +19816,44 @@ function apply(ctx) {
     const groups = surfaceGroups({ shell: installShell, conversation: installConversation }, {
       onError: (_group, error) => actions.reportError(new Error(t("Bot mode could not be set up here: {error}", { error: error?.message ?? String(error) })), "surface")
     });
-    const reconcile = () => groups.reconcile(groupsFor(surface.getSnapshot()));
+    let verifyTimer = 0;
+    let verifyAttempts = 0;
+    const verifySidebar = () => {
+      if (!groupsFor(surface.getSnapshot()).shell) return;
+      let landed = false;
+      let declared = true;
+      try {
+        landed = ctx.slots.entries("sidebar.workspaces").some((entry) => entry.component === TeamSidebar);
+        declared = ctx.slots.spec?.("sidebar.workspaces") !== void 0;
+      } catch {
+        declared = false;
+      }
+      if (landed) return;
+      if (!declared) {
+        if (verifyAttempts < 20) {
+          verifyAttempts += 1;
+          verifyTimer = setTimeout(verifySidebar, 250);
+        }
+        return;
+      }
+      if (verifyAttempts >= 3) return;
+      verifyAttempts += 1;
+      console.warn("[ds-bot] sidebar entry missing after shell mount; remounting");
+      groups.remount("shell");
+      verifyTimer = setTimeout(verifySidebar, 250);
+    };
+    const reconcile = () => {
+      groups.reconcile(groupsFor(surface.getSnapshot()));
+      clearTimeout(verifyTimer);
+      verifyAttempts = 0;
+      verifyTimer = setTimeout(verifySidebar, 250);
+    };
     reconcile();
+    if (surface.getSnapshot().mode === "bot") ensureBotHome();
     const unsub = surface.subscribe(reconcile);
     return () => {
       unsub();
+      clearTimeout(verifyTimer);
       groups.dispose();
     };
   }, "ds-bot: surface");
