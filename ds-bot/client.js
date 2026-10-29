@@ -4188,7 +4188,8 @@ var DRAG_SORT_CSS = `
 
 // src/client/tail-keeper.js
 var NEAR = 24;
-var EASE_MS = 90;
+var HOLD_MS2 = 180;
+var EASE_MS = 220;
 function installTailKeeper() {
   let scroller = null;
   let flow = null;
@@ -4196,70 +4197,89 @@ function installTailKeeper() {
   let height = 0;
   let userAt = 0;
   let ours = 0;
-  let offset = 0;
-  let frame = 0;
-  let last = 0;
+  let held = 0;
+  let holdTimer = 0;
+  let easing = 0;
   const still = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
   const gap = () => scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-  const paint = () => {
-    if (flow) flow.style.translate = offset === 0 ? "" : `0 ${offset.toFixed(2)}px`;
-  };
-  const tick = (now) => {
-    const dt = last === 0 ? 16 : Math.min(64, now - last);
-    last = now;
-    offset *= Math.exp(-dt / EASE_MS);
-    if (Math.abs(offset) < 0.4) offset = 0;
-    paint();
-    frame = offset === 0 ? 0 : requestAnimationFrame(tick);
-    if (frame === 0) last = 0;
-  };
-  const glide = (shift) => {
-    if (still() || !flow || Math.abs(offset + shift) > scroller.clientHeight) {
-      stop();
-      return;
-    }
-    offset += shift;
-    paint();
-    if (frame === 0) frame = requestAnimationFrame(tick);
-  };
-  function stop() {
-    offset = 0;
-    paint();
-    cancelAnimationFrame(frame);
-    frame = 0;
-    last = 0;
-  }
-  let rows2 = 0;
-  const grew = () => {
-    if (!scroller) return;
-    const next = scroller.scrollHeight;
-    const delta = next - height;
-    height = next;
-    const count = flow?.childElementCount ?? 0;
-    const added = count > rows2;
-    rows2 = count;
-    if (!atBottom || delta === 0) return;
+  const toBottom = () => {
     const short = gap();
     if (short > 1) {
       ours = Date.now();
       scroller.scrollTop += short;
     }
-    if (added && delta > 0) glide(Math.max(short, delta));
   };
-  const resize = new ResizeObserver(grew);
+  const letGo = () => {
+    clearTimeout(holdTimer);
+    cancelAnimationFrame(easing);
+    easing = 0;
+    held = 0;
+    if (flow) flow.style.minHeight = "";
+  };
+  const release = () => {
+    if (!flow || !scroller) return letGo();
+    ours = Date.now();
+    const from = held;
+    flow.style.minHeight = "";
+    const to = flow.offsetHeight;
+    if (to >= from || still()) {
+      letGo();
+      toBottom();
+      height = scroller.scrollHeight;
+      return void 0;
+    }
+    flow.style.minHeight = `${from}px`;
+    const start = performance.now();
+    const step = (now) => {
+      const t2 = Math.min(1, (now - start) / EASE_MS);
+      const eased = 1 - (1 - t2) ** 3;
+      flow.style.minHeight = `${from - (from - to) * eased}px`;
+      ours = Date.now();
+      toBottom();
+      if (t2 < 1 && atBottom) {
+        easing = requestAnimationFrame(step);
+      } else {
+        letGo();
+        height = scroller.scrollHeight;
+      }
+    };
+    easing = requestAnimationFrame(step);
+    return void 0;
+  };
+  const changed = () => {
+    if (!scroller || easing) return;
+    const next = scroller.scrollHeight;
+    const delta = next - height;
+    height = next;
+    if (!atBottom || delta === 0) return;
+    if (delta < 0 && flow && !still()) {
+      held = Math.max(held, flow.offsetHeight - delta);
+      flow.style.minHeight = `${held}px`;
+      height = scroller.scrollHeight;
+      toBottom();
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(release, HOLD_MS2);
+      return;
+    }
+    if (held && flow) {
+      flow.style.minHeight = "";
+      if (flow.offsetHeight >= held) letGo();
+      else flow.style.minHeight = `${held}px`;
+      height = scroller.scrollHeight;
+    }
+    toBottom();
+  };
+  const resize = new ResizeObserver(changed);
   let settle = 0;
   const onScroll = () => {
     if (Date.now() - ours < 120 && Date.now() - userAt > 300) return;
+    if (easing && Date.now() - userAt > 300) return;
     atBottom = gap() <= NEAR;
-    if (!atBottom && Date.now() - userAt < 300) stop();
+    if (!atBottom && Date.now() - userAt < 300 && held) letGo();
     clearTimeout(settle);
     settle = setTimeout(() => {
-      if (!scroller || Date.now() - userAt < 600 || !atBottom) return;
-      const short = gap();
-      if (short <= 1) return;
-      ours = Date.now();
-      scroller.scrollTop += short;
-      glide(short);
+      if (!scroller || Date.now() - userAt < 600 || !atBottom || easing) return;
+      toBottom();
     }, 160);
   };
   const onUser = () => {
@@ -4272,7 +4292,7 @@ function installTailKeeper() {
       scroller.removeEventListener("scroll", onScroll);
       for (const name of ["wheel", "touchstart", "keydown", "pointerdown"]) scroller.removeEventListener(name, onUser);
     }
-    stop();
+    letGo();
     resize.disconnect();
     if (next !== scroller && next) {
       next.addEventListener("scroll", onScroll, { passive: true });
@@ -4282,9 +4302,11 @@ function installTailKeeper() {
     flow = nextFlow;
     if (!scroller) return;
     for (const child of scroller.children) resize.observe(child);
-    if (flow) resize.observe(flow);
+    if (flow) {
+      resize.observe(flow);
+      for (const child of flow.children) resize.observe(child);
+    }
     height = scroller.scrollHeight;
-    rows2 = flow?.childElementCount ?? 0;
     atBottom = gap() <= NEAR;
   };
   const scan = () => attach(document.querySelector("[data-conversation-scroll]"));
@@ -9130,12 +9152,7 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, us
     if (phase !== null) return;
     endedAt.current = Date.now();
     setShown(null);
-    const before = shift.current;
     shift.current = null;
-    const scroller = document.querySelector("[data-conversation-scroll]");
-    if (before === null || !scroller || reducedMotion()) return;
-    const delta = before - scroller.scrollTop;
-    if (delta > 0) scroller.querySelector("[data-chat-flow]")?.animate([{ transform: `translateY(${-delta}px)` }, { transform: "none" }], { duration: 140, easing: "cubic-bezier(.23,1,.32,1)" });
   }, [phase]);
   (0, import_react16.useEffect)(() => {
     if (!running) actions.clearLive(sessionId);
