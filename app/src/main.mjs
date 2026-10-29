@@ -26,6 +26,7 @@ import { CHECK_PROFILE, PROFILE } from './profile.mjs'
 import { createShell, SHELL_TEXT } from './shell.mjs'
 import { UPDATE_TEXT, watchReleases, watchUpdates } from './updates.mjs'
 import { createDeferredPrompt } from './update-prompt.mjs'
+import { canSelfUpdate, prepareMacUpdate } from './mac-update.mjs'
 import { CAPTION_HEIGHT, cssColor, micaAvailable, nativeThemeSource } from './window-frame.mjs'
 
 const MAC_LIGHTS = { side: { x: 20, y: 23 }, rail: { x: 8, y: 23 } }
@@ -569,10 +570,14 @@ async function askRestartNow(version) {
   return response === 0
 }
 
+// On macOS the app replaces itself when it may write to its own bundle (it runs from
+// Applications, not from a disk image or a translocated copy); otherwise it opens the page.
+let selfUpdate = false
 async function askDownloadNow(version) {
   if (failed) return false
   const t = localeText(UPDATE_TEXT)
-  const options = { type: 'info', title: 'DeepSeek Bot', message: t.available(version), detail: t.availableDetail, buttons: [t.download, t.later], defaultId: 0, cancelId: 1, noLink: true }
+  selfUpdate = process.platform === 'darwin' && typeof updates?.state().url === 'string' && await canSelfUpdate(process.execPath)
+  const options = { type: 'info', title: 'DeepSeek Bot', message: t.available(version), detail: selfUpdate ? t.availableSelfDetail : t.availableDetail, buttons: [selfUpdate ? t.updateNow : t.download, t.later], defaultId: 0, cancelId: 1, noLink: true }
   const { response } = await (mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options))
   return response === 0
 }
@@ -582,6 +587,36 @@ async function askDownloadNow(version) {
 async function installUpdate() { await updates?.install() }
 
 async function openUpdatePage() {
+  if (selfUpdate) {
+    await updateMacNow()
+    return
+  }
+  await showUpdatePage()
+}
+
+// Downloads, checks and unpacks the new version with the window's progress bar, then quits;
+// the swap script puts it in place and opens it. A failure leaves this version as it was.
+async function updateMacNow() {
+  const state = updates?.state()
+  if (state?.phase !== 'available' || typeof state.url !== 'string') return showUpdatePage()
+  const t = localeText(UPDATE_TEXT)
+  mainWindow?.setProgressBar(0.01)
+  try {
+    await prepareMacUpdate({ version: state.version, url: state.url, digest: state.digest, execPath: process.execPath, onProgress: fraction => mainWindow?.setProgressBar(Math.max(0.01, fraction)) })
+  } catch (error) {
+    mainWindow?.setProgressBar(-1)
+    const options = { type: 'warning', title: 'DeepSeek Bot', message: t.updateFailed(state.version, error instanceof Error ? error.message : String(error)), detail: t.updateFailedDetail, buttons: [t.openPage, t.later], defaultId: 0, cancelId: 1, noLink: true }
+    const { response } = await (mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options))
+    if (response === 0) await showUpdatePage()
+    return
+  }
+  mainWindow?.setProgressBar(-1)
+  shell.beginQuit()
+  await stopHost()
+  app.quit()
+}
+
+async function showUpdatePage() {
   const state = updates?.state()
   if (state?.phase === 'available' && typeof state.page === 'string' && state.page.startsWith('https://')) {
     await electronShell.openExternal(state.page)
