@@ -95,6 +95,8 @@ test('apply registers listeners, tools, and effects in a fixed order', (t) => {
     'on llm/stream',
     'on llm/stream',
     'on agent/status',
+    'effect ds-bot: avatar route',
+    'route GET /api/bot/avatar',
     'tool request_secret',
     'tool list_secrets',
     'on tools/execute',

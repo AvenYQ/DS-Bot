@@ -53,9 +53,11 @@ function start(team, { models = [], reasoning = {}, archiveError, selection } = 
     sessions: { flush: async () => {} },
   })
   let route
+  const routes = new Map()
   const register = ctx.connection.fetch.register
   ctx.connection.fetch.register = (options) => {
     route = options
+    routes.set(options.path, options)
     return register(options)
   }
   apply(ctx, { home })
@@ -67,7 +69,7 @@ function start(team, { models = [], reasoning = {}, archiveError, selection } = 
     await ctx.dispose()
     rmSync(home, { recursive: true, force: true, maxRetries: 5 })
   }
-  return { call, stop, home, sent, selected, ctx, archived, warnings }
+  return { call, stop, home, sent, selected, ctx, archived, warnings, routes }
 }
 
 const settle = () => new Promise(resolve => setTimeout(resolve, 20))
@@ -862,6 +864,32 @@ test('a photo through update_bot keeps the Bot\'s other avatar fields', async (t
   assert.deepEqual((await writer()).avatar, { shape: 'fox', image: PNG_DATA_URL })
   assert.equal(await tool({ avatar: '' }), 'Updated Writer.')
   assert.deepEqual((await writer()).avatar, { shape: 'fox' })
+})
+
+test('a large animated photo is kept as a file, and state.json keeps only its link', async (t) => {
+  const { ctx, call, stop, home, routes } = start(undefined, { models: ['deepseek-v4-flash'] })
+  t.after(stop)
+  const chief = (await call('state', {})).value.mainBotId
+  const gif = Buffer.concat([Buffer.from('GIF89a', 'latin1'), Buffer.alloc(3 * 1024 * 1024, 5)])
+  const dataUrl = `data:image/gif;base64,${gif.toString('base64')}`
+  const updated = await call('update-bot', { id: chief, avatar: { shape: 'whale', image: dataUrl } })
+  assert.equal(updated.ok, true, updated.error)
+  const image = (await call('state', {})).value.bots.find(bot => bot.id === chief).avatar.image
+  assert.match(image, /^api\/bot\/avatar\?id=[0-9a-f]{64}\.gif$/)
+  await until(() => readFileSync(join(home, 'state.json'), 'utf8').includes(image))
+  assert.ok(readFileSync(join(home, 'state.json')).length < 200_000)
+  const response = await routes.get('/api/bot/avatar').fetch(new Request(`http://localhost/${image}`))
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('content-type'), 'image/gif')
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), gif)
+  const missing = await routes.get('/api/bot/avatar').fetch(new Request(`http://localhost/api/bot/avatar?id=${'0'.repeat(64)}.gif`))
+  assert.equal(missing.status, 404)
+  // The same link can be given again, and a Main Bot's tool takes a large file too.
+  assert.equal((await call('update-bot', { id: chief, avatar: { image } })).ok, true)
+  writeFileSync(join(tmpdir(), 'ds-bot-big.gif'), gif)
+  t.after(() => rmSync(join(tmpdir(), 'ds-bot-big.gif'), { force: true }))
+  assert.match(await ctx.registeredTools.get('update_bot').execute({ avatar: join(tmpdir(), 'ds-bot-big.gif') }, { agent: { id: chief } }), /^Updated /)
+  assert.equal((await call('state', {})).value.bots.find(bot => bot.id === chief).avatar.image, image)
 })
 
 test('a photo in the team\'s data is refused, and one in the team workspace there is read', async (t) => {

@@ -127,7 +127,7 @@ test('a batch import partly succeeds: the good photos land, and the bad one is n
   assert.deepEqual(library.items.map(item => item.name).sort(), ['one.png', 'two.jpg'])
 
   // An image over the limit is refused by name too.
-  const huge = asDataUrl('image/png', Buffer.concat([PNG.subarray(0, 8), Buffer.alloc(200_000)]))
+  const huge = asDataUrl('image/png', Buffer.concat([PNG.subarray(0, 8), Buffer.alloc(6 * 1024 * 1024)]))
   const over = await call('avatar-import', { items: [{ name: 'huge.png', image: huge }] })
   assert.equal(over.value.imported.length, 0)
   assert.equal(over.value.failed.length, 1)

@@ -6,6 +6,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { avatarBytes } from './avatar.js'
+import { avatarLink } from './avatar-files.js'
+import { MAX_AVATAR_IMAGE } from './constants.js'
 import { replaceFile } from './files.js'
 
 const EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }
@@ -109,6 +111,11 @@ export function install(rt) {
     const items = []
     const page = ordered.slice(start, start + count)
     for (const entry of page) {
+      // A large photo goes by link, so a page of animated photos is not one huge reply.
+      if (Math.ceil(entry.bytes / 3) * 4 + 30 > MAX_AVATAR_IMAGE) {
+        if (await there(fileOf(entry))) items.push({ ...entry, image: avatarLink(entry.id, EXTENSIONS[entry.mime]) })
+        continue
+      }
       const bytes = await readFile(fileOf(entry)).catch(() => undefined)
       if (bytes === undefined) continue
       items.push({ ...entry, image: `data:${entry.mime};base64,${bytes.toString('base64')}` })

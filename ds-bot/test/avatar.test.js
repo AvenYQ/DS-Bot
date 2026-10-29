@@ -4,7 +4,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { readAvatar } from '../src/host/avatar.js'
-import { MAX_AVATAR_IMAGE } from '../src/host/constants.js'
+import { MAX_AVATAR_FILE } from '../src/host/constants.js'
 
 // Only the magic bytes matter to the reader; the rest of a fixture need not decode.
 const file = (magic, size = 32) => Buffer.concat([magic, Buffer.alloc(size, 7)])
@@ -66,12 +66,12 @@ test('a missing file, a folder, and a non-image file are refused', async (t) => 
 })
 
 test('an image over the limit is refused with the limit in the message', async (t) => {
-  const huge = Buffer.concat([PNG.subarray(0, 8), Buffer.alloc(200_000)])
+  const huge = Buffer.concat([PNG.subarray(0, 8), Buffer.alloc(MAX_AVATAR_FILE)])
   const dir = tempDir(t)
   writeFileSync(join(dir, 'huge.png'), huge)
   const expected = (error) => {
-    assert.match(error.message, /too large: 200008 bytes/)
-    assert.match(error.message, /119982 bytes/)
+    assert.match(error.message, new RegExp(`too large: ${MAX_AVATAR_FILE + 8} bytes`))
+    assert.match(error.message, /5 MB/)
     assert.match(error.message, /256x256/)
     return true
   }
@@ -79,11 +79,11 @@ test('an image over the limit is refused with the limit in the message', async (
   await assert.rejects(readAvatar(asDataUrl('image/png', huge)), expected)
 })
 
-test('an image just under the limit still fits the stored format', async () => {
-  const fits = Buffer.concat([PNG.subarray(0, 8), Buffer.alloc(119_000 - 8, 1)])
-  const url = await readAvatar(asDataUrl('image/png', fits))
-  assert.ok(url.length <= MAX_AVATAR_IMAGE)
-  assert.ok(url.startsWith('data:image/png;base64,'))
+test('an animated GIF of several MB is read whole', async () => {
+  const fits = Buffer.concat([GIF.subarray(0, 6), Buffer.alloc(MAX_AVATAR_FILE - 6, 1)])
+  const url = await readAvatar(asDataUrl('image/gif', fits))
+  assert.ok(url.startsWith('data:image/gif;base64,'))
+  assert.equal(Buffer.from(url.slice(url.indexOf(',') + 1), 'base64').length, MAX_AVATAR_FILE)
 })
 
 test('a malformed data URL is refused', async () => {

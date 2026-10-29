@@ -26,7 +26,7 @@ const MODE_PARAM = {
 const WORK_DIR_PARAM = { type: 'string', description: 'Full path of the folder to work in, where commands and file tools start. Only when the user asks for it' }
 const AVATAR_PARAM = {
   type: 'string',
-  description: 'Profile picture: a local image path (a relative path starts in your working folder) or a data URL. PNG, JPEG, WebP, or GIF; square, 256x256 recommended, up to 120 KB. Images are not resized.',
+  description: 'Profile picture: a local image path (a relative path starts in your working folder) or a data URL. PNG, JPEG, WebP, or GIF; square, 256x256 recommended, up to 5 MB. Images are not resized, and an animated GIF or WebP stays animated.',
 }
 const WORKING_DIRECTORY_TOOL = 'working_directory'
 

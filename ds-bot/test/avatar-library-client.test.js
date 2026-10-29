@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 
 // The client half is bundled and run with a stub for react, as the other client tests do.
 const bundle = await build({
-  stdin: { contents: "export { importPhotos, loadLibrary } from './src/client/avatar-library.js'", resolveDir: dirname(dirname(fileURLToPath(import.meta.url))) },
+  stdin: { contents: "export { importPhotos, loadLibrary, isAnimated } from './src/client/avatar-library.js'", resolveDir: dirname(dirname(fileURLToPath(import.meta.url))) },
   bundle: true, format: 'cjs', platform: 'node', write: false, logLevel: 'silent',
   external: ['react', 'react-dom', '@deepseek-ai/dsh-client-ui-primitives'],
 })
@@ -17,7 +17,7 @@ const react = {
   useState: initial => [initial, () => {}], useEffect: () => {}, useRef: current => ({ current }), Fragment: 'fragment',
 }
 runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require: name => (name === 'react' ? react : {}) })
-const { importPhotos, loadLibrary } = module.exports
+const { importPhotos, loadLibrary, isAnimated } = module.exports
 
 const photos = count => Array.from({ length: count }, (_, index) => ({ name: `photo-${index}.png`, image: 'data:image/png;base64,AA' }))
 
@@ -76,4 +76,19 @@ test('the library is asked for page by page', async () => {
   const bare = await loadLibrary({ avatarLibrary: async () => ({ items: [{ id: 'b' }] }) })
   assert.equal(bare.total, 1)
   assert.equal(bare.next, 1)
+})
+
+test('an animated GIF, WebP, or PNG is told apart from a still one', async () => {
+
+  const gce = [0x21, 0xf9, 0x04, 0, 0, 0, 0, 0]
+  const gif = frames => new Uint8Array([...Buffer.from('GIF89a', 'latin1'), ...Array(7).fill(0), ...Array(frames).fill(gce).flat(), 0x3b])
+  assert.equal(isAnimated(gif(1)), false)
+  assert.equal(isAnimated(gif(2)), true)
+  const webp = flags => new Uint8Array([...Buffer.from('RIFF'), 0, 0, 0, 0, ...Buffer.from('WEBPVP8X'), 10, 0, 0, 0, flags, 0, 0, 0])
+  assert.equal(isAnimated(webp(0x02)), true)
+  assert.equal(isAnimated(webp(0x10)), false)
+  const chunk = type => [0, 0, 0, 0, ...Buffer.from(type), 0, 0, 0, 0]
+  const png = types => new Uint8Array([0x89, ...Buffer.from('PNG\r\n\x1a\n', 'latin1'), ...types.flatMap(chunk)])
+  assert.equal(isAnimated(png(['acTL', 'IDAT'])), true)
+  assert.equal(isAnimated(png(['IDAT'])), false)
 })

@@ -18,7 +18,10 @@ export const OCR_PROMPT = [
 export const OCR_TIMEOUT_MS = 120_000
 export const OCR_RETRY_MS = 120_000
 export const OCR_CACHE_MAX = 500
+// A photo up to this many characters stays inline in state.json; a larger one is kept
+// as a file (avatar-files.js), up to MAX_AVATAR_FILE bytes.
 export const MAX_AVATAR_IMAGE = 160_000
+export const MAX_AVATAR_FILE = 5 * 1024 * 1024
 export const ROUTE = '/api/bot'
 export const MAX_EXCHANGES = 600
 // state.json is written whole on every save, so a long message between Bots or a long

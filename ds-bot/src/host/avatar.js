@@ -1,16 +1,13 @@
 // Avatar input for create_bot and update_bot: a local image path or a data URL, read
 // into the data URL a Bot keeps in avatar.image. There is no image library in the
-// host, so images are not resized; a small square image is asked for, and every kind
-// of input is capped at what the stored format holds.
+// host, so images are not resized (an animated GIF or WebP keeps its frames); a square
+// image is asked for, and every kind of input is capped at MAX_AVATAR_FILE.
 import { readFile, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { MAX_AVATAR_IMAGE } from './constants.js'
+import { MAX_AVATAR_FILE } from './constants.js'
 
-// Base64 is four characters for every three bytes, and the data URL adds a mime
-// prefix, so a raw image must stay under this to fit MAX_AVATAR_IMAGE once stored.
-const LONGEST_PREFIX = 'data:image/jpeg;base64,'
-const MAX_BYTES = Math.floor((MAX_AVATAR_IMAGE - LONGEST_PREFIX.length) / 4) * 3
+const MAX_BYTES = MAX_AVATAR_FILE
 const HINT = 'Use a square image; 256x256 is recommended.'
 const MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 
@@ -26,16 +23,14 @@ function mimeOf(bytes) {
   return undefined
 }
 
-const tooLarge = size => `The avatar image is too large: ${size} bytes, and the limit is ${MAX_BYTES} bytes (about 120 KB). ${HINT}`
+const tooLarge = size => `The avatar image is too large: ${size} bytes, and the limit is ${MAX_BYTES} bytes (5 MB). ${HINT}`
 const NOT_IMAGE = `The avatar must be a PNG, JPEG, WebP, or GIF image. ${HINT}`
 
 function toDataUrl(bytes) {
   if (bytes.length > MAX_BYTES) throw new Error(tooLarge(bytes.length))
   const mime = mimeOf(bytes)
   if (mime === undefined) throw new Error(NOT_IMAGE)
-  const url = `data:${mime};base64,${bytes.toString('base64')}`
-  if (url.length > MAX_AVATAR_IMAGE) throw new Error(tooLarge(bytes.length))
-  return url
+  return `data:${mime};base64,${bytes.toString('base64')}`
 }
 
 const expandHome = (text) => {

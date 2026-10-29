@@ -1,6 +1,7 @@
 // Roster: creating, changing, and deleting Bots and group chats, the Main Bot role, and
 // the first Main Bot of a new team.
 import { mkdir } from 'node:fs/promises'
+import { AVATAR_LINK } from './avatar-files.js'
 import { MAX_AVATAR_IMAGE, ROOM_MAX_MEMBERS, ROOM_MODES, ROOM_NAME_MAX, ROOM_NOTICE_MAX } from './constants.js'
 import { currentColor, isColor, normalize, unquote } from './text.js'
 import { nameProblem } from '../shared/mentions.js'
@@ -94,12 +95,20 @@ export function install(rt) {
     if (input === null || typeof input !== 'object') return undefined
     const avatar = {}
     if (typeof input.shape === 'string' && /^[a-z][\w-]{0,31}$/.test(input.shape)) avatar.shape = input.shape
-    if (typeof input.image === 'string') {
+    if (typeof input.image === 'string' && AVATAR_LINK.test(input.image)) avatar.image = input.image
+    else if (typeof input.image === 'string') {
       if (!/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(input.image)) throw new Error('Avatar images must be PNG, JPEG, WebP, or GIF')
       if (input.image.length > MAX_AVATAR_IMAGE) throw new Error('Avatar image is too large')
       avatar.image = input.image
     }
     return Object.keys(avatar).length > 0 ? avatar : undefined
+  }
+
+  // A large photo becomes a file and a link before the avatar is checked, so state.json
+  // only ever holds a small photo.
+  async function storedAvatar(input) {
+    if (input === null || typeof input !== 'object' || typeof input.image !== 'string' || rt.storeAvatarImage === undefined) return input
+    return { ...input, image: await rt.storeAvatarImage(input.image) }
   }
 
   // A new Bot or group is written only after its Session is made, several awaits after
@@ -134,7 +143,7 @@ export function install(rt) {
     const problem = nameProblem(cleanName)
     if (problem !== undefined) throw new Error(problem)
     if (botNameTaken(cleanName)) throw new Error(`A Bot named ${cleanName} already exists`)
-    return holdName('bot', cleanName, () => buildBot(cleanName, options))
+    return holdName('bot', cleanName, async () => buildBot(cleanName, { ...options, avatar: await storedAvatar(options.avatar) }))
   }
 
   async function buildBot(cleanName, { role = '', instructions = '', color, brief = '', createdBy, main = false, avatar, model, effort, workDir, copyOf, pickModel = false }) {
@@ -252,6 +261,7 @@ export function install(rt) {
       throw new Error(`Only the user can set what ${bot.name} may do in the browser`)
     }
     const browserGrants = patch.browserGrants === undefined ? undefined : cleanBrowserGrants(patch.browserGrants)
+    if (patch.avatar !== undefined) patch = { ...patch, avatar: await storedAvatar(patch.avatar) }
     // Checked first, so a folder, model or level that does not pass leaves the rest
     // unchanged too.
     const moving = patch.workDir !== undefined

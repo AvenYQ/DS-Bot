@@ -336,6 +336,7 @@ var ZH = {
   "Choose a PNG, JPEG, WebP, or GIF image": "请选择 PNG、JPEG、WebP 或 GIF 图片",
   "Choose an image smaller than 25 MB": "请选择小于 25 MB 的图片",
   "That image is too large": "图片太大了",
+  "Choose an animated image smaller than 5 MB": "动图请选择小于 5 MB 的图片",
   Model: "模型",
   "Avatar editor": "形象编辑",
   "Avatar source": "形象来源",
@@ -1140,6 +1141,8 @@ var HOST_ZH = {
   "Permissions are not available in this DeepSeek Harness": "这个 DeepSeek Harness 不支持权限设置",
   "Avatar images must be PNG, JPEG, WebP, or GIF": "头像图片必须是 PNG、JPEG、WebP 或 GIF",
   "Avatar image is too large": "头像图片太大了",
+  "That photo is gone. Choose it again.": "这张照片已经不在了，请重新选择。",
+  "This host keeps no Bot data folder, so it cannot keep a large photo.": "当前环境没有 Bot 数据文件夹，无法保存大尺寸头像。",
   "A Bot needs a name": "Bot 需要一个名字",
   "A Bot name cannot contain @, ` or a line break": "Bot 名字里不能有 @、` 或换行",
   "Unknown Bot": "找不到这个 Bot",
@@ -11779,9 +11782,42 @@ function BotCapabilitiesCard({ bot, roster, actions, run: run2, Card: Card2, Swi
 var import_react25 = require("react");
 var CHUNK = 20;
 var PAGE = 24;
+var MAX_ANIMATED = 5 * 1024 * 1024;
+var fourCC = (bytes, at) => String.fromCharCode(...bytes.subarray(at, at + 4));
+function isAnimated(bytes) {
+  if (bytes.length < 16) return false;
+  if (fourCC(bytes, 0) === "GIF8") {
+    let frames = 0;
+    for (let at = 13; at < bytes.length - 2; at++) {
+      if (bytes[at] === 33 && bytes[at + 1] === 249 && bytes[at + 2] === 4 && ++frames > 1) return true;
+    }
+    return false;
+  }
+  if (fourCC(bytes, 0) === "RIFF" && fourCC(bytes, 8) === "WEBP") return fourCC(bytes, 12) === "VP8X" && (bytes[20] & 2) !== 0;
+  if (bytes[0] === 137 && fourCC(bytes, 1).startsWith("PNG")) {
+    for (let at = 8; at + 8 <= bytes.length; ) {
+      const length = (bytes[at] << 24 | bytes[at + 1] << 16 | bytes[at + 2] << 8 | bytes[at + 3]) >>> 0;
+      const type = fourCC(bytes, at + 4);
+      if (type === "acTL") return true;
+      if (type === "IDAT") return false;
+      at += 12 + length;
+    }
+  }
+  return false;
+}
+var readDataUrl = (file) => new Promise((resolve2, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve2(String(reader.result));
+  reader.onerror = () => reject(reader.error ?? new Error(t("That image is too large")));
+  reader.readAsDataURL(file);
+});
 async function avatarImage(file) {
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error(t("Choose a PNG, JPEG, WebP, or GIF image"));
   if (file.size > 25 * 1024 * 1024) throw new Error(t("Choose an image smaller than 25 MB"));
+  if (file.type !== "image/jpeg" && isAnimated(new Uint8Array(await file.arrayBuffer()))) {
+    if (file.size > MAX_ANIMATED) throw new Error(t("Choose an animated image smaller than 5 MB"));
+    return readDataUrl(file);
+  }
   const bitmap = await createImageBitmap(file);
   const side = 160;
   const canvas = document.createElement("canvas");
@@ -11804,8 +11840,14 @@ async function importPhotos(photos, actions) {
   const imported = [];
   const duplicates = [];
   const failed = [];
-  for (let index = 0; index < photos.length; index += CHUNK) {
-    const chunk = photos.slice(index, index + CHUNK);
+  const chunks = [];
+  for (const photo of photos) {
+    const last = chunks.at(-1);
+    const size = last?.reduce((sum, item) => sum + item.image.length, 0) ?? Infinity;
+    if (last === void 0 || last.length >= CHUNK || size + photo.image.length > 8 * 1024 * 1024) chunks.push([photo]);
+    else last.push(photo);
+  }
+  for (const chunk of chunks) {
     try {
       const result = await actions.importAvatars(chunk);
       imported.push(...result?.imported ?? []);

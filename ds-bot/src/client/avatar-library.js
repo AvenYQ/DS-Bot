@@ -7,10 +7,53 @@ const CHUNK = 20
 // How many photos the window asks for at a time.
 const PAGE = 24
 
-// Uploaded avatars are center-cropped to a small square so state.json stays light.
+// The host keeps an animated photo up to this size as a file of its own.
+export const MAX_ANIMATED = 5 * 1024 * 1024
+
+const fourCC = (bytes, at) => String.fromCharCode(...bytes.subarray(at, at + 4))
+
+// Whether the bytes hold more than one frame: a GIF with a second image block, an
+// animated WebP (the VP8X animation flag), or an APNG (an acTL chunk before the image).
+export function isAnimated(bytes) {
+  if (bytes.length < 16) return false
+  if (fourCC(bytes, 0) === 'GIF8') {
+    let frames = 0
+    for (let at = 13; at < bytes.length - 2; at++) {
+      // A graphic control extension starts every frame of an animation.
+      if (bytes[at] === 0x21 && bytes[at + 1] === 0xf9 && bytes[at + 2] === 0x04 && ++frames > 1) return true
+    }
+    return false
+  }
+  if (fourCC(bytes, 0) === 'RIFF' && fourCC(bytes, 8) === 'WEBP') return fourCC(bytes, 12) === 'VP8X' && (bytes[20] & 0x02) !== 0
+  if (bytes[0] === 0x89 && fourCC(bytes, 1).startsWith('PNG')) {
+    for (let at = 8; at + 8 <= bytes.length;) {
+      const length = ((bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0
+      const type = fourCC(bytes, at + 4)
+      if (type === 'acTL') return true
+      if (type === 'IDAT') return false
+      at += 12 + length
+    }
+  }
+  return false
+}
+
+const readDataUrl = file => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(String(reader.result))
+  reader.onerror = () => reject(reader.error ?? new Error(t('That image is too large')))
+  reader.readAsDataURL(file)
+})
+
+// A still photo is center-cropped to a small square so state.json stays light. An
+// animated one would lose its frames on a canvas, so it goes as it is, up to
+// MAX_ANIMATED; the host keeps it as a file.
 export async function avatarImage(file) {
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error(t('Choose a PNG, JPEG, WebP, or GIF image'))
   if (file.size > 25 * 1024 * 1024) throw new Error(t('Choose an image smaller than 25 MB'))
+  if (file.type !== 'image/jpeg' && isAnimated(new Uint8Array(await file.arrayBuffer()))) {
+    if (file.size > MAX_ANIMATED) throw new Error(t('Choose an animated image smaller than 5 MB'))
+    return readDataUrl(file)
+  }
   const bitmap = await createImageBitmap(file)
   const side = 160
   const canvas = document.createElement('canvas')
@@ -36,8 +79,15 @@ export async function importPhotos(photos, actions) {
   const imported = []
   const duplicates = []
   const failed = []
-  for (let index = 0; index < photos.length; index += CHUNK) {
-    const chunk = photos.slice(index, index + CHUNK)
+  // A batch also stops at about 8 MB, so animated photos go a few at a time.
+  const chunks = []
+  for (const photo of photos) {
+    const last = chunks.at(-1)
+    const size = last?.reduce((sum, item) => sum + item.image.length, 0) ?? Infinity
+    if (last === undefined || last.length >= CHUNK || size + photo.image.length > 8 * 1024 * 1024) chunks.push([photo])
+    else last.push(photo)
+  }
+  for (const chunk of chunks) {
     try {
       const result = await actions.importAvatars(chunk)
       imported.push(...(result?.imported ?? []))
