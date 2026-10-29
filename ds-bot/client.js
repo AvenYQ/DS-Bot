@@ -9724,7 +9724,7 @@ var SIDEBAR_CSS = `
 .bt-profile-text{display:flex;flex-direction:column;min-width:0}
 .bt-profile-name{font-size:14px;font-weight:600;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-profile-hint{font-size:12px;color:var(--bt-ink-3)}
-.bt-profile{width:240px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;box-sizing:border-box}
+.bt-profile{width:100%;padding:10px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:10px;box-sizing:border-box}
 .bt-menu .bt-profile-face{position:relative;width:64px;height:64px;min-height:0;padding:0;border-radius:50%;corner-shape:round;justify-content:center}
 .bt-menu .bt-profile-face:hover{background:none}
 .bt-profile-face>.bt-you{width:64px;height:64px}
