@@ -61,5 +61,5 @@ linux:
 # so the build itself never publishes (--publish never).
 publish:
   provider: github
-  owner: Fei2411
+  owner: AvenYQ
   repo: DS-Bot

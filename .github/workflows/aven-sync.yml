@@ -1,0 +1,152 @@
+name: Aven sync and build
+
+# Keeps this fork's custom build (branch aven/custom) on top of upstream Fei2411/DS-Bot:
+# once a day it merges a new upstream release, runs the plugin's tests, tags the result
+# <upstream version>-aven.<n> and builds the macOS app (Apple silicon) into a release here,
+# where the installed app finds it. A merge that conflicts or a test that fails opens an
+# issue instead and changes nothing.
+#
+# Releases made with GITHUB_TOKEN start no other workflow, so upstream's release.yml
+# (npm publishing) never runs here.
+
+on:
+  schedule:
+    - cron: '23 19 * * *' # 03:23 in Asia/Taipei
+  workflow_dispatch:
+    inputs:
+      build_only:
+        description: Build and release the current aven/custom without merging upstream
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: aven-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/Fei2411/DS-Bot.git
+  BRANCH: aven/custom
+
+jobs:
+  sync:
+    name: Merge upstream and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Merge upstream main
+        id: merge
+        env:
+          BUILD_ONLY: ${{ inputs.build_only }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898333+github-actions[bot]@users.noreply.github.com'
+          git remote add upstream "$UPSTREAM"
+          git fetch upstream main --tags
+          if [ "$BUILD_ONLY" = "true" ]; then echo "merged=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Upstream has nothing new."
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge --no-edit upstream/main; then
+            git diff --name-only --diff-filter=U > conflicts.txt
+            git merge --abort
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+      - name: Set the version
+        id: version
+        if: steps.merge.outputs.merged == 'true' || inputs.build_only
+        run: |
+          current=$(node -p "require('./app/package.json').version")
+          base=${current%%-aven.*}
+          n=${current##*-aven.}
+          [ "$n" = "$current" ] && n=0
+          if [ "${{ steps.merge.outputs.merged }}" = "true" ]; then
+            upstream=$(git show upstream/main:app/package.json | node -p "JSON.parse(require('fs').readFileSync(0)).version")
+            if [ "$upstream" = "$base" ]; then version="$base-aven.$((n + 1))"; else version="$upstream-aven.1"; fi
+          elif git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            version="$base-aven.$((n + 1))"
+          else
+            version=$current
+          fi
+          for file in ds-bot/package.json app/package.json; do
+            node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('$file'));p.version='$version';fs.writeFileSync('$file',JSON.stringify(p,null,2)+'\n')"
+          done
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=true" >> "$GITHUB_OUTPUT"
+      - name: Test the plugin
+        id: test
+        if: steps.version.outputs.build == 'true'
+        working-directory: ds-bot
+        run: |
+          npm install -g npm@11.6.2 --no-fund --no-audit
+          npm ci --no-fund --no-audit
+          npm run harness
+          npm run build
+          npm test
+      - name: Commit, tag and push
+        if: steps.version.outputs.build == 'true'
+        run: |
+          git add -A
+          git diff --cached --quiet || git commit -m "Release ${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "HEAD:$BRANCH" "v${{ steps.version.outputs.version }}"
+      - name: Report a conflict or a failed test
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f conflicts.txt ]; then
+            title="Upstream update needs a hand: merge conflict"
+            body="Merging upstream main into $BRANCH conflicts in:"$'\n\n'"$(sed 's/^/- /' conflicts.txt)"$'\n\n'"Nothing was changed. Ask Claude to merge it by hand."
+          else
+            title="Upstream update needs a hand: a step failed"
+            body="The daily sync stopped before anything was pushed. Log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" || true
+
+  build-mac:
+    name: Build the macOS app (Apple silicon)
+    needs: sync
+    if: needs.sync.outputs.build == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.sync.outputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        working-directory: app
+        run: |
+          npm install -g npm@11.6.2 --no-fund --no-audit
+          npm ci --no-fund --no-audit
+          npm run dist
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.sync.outputs.version }}
+        run: |
+          zip="app/dist-pack/DeepSeek-Bot-$VERSION-mac-arm64.zip"
+          test -f "$zip"
+          gh release create "v$VERSION" "$zip" --repo "$GITHUB_REPOSITORY" --target "v$VERSION" \
+            --title "DeepSeek Bot $VERSION" \
+            --notes "Upstream $(echo "$VERSION" | sed 's/-aven\..*//') with Aven's changes (sidebar sections, 5 MB animated avatars, Bot-color chats, Grok-style sidebar and title bar). Download the zip, unzip it, and drag DeepSeek Bot into Applications."
