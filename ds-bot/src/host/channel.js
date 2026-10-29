@@ -266,6 +266,16 @@ export function install(rt) {
           const bot = await rt.createBot({ name: body.name, role: body.role, phrases: body.phrases, color: body.color, instructions: body.instructions, brief: body.brief, avatar: body.avatar, model: body.model, effort: body.effort, workDir: body.workDir })
           return ok(bot)
         }
+        // A record of how the conversation scrolled through one reply, kept for diagnosis.
+        case 'scroll-trace': {
+          const { mkdir, writeFile } = await import('node:fs/promises')
+          const { join } = await import('node:path')
+          if (typeof rt.home !== 'string') return ok(false)
+          const dir = join(rt.home, 'scroll-traces')
+          await mkdir(dir, { recursive: true })
+          await writeFile(join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}.json`), JSON.stringify(body.trace ?? null).slice(0, 4_000_000))
+          return ok(true)
+        }
         case 'update-bot':
           await rt.load()
           return ok(await rt.updateBot(body.id, body))
