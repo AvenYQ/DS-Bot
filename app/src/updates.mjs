@@ -11,6 +11,11 @@ export const UPDATE_TEXT = {
     availableDetail: 'This version cannot update itself. Download the new version from its release page, then replace DeepSeek Bot in Applications.',
     download: 'Download',
     onFailurePage: version => `DeepSeek Bot ${version} is available. After this box, its download page opens.`,
+    availableSelfDetail: 'Update now and it downloads in the background; then DeepSeek Bot restarts in the new version.',
+    updateNow: 'Update now',
+    updateFailed: (version, reason) => `DeepSeek Bot ${version} could not update itself: ${reason}`,
+    updateFailedDetail: 'Open the release page to download it by hand?',
+    openPage: 'Open page',
   },
   zh: {
     ready: version => `DeepSeek Bot ${version} 已经下载好。`,
@@ -21,6 +26,11 @@ export const UPDATE_TEXT = {
     availableDetail: '这个版本不能自己更新。请到发布页下载新版，再用它替换「应用程序」里的 DeepSeek Bot。',
     download: '下载',
     onFailurePage: version => `DeepSeek Bot ${version} 已经发布。关掉这个对话框后，会打开它的下载页面。`,
+    availableSelfDetail: '点「立即更新」会在后台下载新版，下载好后 DeepSeek Bot 自动重启到新版本。',
+    updateNow: '立即更新',
+    updateFailed: (version, reason) => `DeepSeek Bot ${version} 没能自动更新：${reason}`,
+    updateFailedDetail: '要打开发布页手动下载吗？',
+    openPage: '打开发布页',
   },
 }
 
@@ -130,12 +140,15 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
             || (release.prerelease === true && !allowPrerelease)) continue
           const version = typeof release.tag_name === 'string' ? release.tag_name.replace(/^v/u, '') : ''
           if (!isNewer(version, current)) continue
-          if (!Array.isArray(release.assets) || !release.assets.some(entry => entry?.name === assetName(version))) continue
+          const file = Array.isArray(release.assets) ? release.assets.find(entry => entry?.name === assetName(version)) : undefined
+          if (file === undefined) continue
           if (!isHttpsPage(release.html_url)) {
             log.error('DeepSeek Bot: update check failed: release page URL is not HTTPS')
             continue
           }
-          if (found === undefined || isNewer(version, found.version)) found = { version, page: release.html_url }
+          if (found === undefined || isNewer(version, found.version)) {
+            found = { version, page: release.html_url, ...(isHttpsPage(file.browser_download_url) ? { url: file.browser_download_url } : {}), ...(typeof file.digest === 'string' ? { digest: file.digest } : {}) }
+          }
         }
         if (found === undefined) {
           holder.set({ phase: 'current' })
@@ -148,7 +161,7 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
             .then(yes => (yes ? open(found.page) : undefined))
             .catch((error) => { log.error(`DeepSeek Bot: update ${found.version} not opened: ${error instanceof Error ? error.message : String(error)}`) })
         }
-        holder.set({ phase: 'available', version: found.version, page: found.page })
+        holder.set({ phase: 'available', ...found })
         return found
       } catch (error) {
         log.error(`DeepSeek Bot: update check failed: ${error instanceof Error ? error.message : String(error)}`)
