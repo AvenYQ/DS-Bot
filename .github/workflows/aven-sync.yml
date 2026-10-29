@@ -10,6 +10,12 @@ name: Aven sync and build
 # (npm publishing) never runs here.
 
 on:
+  # A change pushed to aven/custom (by Claude or by hand) is built and released as the next
+  # -aven.<n>, without merging upstream. The workflow's own release commit is pushed with
+  # GITHUB_TOKEN, which starts no new run.
+  push:
+    branches: [aven/custom]
+    paths: ['ds-bot/**', 'app/**']
   schedule:
     - cron: '23 19 * * *' # 03:23 in Asia/Taipei
   workflow_dispatch:
@@ -50,7 +56,7 @@ jobs:
       - name: Merge upstream main
         id: merge
         env:
-          BUILD_ONLY: ${{ inputs.build_only }}
+          BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'push' }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898333+github-actions[bot]@users.noreply.github.com'
@@ -71,7 +77,7 @@ jobs:
           echo "merged=true" >> "$GITHUB_OUTPUT"
       - name: Set the version
         id: version
-        if: steps.merge.outputs.merged == 'true' || inputs.build_only
+        if: steps.merge.outputs.merged == 'true' || inputs.build_only || github.event_name == 'push'
         run: |
           current=$(node -p "require('./app/package.json').version")
           base=${current%%-aven.*}
