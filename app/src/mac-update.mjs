@@ -16,6 +16,7 @@ import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 
 const run = promisify(execFile)
+const STALL_MS = 60_000
 
 // The bundle the running app was started from: …/DeepSeek Bot.app/Contents/MacOS/DeepSeek Bot.
 export function bundleOf(execPath) {
@@ -77,18 +78,30 @@ export async function prepareMacUpdate({ version, url, digest, execPath, fetch =
   const work = await mkdtemp(join(tmpdir(), 'ds-bot-update-'))
   try {
     const zip = join(work, 'update.zip')
-    const response = await fetch(url, { headers: { 'user-agent': `DeepSeek-Bot/${version}` }, redirect: 'follow' })
-    if (!response.ok || response.body === null) throw new Error(`download failed: HTTP ${String(response.status)}`)
-    const total = Number(response.headers.get('content-length')) || 0
-    const hash = createHash('sha256')
-    let received = 0
-    const counted = Readable.fromWeb(response.body).on('data', (chunk) => {
-      hash.update(chunk)
-      received += chunk.length
-      if (total > 0) onProgress?.(received / total)
-    })
-    await pipeline(counted, createWriteStream(zip))
-    const sum = hash.digest('hex')
+    let sum = ''
+    // A download that stops moving for STALL_MS fails, instead of waiting forever.
+    const abort = new AbortController()
+    let stall = setTimeout(() => abort.abort(new Error('the download stopped')), STALL_MS)
+    const moved = () => { clearTimeout(stall); stall = setTimeout(() => abort.abort(new Error('the download stopped')), STALL_MS) }
+    try {
+      const response = await fetch(url, { headers: { 'user-agent': `DeepSeek-Bot/${version}` }, redirect: 'follow', signal: abort.signal })
+      if (!response.ok || response.body === null) throw new Error(`download failed: HTTP ${String(response.status)}`)
+      const total = Number(response.headers.get('content-length')) || 0
+      const hash = createHash('sha256')
+      let received = 0
+      const counted = Readable.fromWeb(response.body).on('data', (chunk) => {
+        moved()
+        hash.update(chunk)
+        received += chunk.length
+        if (total > 0) onProgress?.(received / total)
+      })
+      await pipeline(counted, createWriteStream(zip), { signal: abort.signal })
+      sum = hash.digest('hex')
+    } catch (error) {
+      throw abort.signal.aborted && abort.signal.reason instanceof Error ? abort.signal.reason : error
+    } finally {
+      clearTimeout(stall)
+    }
     const want = typeof digest === 'string' && digest.startsWith('sha256:') ? digest.slice(7) : undefined
     if (want !== undefined && want !== sum) throw new Error('the download does not match its release')
     const unpacked = join(work, 'unpacked')

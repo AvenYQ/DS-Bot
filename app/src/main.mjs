@@ -1,7 +1,7 @@
 // Electron main process: one window for the Bot team, served by the app's own DSH Host.
 // The window loads the Host's loopback address as DSH Web does: DSH's sign-in sends the page's
 // origin as the address the browser comes back to, and accepts only a loopback one.
-import { app, BrowserWindow, WebContentsView, dialog, ipcMain, Menu, nativeImage, nativeTheme, powerMonitor, session, shell as electronShell, Tray } from 'electron'
+import { app, BrowserWindow, WebContentsView, dialog, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, session, shell as electronShell, Tray } from 'electron'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { release } from 'node:os'
@@ -602,7 +602,8 @@ async function updateMacNow() {
   const t = localeText(UPDATE_TEXT)
   mainWindow?.setProgressBar(0.01)
   try {
-    await prepareMacUpdate({ version: state.version, url: state.url, digest: state.digest, execPath: process.execPath, onProgress: fraction => mainWindow?.setProgressBar(Math.max(0.01, fraction)) })
+    // Electron's own network stack, so the download goes through the system's proxy settings.
+    await prepareMacUpdate({ version: state.version, url: state.url, digest: state.digest, execPath: process.execPath, fetch: (resource, init) => net.fetch(resource, init), onProgress: fraction => mainWindow?.setProgressBar(Math.max(0.01, fraction)) })
   } catch (error) {
     mainWindow?.setProgressBar(-1)
     const options = { type: 'warning', title: 'DeepSeek Bot', message: t.updateFailed(state.version, error instanceof Error ? error.message : String(error)), detail: t.updateFailedDetail, buttons: [t.openPage, t.later], defaultId: 0, cancelId: 1, noLink: true }

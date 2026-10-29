@@ -182,6 +182,7 @@ export const nativeImage = {
 export const nativeTheme = { shouldUseDarkColors: false, themeSource: 'system' }
 
 export const powerMonitor = new EventEmitter()
+export const net = { fetch: (...args) => globalThis.fetch(...args) }
 
 // The cookies of the browser: the Host's address keeps one after the launch URL was used.
 const cookieJar = {
