@@ -117,7 +117,7 @@ html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{background:transparent!important;box-shadow:none!important;border-color:transparent!important;width:30px;height:30px;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse:hover{background:var(--bt-hover)!important}
 /* Collapsed, as in Grok Bot: a rail of avatars under the traffic lights (the app moves the
-   lights left and the page widens the rail to 72px), and at its foot the sidebar toggle and
+   lights left and the page widens the rail to 76px), and at its foot the sidebar toggle and
    new chat, above the account. */
 html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]{position:relative;padding:52px 8px 6px!important}
 html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]::before{content:"";position:absolute;top:0;left:0;right:0;height:48px;-webkit-app-region:drag}
@@ -133,7 +133,7 @@ html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_to
 html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_toggle"],.bt-rail>.bt-round:not(.bt-update)):hover{background:var(--bt-hover)!important;color:var(--bt-ink)}
 html[data-ds-bot-mac] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update) svg{width:18px;height:18px}
 html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_railMark"]{display:none}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_toggle"]::before{content:"";width:18px;height:18px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5'%3E%3Crect x='3' y='3.5' width='14' height='13' rx='2.5'/%3E%3Cpath d='M8 3.5v13'/%3E%3C/svg%3E") center/contain no-repeat}
+html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_panelIcon"]{display:block!important;opacity:1!important;width:18px;height:18px}
 `
 
 function macFrameless() {
@@ -176,8 +176,8 @@ function adoptDragRegions() {
 }
 
 // DSH sets the rail's width on the frame's grid (56px), too narrow for the traffic lights:
-// while the sidebar is collapsed its column becomes 72px, and the app moves the lights.
-const RAIL = '72px'
+// while the sidebar is collapsed its column becomes 76px, and the app moves the lights.
+const RAIL = '76px'
 function watchRail() {
   let collapsed
   const sync = () => {

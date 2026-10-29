@@ -28,7 +28,7 @@ import { UPDATE_TEXT, watchReleases, watchUpdates } from './updates.mjs'
 import { createDeferredPrompt } from './update-prompt.mjs'
 import { CAPTION_HEIGHT, cssColor, micaAvailable, nativeThemeSource } from './window-frame.mjs'
 
-const MAC_LIGHTS = { side: { x: 20, y: 23 }, rail: { x: 10, y: 23 } }
+const MAC_LIGHTS = { side: { x: 20, y: 23 }, rail: { x: 8, y: 23 } }
 
 const IPC = {
   macLights: 'ds-bot:mac-lights', caption: 'ds-bot:caption-colors', nativeTheme: 'ds-bot:native-theme', fullscreen: 'ds-bot:fullscreen',
