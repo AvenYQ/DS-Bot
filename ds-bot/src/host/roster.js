@@ -2,6 +2,7 @@
 // the first Main Bot of a new team.
 import { mkdir } from 'node:fs/promises'
 import { AVATAR_LINK } from './avatar-files.js'
+import { cleanPhrases } from './phrases.js'
 import { MAX_AVATAR_IMAGE, ROOM_MAX_MEMBERS, ROOM_MODES, ROOM_NAME_MAX, ROOM_NOTICE_MAX } from './constants.js'
 import { currentColor, isColor, normalize, unquote } from './text.js'
 import { nameProblem } from '../shared/mentions.js'
@@ -146,7 +147,7 @@ export function install(rt) {
     return holdName('bot', cleanName, async () => buildBot(cleanName, { ...options, avatar: await storedAvatar(options.avatar) }))
   }
 
-  async function buildBot(cleanName, { role = '', instructions = '', color, brief = '', createdBy, main = false, avatar, model, effort, workDir, copyOf, pickModel = false }) {
+  async function buildBot(cleanName, { role = '', phrases, instructions = '', color, brief = '', createdBy, main = false, avatar, model, effort, workDir, copyOf, pickModel = false }) {
     const cleanAvatarValue = cleanAvatar(avatar)
     // The model is fixed at creation, so a later change of the DSH default leaves it alone.
     const modelRef = model ? await rt.resolveModel(model) : pickModel ? undefined : await rt.defaultModel()
@@ -165,6 +166,7 @@ export function install(rt) {
         id,
         name: cleanName,
         role: String(role).trim().slice(0, 24),
+        ...(cleanPhrases(phrases).length > 0 ? { phrases: cleanPhrases(phrases) } : {}),
         // A color is only stored when the user picks one; otherwise the id picks it.
         ...(isColor(currentColor(color)) ? { color: currentColor(color) } : {}),
         ...(cleanAvatarValue ? { avatar: cleanAvatarValue } : {}),
@@ -242,6 +244,7 @@ export function install(rt) {
     return createBot({
       name: freshName(`${bot.name} copy`),
       role: bot.role,
+      phrases: bot.phrases,
       instructions: bot.instructions,
       color: bot.color,
       avatar: bot.avatar,
@@ -301,6 +304,11 @@ export function install(rt) {
     const instructionsBefore = bot.instructions
     if (patch.role !== undefined) bot.role = String(patch.role).trim().slice(0, 24)
     if (patch.instructions !== undefined) bot.instructions = String(patch.instructions).trim()
+    if (patch.phrases !== undefined) {
+      const phrases = patch.phrases === null ? [] : cleanPhrases(patch.phrases)
+      if (phrases.length > 0) bot.phrases = phrases
+      else delete bot.phrases
+    }
     let modelChanged = false
     if (patch.color !== undefined) {
       if (patch.color === null) delete bot.color

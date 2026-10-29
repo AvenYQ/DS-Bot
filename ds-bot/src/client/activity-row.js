@@ -1,7 +1,7 @@
 import { createElement as h, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BotMark, RoomAvatar } from './mark.js'
-import { Elapsed, Shimmer, PHRASES } from './cells.js'
+import { Elapsed, Shimmer, PHRASES, phrasePool } from './cells.js'
 import { noteClientError } from './diagnostics.js'
 import { reducedMotion } from './motion.js'
 import { t } from './i18n.js'
@@ -138,9 +138,9 @@ export function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useL
   const want = !visible ? null
     : moveAt !== 0 ? { key: 'move', label: t('Switching working folder'), state: 'thinking' }
       : inputAt > (tool?.at ?? 0)
-        ? { key: `input:${inputAt}`, pool: PHRASES.thinking, state: 'thinking' }
-        : tool ? { key: tool.label ? `tool:${tool.label}` : 'working', label: tool.label, pool: PHRASES.working, state: tool.state ?? 'working' }
-          : { key: 'thinking', pool: PHRASES.thinking, state: 'thinking' }
+        ? { key: `input:${inputAt}`, pool: phrasePool(bot, PHRASES.thinking), state: 'thinking' }
+        : tool ? { key: tool.label ? `tool:${tool.label}` : 'working', label: tool.label, pool: phrasePool(bot, PHRASES.working), state: tool.state ?? 'working' }
+          : { key: 'thinking', pool: phrasePool(bot, PHRASES.thinking), state: 'thinking' }
   const [shown, setShown] = useState(null)
   const wantKey = want?.key ?? null
   const markState = useRef('thinking')

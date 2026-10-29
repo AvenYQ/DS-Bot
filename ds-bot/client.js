@@ -359,6 +359,9 @@ var ZH = {
   "Applies from the next message.": "从下一条消息开始生效。",
   Profile: "资料",
   Label: "标签",
+  Catchphrases: "口头禅",
+  "Shown while it works, in place of Thinking. Separate with 、": "干活时轮流显示，代替「思考中」，用「、」隔开",
+  "Let me check、On it": "容我看看、这就去办",
   "Optional. Shown under the name.": "可选，显示在名字下方。",
   "Research, admin…": "研究、行政…",
   "What this Bot does": "这个 Bot 做什么",
@@ -8233,13 +8236,19 @@ function toolActivity(name, arg, findBot, self) {
       return { label: phrase ? t(phrase) : null, state: toolState(name) };
   }
 }
-function workPhrase(doing) {
+var PHRASE_TURN_MS = 6e3;
+function ownPhrase(bot, at = Date.now()) {
+  const phrases = Array.isArray(bot?.phrases) ? bot.phrases.filter((phrase) => typeof phrase === "string" && phrase !== "") : [];
+  return phrases.length === 0 ? void 0 : phrases[Math.floor(at / PHRASE_TURN_MS) % phrases.length];
+}
+var phrasePool = (bot, pool) => Array.isArray(bot?.phrases) && bot.phrases.length > 0 ? bot.phrases : pool;
+function workPhrase(doing, bot) {
   const { tool, said, note, target, switching, folder } = typeof doing === "string" ? { tool: doing } : doing ?? {};
   if (switching) return folder === true ? t("Switching working folder") : t("Moving to a fresh conversation");
   const own = (said || note)?.replace(/[\s.。…]+$/u, "");
   if (own) return own;
-  if (!tool) return t("Thinking about it");
-  const label = toolActivity(tool, () => void 0, () => void 0)?.label ?? t("On it");
+  if (!tool) return ownPhrase(bot) ?? t("Thinking about it");
+  const label = toolActivity(tool, () => void 0, () => void 0)?.label ?? ownPhrase(bot) ?? t("On it");
   return target ? `${label} · ${target}` : label;
 }
 function useLiveNote(actions, sessionId, id, entry) {
@@ -8663,7 +8672,7 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, us
   const inputRef = (0, import_react15.useRef)(0);
   const inputAt = Math.max(inputRef.current, pendingInput);
   inputRef.current = inputAt;
-  const want = !visible ? null : moveAt !== 0 ? { key: "move", label: t("Switching working folder"), state: "thinking" } : inputAt > (tool?.at ?? 0) ? { key: `input:${inputAt}`, pool: PHRASES.thinking, state: "thinking" } : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: PHRASES.working, state: tool.state ?? "working" } : { key: "thinking", pool: PHRASES.thinking, state: "thinking" };
+  const want = !visible ? null : moveAt !== 0 ? { key: "move", label: t("Switching working folder"), state: "thinking" } : inputAt > (tool?.at ?? 0) ? { key: `input:${inputAt}`, pool: phrasePool(bot, PHRASES.thinking), state: "thinking" } : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: phrasePool(bot, PHRASES.working), state: tool.state ?? "working" } : { key: "thinking", pool: phrasePool(bot, PHRASES.thinking), state: "thinking" };
   const [shown, setShown] = (0, import_react15.useState)(null);
   const wantKey = want?.key ?? null;
   const markState = (0, import_react15.useRef)("thinking");
@@ -8964,7 +8973,7 @@ var useGroupWork = (useWork, pick2) => useWork ? useWork((work) => JSON.stringif
 var workKeys = (text) => JSON.parse(text);
 var doingOf = ({ tool, said, note, target, switching }) => ({ tool, said, note, target, switching });
 var workLine = (lead, doing, more) => (0, import_react17.createElement)(Shimmer, null, `${lead} · ${workPhrase(doing)}…${more > 0 ? ` +${more}` : ""}`);
-var doingLine = (doing) => (0, import_react17.createElement)(Shimmer, null, `${workPhrase(doing)}…`);
+var doingLine = (doing, bot) => (0, import_react17.createElement)(Shimmer, null, `${workPhrase(doing, bot)}…`);
 var waitingFor = (roster, waits) => {
   const names = [...(waits?.bots ?? []).map((id) => roster.byId[id]?.name), ...(waits?.rooms ?? []).map((id) => roster.roomsById[id]?.name)].filter(Boolean);
   return names.length === 0 ? "" : t("Waiting for {names}", { names: names.join(t(" and ")) });
@@ -8987,7 +8996,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const groups = workKeys(useGroupWork(useWork, (rooms) => Object.entries(rooms).flatMap(([roomId, entries2]) => entries2.filter((entry) => entry.botId === id).map((entry) => ({ id: roomId, ...doingOf(entry) })))));
   const away = !running && groups.length > 0;
   const state = botState(running || away, doing, alert);
-  const runningLine = running && doing ? doingLine(doing) : null;
+  const runningLine = running && doing ? doingLine(doing, bot) : null;
   const awayLine = away ? workLine(roster.roomsById[groups[0].id]?.name ?? t("a group chat"), groups[0], groups.length - 1) : null;
   const waits = workKeys(useWork ? useWork((work) => JSON.stringify(work.waiting?.[id] ?? null)) : "null");
   const waitsFor = state === "waiting" ? waitingFor(roster, waits) : "";
@@ -13028,7 +13037,8 @@ function BotSettingsForm({ bot, roster, actions, run: run2 }) {
       Card,
       { title: t("Profile") },
       (0, import_react28.createElement)(Row, { label: t("Name") }, (0, import_react28.createElement)(InlineText, { label: t("Name"), value: bot.name, placeholder: "Bob", required: true, maxLength: 40, onSave: (name) => save({ name }) })),
-      (0, import_react28.createElement)(Row, { label: t("Label"), hint: t("Optional. Shown under the name.") }, (0, import_react28.createElement)(InlineText, { label: t("Label"), value: bot.role, placeholder: t("Research, admin…"), maxLength: 24, onSave: (role) => save({ role }) }))
+      (0, import_react28.createElement)(Row, { label: t("Label"), hint: t("Optional. Shown under the name.") }, (0, import_react28.createElement)(InlineText, { label: t("Label"), value: bot.role, placeholder: t("Research, admin…"), maxLength: 24, onSave: (role) => save({ role }) })),
+      (0, import_react28.createElement)(Row, { label: t("Catchphrases"), hint: t("Shown while it works, in place of Thinking. Separate with 、") }, (0, import_react28.createElement)(InlineText, { label: t("Catchphrases"), value: (bot.phrases ?? []).join("、"), placeholder: t("Let me check、On it"), maxLength: 120, onSave: (phrases) => save({ phrases }) }))
     ),
     (0, import_react28.createElement)(
       Card,
