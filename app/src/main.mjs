@@ -28,8 +28,10 @@ import { UPDATE_TEXT, watchReleases, watchUpdates } from './updates.mjs'
 import { createDeferredPrompt } from './update-prompt.mjs'
 import { CAPTION_HEIGHT, cssColor, micaAvailable, nativeThemeSource } from './window-frame.mjs'
 
+const MAC_LIGHTS = { side: { x: 20, y: 23 }, rail: { x: 10, y: 23 } }
+
 const IPC = {
-  caption: 'ds-bot:caption-colors', nativeTheme: 'ds-bot:native-theme', fullscreen: 'ds-bot:fullscreen',
+  macLights: 'ds-bot:mac-lights', caption: 'ds-bot:caption-colors', nativeTheme: 'ds-bot:native-theme', fullscreen: 'ds-bot:fullscreen',
   dataLocation: 'ds-bot:data-location', moveData: 'ds-bot:move-data', teamWorkspace: 'ds-bot:team-workspace',
   browserAcquire: 'ds-bot:browser-acquire', browserRelease: 'ds-bot:browser-release', browserForget: 'ds-bot:browser-forget',
   browserViewChanged: 'ds-bot:browser-view-changed', browserViewCreate: 'ds-bot:browser-view-create',
@@ -337,6 +339,13 @@ async function start() {
     places = { ...places, workspace: path }
     saveLocations(places)
   })
+  if (process.platform === 'darwin') {
+    // The traffic lights sit over the sidebar's first row; over the collapsed rail they move
+    // left so that the narrow rail holds them.
+    ipcMain.on(IPC.macLights, (event, collapsed) => {
+      if (fromWindow(event)) mainWindow.setWindowButtonPosition(collapsed === true ? MAC_LIGHTS.rail : MAC_LIGHTS.side)
+    })
+  }
   if (process.platform === 'win32') {
     // Windows ignores the alpha of the caption buttons' color, so they take the opaque color
     // of the surface under them, which the page measures.
@@ -604,7 +613,7 @@ function createWindow() {
     } : {}),
     // macOS: no title bar either. The traffic lights sit in the sidebar's first row, beside
     // its buttons, and the page marks the strip along the top that moves the window.
-    ...(mac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 23 } } : {}),
+    ...(mac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: MAC_LIGHTS.side } : {}),
     webPreferences: {
       preload: join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, webviewTag: true,
       additionalArguments: [`--ds-bot-origin=${origin}`, ...(win32 ? [`--ds-bot-caption=${String(CAPTION_HEIGHT)}`, ...(mica ? ['--ds-bot-mica'] : [])] : []), ...(mac ? ['--ds-bot-mac-frame'] : [])],

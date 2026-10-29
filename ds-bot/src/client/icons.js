@@ -99,3 +99,5 @@ export const SideIcon = lineIcon(['M4.5 4h11A1.5 1.5 0 0 1 17 5.5v6a1.5 1.5 0 0 
 // Two speech bubbles, the back one peeking out: a group chat.
 export const ChatsIcon = lineIcon(['M3.5 5.5A1.5 1.5 0 0 1 5 4h7a1.5 1.5 0 0 1 1.5 1.5V10A1.5 1.5 0 0 1 12 11.5H8L5 14v-2.5A1.5 1.5 0 0 1 3.5 10z', 'M13.5 7.5H15A1.5 1.5 0 0 1 16.5 9v4.5A1.5 1.5 0 0 1 15 15v2l-2.5-2h-3A1.5 1.5 0 0 1 8 13.5V13'])
 export const SETTINGS_ICONS = { general: GearIcon, bots: PeopleIcon, groups: ChatsIcon, usage: GaugeIcon }
+export const ImageIcon = lineIcon(['M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5z', 'M4 13l3.5-3.5L11 13l2-2 3 3', 'M12.5 7.5h.01'])
+export const UndoIcon = lineIcon(['M7 8H12a4 4 0 0 1 0 8H8', 'M9.5 5.5 7 8l2.5 2.5'])
