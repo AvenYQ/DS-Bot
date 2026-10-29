@@ -6,7 +6,8 @@ import { install as installSide } from './side.js'
 import { handoffReply, questionReply, viewReply } from './parts.js'
 import { defaultRelayLimit } from './groups.js'
 import { validateViewAnswer } from '../shared/views.js'
-import { COLORS, EXTRA_COLORS, ROUTE } from './constants.js'
+import { COLORS, EXTRA_COLORS, MAX_AVATAR_IMAGE, ROUTE } from './constants.js'
+import { AVATAR_LINK } from './avatar-files.js'
 
 const LANGUAGES = { zh: 'Chinese (简体中文)', en: 'English' }
 const RUN_STATS = ['sessionStats', 'tokenUsage', 'contextPressure']
@@ -99,6 +100,16 @@ export function install(rt) {
   // Updates change the dsh profile, not the team, so a reading host may run them too.
   const READS = new Set(['state', 'models', 'efforts', 'providers', 'provider-models', 'earlier', 'chat', 'run-stats', 'room-progress', 'exchange', 'exchange-text', 'file-text', 'usage', 'schedules', 'memory-view', 'browser-wait', 'browser-result', 'diagnostics', 'diagnostics-log', 'diagnostics-clear', 'update-check', 'update-install', 'dsh-update-install', 'repo-stars', 'approval-answer', 'thinking', 'avatar-library'])
 
+  // The user's own picture, beside the Bots': a small one inline, a large one (an animated
+  // GIF up to 5 MB) as a file. null goes back to the whale.
+  async function setYouImage(value) {
+    if (value === null || value === '') { delete state.prefs.you; return }
+    if (typeof value !== 'string' || !(AVATAR_LINK.test(value) || /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(value))) throw invalid('Your picture must be a PNG, JPEG, WebP, or GIF image')
+    const image = await rt.storeAvatarImage(value)
+    if (!AVATAR_LINK.test(image) && image.length > MAX_AVATAR_IMAGE) throw invalid('Your picture is too large')
+    state.prefs.you = { image }
+  }
+
   function setPrefs(body) {
     if (body.theme !== undefined) {
       if (typeof body.theme !== 'string' || !/^[a-z][\w-]{0,31}$/.test(body.theme)) throw invalid('Unknown theme')
@@ -190,6 +201,7 @@ export function install(rt) {
           return ok(await rt.duplicateBot(body.id))
         case 'set-prefs':
           await rt.load()
+          if (body.youImage !== undefined) await setYouImage(body.youImage)
           await setPrefs(body)
           return ok(state.prefs)
         case 'exchange': {

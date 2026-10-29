@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import { FishLogo } from './dsh-primitives.js'
 import { isMainOf } from './sources.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
-import { ChevronRightIcon, DotsIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
+import { ChevronRightIcon, DotsIcon, ImageIcon, UndoIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
 import { botState, BotMark, BotAvatar, RoomAvatar } from './mark.js'
 import { reducedMotion } from './activity-row.js'
+import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
 import { springEasing, SPRING_SHAPE, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
@@ -461,9 +462,19 @@ function UpdateButton({ useUpdate, actions }) {
 }
 
 // Account seat of the Settings trigger: the visible label stays for assistive tech only.
-export function YouAvatar() {
+// The user's face: the picture they chose, else the whale.
+function YouFace({ useRoster }) {
+  const image = useRoster ? useRoster(value => value.prefs?.you?.image) : undefined
+  const [broken, setBroken] = useState('')
+  if (typeof image === 'string' && image !== '' && image !== broken) {
+    return h('span', { className: 'bt-you bt-you-photo', 'aria-hidden': true }, h('img', { src: image, alt: '', draggable: false, onError: () => setBroken(image) }))
+  }
+  return h('span', { className: 'bt-you', 'aria-hidden': true }, h(BotMark, { look: MAIN_LOOK, size: 24 }))
+}
+
+export function YouAvatar({ useRoster } = {}) {
   return h('span', { className: 'bt-you-wrap' },
-    h('span', { className: 'bt-you', 'aria-hidden': true }, h(BotMark, { look: MAIN_LOOK, size: 24 })),
+    h(YouFace, { useRoster }),
     h('span', { style: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' } }, t('Settings')))
 }
 
@@ -530,7 +541,8 @@ const NO_SNAPSHOT = () => null
 // `seat` is the shell's settings.launcher seat: at priority -10 the whale wins it
 // over a shell account plugin's own launcher (the Desktop's "··· More"), which comes
 // back in Agent mode; FooterAccount stands in while no seat exists at all.
-export function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboarding, actions }) {
+export function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboarding, actions, useRoster }) {
+  const picker = useRef(null)
   const [open, setOpen] = useState(false)
   useLayoutEffect(() => {
     if (!seat) return undefined
@@ -610,7 +622,12 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
     setSignOutError('')
     setBusy(false)
   }, [open])
+  const hasPhoto = Boolean(useRoster?.(value => value.prefs?.you?.image))
   const groups = [
+    [
+      [t('Change my picture…'), ImageIcon, () => picker.current?.click()],
+      hasPhoto ? [t('Use the default picture'), UndoIcon, () => actions.setPrefs({ youImage: null })] : null,
+    ].filter(Boolean),
     [
       [t('Usage'), GaugeIcon, () => actions.openSettings('usage')],
       [t('Connectors'), ConnectorIcon, () => actions.openConnectors()],
@@ -624,7 +641,12 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
   if (signedIn) groups.push([[accountT('signOut'), SignOutIcon, askSignOut, undefined, true]])
   return h(Fragment, null,
     h('button', { ref: button, type: 'button', className: 'bt-account', 'aria-label': t('Account'), 'aria-haspopup': 'menu', 'aria-expanded': open, onClick: toggle },
-      h('span', { className: 'bt-you', 'aria-hidden': true }, h(BotMark, { look: MAIN_LOOK, size: 24 }))),
+      h(YouFace, { useRoster })),
+    h('input', { ref: picker, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', hidden: true, onChange: (event) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (file) void avatarImage(file).then(image => actions.setPrefs({ youImage: image })).catch(error => actions.reportError(error, 'menu'))
+    } }),
     open && box ? createPortal(h('div', { className: 'bt-menu bt-menu-up bt-account-menu', role: 'menu', 'aria-label': t('Account'), style: box },
       confirm !== null ? h('div', { className: 'bt-confirm', role: 'alertdialog', 'aria-label': accountT('signOut') },
         h('p', { className: 'bt-confirm-text' }, accountT(confirm === 'running' ? 'signOutRunningDescription' : confirm === 'unknown' ? 'signOutUnknownDescription' : 'signOutDescription')),
@@ -709,6 +731,8 @@ export function BrandName() {
 // FooterAccount only shows when the seat went to no one. The shell's footer classes
 // are CSS-module names, so they match on their stems.
 export const SIDEBAR_CSS = `
+.bt-you-photo{overflow:hidden}
+.bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;corner-shape:round;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
 .bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
 .bt-sec-head:hover{color:var(--bt-ink)}
