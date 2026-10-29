@@ -106,8 +106,8 @@ function updatesBridge() {
 }
 
 // macOS without a title bar: the traffic lights stand where the brand was, in the sidebar's
-// first row, and a strip along the top of the window moves it. Controls in the strip stay
-// clickable. In fullscreen the lights are gone and the brand comes back.
+// first row. That row and the conversation's header move the window (adoptDragRegions); the
+// controls in them stay clickable. In fullscreen the lights are gone and the brand comes back.
 const MAC_FRAME_CSS = `
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top>.bt-brand{visibility:hidden}
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:drag}
@@ -120,6 +120,8 @@ html[data-ds-bot-mac] .bt-side-top .bt-side-collapse:hover{background:var(--bt-h
    lights left and the page widens the rail to 72px), and at its foot the sidebar toggle and
    new chat, above the account. */
 html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]{position:relative;padding:52px 8px 6px!important}
+html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]::before{content:"";position:absolute;top:0;left:0;right:0;height:48px;-webkit-app-region:drag}
+html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"]{-webkit-app-region:no-drag}
 html[data-ds-bot-mac] [class*="_collapsed"] [class*="_regionArea"]{overflow:visible!important;margin-bottom:76px}
 html[data-ds-bot-mac] [class*="_collapsed"] [class*="_footArea"]{display:flex!important;justify-content:center}
 html[data-ds-bot-mac] .bt-rail .bt-list{scrollbar-width:none}
@@ -140,11 +142,37 @@ function macFrameless() {
   const style = document.createElement('style')
   style.textContent = MAC_FRAME_CSS
   document.head.append(style)
-  const band = document.createElement('div')
-  band.className = 'dsb-mac-band'
-  band.setAttribute('aria-hidden', 'true')
-  document.body.prepend(band)
+  adoptDragRegions()
   watchRail()
+}
+
+// Which parts of the page move the window is DSH's own: it marks them [data-window-drag]
+// (the conversation's header, the tab strip) and keeps every control out, but only under
+// html[data-platform="darwin"], which this window does not set (see the top). Its rules are
+// copied here under html[data-ds-bot-mac], read from its stylesheets at run time so that a
+// newer DSH brings its own. Without them a drag region (the sidebar's first row) swallows
+// the clicks on the buttons in it.
+function adoptDragRegions() {
+  const style = document.createElement('style')
+  document.head.append(style)
+  let last = ''
+  const copy = () => {
+    const rules = []
+    for (const sheet of document.styleSheets) {
+      if (sheet.ownerNode === style) continue
+      let list
+      try { list = sheet.cssRules } catch { continue }
+      for (const rule of list) {
+        const text = rule.cssText
+        if (text.includes('app-region') && text.includes('[data-platform="darwin"]')) rules.push(text.replaceAll('[data-platform="darwin"]', '[data-ds-bot-mac]'))
+      }
+    }
+    const next = rules.join('\n')
+    if (next !== last) style.textContent = last = next
+  }
+  copy()
+  new MutationObserver(copy).observe(document.head, { childList: true })
+  window.addEventListener('load', copy, { once: true })
 }
 
 // DSH sets the rail's width on the frame's grid (56px), too narrow for the traffic lights:
