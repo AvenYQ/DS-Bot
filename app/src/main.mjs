@@ -517,6 +517,8 @@ const notePage = message => `data:text/html;charset=utf-8,${encodeURIComponent(`
 // version. Throwaway runs check only a given feed and never ask.
 function startUpdates() {
   const feed = process.env.DS_BOT_UPDATE_URL || undefined
+  // A custom build (0.x.y-aven.N) is not replaced by an upstream release.
+  if (/-aven\./u.test(app.getVersion())) return undefined
   const throwaway = Boolean(process.env.DS_BOT_HOME)
   if (!app.isPackaged || (throwaway && feed === undefined)) return undefined
   if (process.platform === 'darwin') {
