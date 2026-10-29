@@ -491,9 +491,10 @@ var ZH = {
   "Theme accent": "主题强调色",
   "Custom accent": "自定义强调色",
   "Chat color": "聊天配色",
-  "Change my picture…": "更换我的头像…",
-  "Change my name…": "修改我的名字…",
-  "Your name, then Enter": "输入名字，回车保存",
+  "Change my picture": "更换头像",
+  "Click the picture to change it": "点头像可以更换图片",
+  "Your name": "你的名字",
+  "Edit picture and name": "修改头像和名字",
   Me: "我",
   "Use the default picture": "恢复默认头像",
   "Your picture must be a PNG, JPEG, WebP, or GIF image": "头像必须是 PNG、JPEG、WebP 或 GIF 图片",
@@ -9559,16 +9560,21 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
   }, [open]);
   const hasPhoto = Boolean(useRoster?.((value) => value.prefs?.you?.image));
   const myName = useRoster?.((value) => value.prefs?.you?.name) ?? "";
-  const [naming, setNaming] = (0, import_react16.useState)(null);
+  const [editing, setEditing] = (0, import_react16.useState)(false);
+  const [draft, setDraft] = (0, import_react16.useState)("");
   (0, import_react16.useEffect)(() => {
-    if (!open) setNaming(null);
+    if (!open) setEditing(false);
   }, [open]);
+  const editProfile = () => {
+    setDraft(myName);
+    setEditing(true);
+  };
+  const saveProfile = (event) => {
+    event?.preventDefault();
+    setOpen(false);
+    if (draft.trim() !== myName) void Promise.resolve(actions.setPrefs({ youName: draft })).catch((error) => actions.reportError(error, "menu"));
+  };
   const groups = [
-    [
-      [t("Change my name…"), PencilIcon, () => setNaming(myName), void 0, true],
-      [t("Change my picture…"), ImageIcon, () => picker.current?.click()],
-      hasPhoto ? [t("Use the default picture"), UndoIcon, () => actions.setPrefs({ youImage: null })] : null
-    ].filter(Boolean),
     [
       [t("Usage"), GaugeIcon, () => actions.openSettings("usage")],
       [t("Connectors"), ConnectorIcon, () => actions.openConnectors()],
@@ -9597,11 +9603,26 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
     open && box ? (0, import_react_dom3.createPortal)((0, import_react16.createElement)(
       "div",
       { className: "bt-menu bt-menu-up bt-account-menu", role: "menu", "aria-label": t("Account"), style: box },
-      naming !== null ? (0, import_react16.createElement)("form", { className: "bt-menu-field", onSubmit: (event) => {
-        event.preventDefault();
-        setOpen(false);
-        void Promise.resolve(actions.setPrefs({ youName: naming })).catch((error) => actions.reportError(error, "menu"));
-      } }, (0, import_react16.createElement)("input", { autoFocus: true, value: naming, maxLength: 24, placeholder: t("Your name, then Enter"), "aria-label": t("Change my name…"), onChange: (event) => setNaming(event.target.value) })) : confirm !== null ? (0, import_react16.createElement)(
+      editing ? (0, import_react16.createElement)(
+        "form",
+        { className: "bt-profile", onSubmit: saveProfile },
+        (0, import_react16.createElement)(
+          "button",
+          { type: "button", className: "bt-profile-face", "aria-label": t("Change my picture"), title: t("Change my picture"), onClick: () => picker.current?.click() },
+          (0, import_react16.createElement)(YouFace, { useRoster }),
+          (0, import_react16.createElement)("span", { className: "bt-profile-cam", "aria-hidden": true }, (0, import_react16.createElement)(ImageIcon))
+        ),
+        hasPhoto ? (0, import_react16.createElement)("button", { type: "button", className: "bt-profile-reset", onClick: () => {
+          void Promise.resolve(actions.setPrefs({ youImage: null })).catch((error) => actions.reportError(error, "menu"));
+        } }, t("Use the default picture")) : (0, import_react16.createElement)("span", { className: "bt-profile-tip" }, t("Click the picture to change it")),
+        (0, import_react16.createElement)("input", { autoFocus: true, value: draft, maxLength: 24, placeholder: t("Your name"), "aria-label": t("Your name"), onChange: (event) => setDraft(event.target.value) }),
+        (0, import_react16.createElement)(
+          "div",
+          { className: "bt-confirm-row" },
+          (0, import_react16.createElement)("button", { type: "button", className: "bt-soft bt-soft-sm", onClick: () => setEditing(false) }, t("Cancel")),
+          (0, import_react16.createElement)("button", { type: "submit", className: "bt-confirm-go" }, t("Save"))
+        )
+      ) : confirm !== null ? (0, import_react16.createElement)(
         "div",
         { className: "bt-confirm", role: "alertdialog", "aria-label": accountT("signOut") },
         (0, import_react16.createElement)("p", { className: "bt-confirm-text" }, accountT(confirm === "running" ? "signOutRunningDescription" : confirm === "unknown" ? "signOutUnknownDescription" : "signOutDescription")),
@@ -9614,20 +9635,29 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
             void runSignOut();
           } }, accountT("signOut"))
         )
-      ) : groups.map((group, index) => (0, import_react16.createElement)(
-        import_react16.Fragment,
-        { key: index },
-        index > 0 ? (0, import_react16.createElement)("div", { className: "bt-menu-sep", role: "separator" }) : null,
-        group.map(([label, Icon, run2, hint, stay]) => (0, import_react16.createElement)("button", {
-          key: label,
-          type: "button",
-          role: "menuitem",
-          onClick: () => {
-            if (stay !== true) setOpen(false);
-            void Promise.resolve(run2()).catch((error) => actions.reportError(error, "menu"));
-          }
-        }, (0, import_react16.createElement)(Icon), (0, import_react16.createElement)("span", { className: "bt-menu-label" }, label), hint ? (0, import_react16.createElement)("span", { className: "bt-menu-hint" }, hint) : null))
-      ))
+      ) : [
+        (0, import_react16.createElement)(
+          "button",
+          { key: "profile", type: "button", role: "menuitem", className: "bt-profile-row", onClick: editProfile },
+          (0, import_react16.createElement)(YouFace, { useRoster }),
+          (0, import_react16.createElement)("span", { className: "bt-profile-text" }, (0, import_react16.createElement)("span", { className: "bt-profile-name" }, myName || t("Me")), (0, import_react16.createElement)("span", { className: "bt-profile-hint" }, t("Edit picture and name"))),
+          (0, import_react16.createElement)(PencilIcon)
+        ),
+        ...groups.map((group, index) => (0, import_react16.createElement)(
+          import_react16.Fragment,
+          { key: index },
+          (0, import_react16.createElement)("div", { className: "bt-menu-sep", role: "separator" }),
+          group.map(([label, Icon, run2, hint, stay]) => (0, import_react16.createElement)("button", {
+            key: label,
+            type: "button",
+            role: "menuitem",
+            onClick: () => {
+              if (stay !== true) setOpen(false);
+              void Promise.resolve(run2()).catch((error) => actions.reportError(error, "menu"));
+            }
+          }, (0, import_react16.createElement)(Icon), (0, import_react16.createElement)("span", { className: "bt-menu-label" }, label), hint ? (0, import_react16.createElement)("span", { className: "bt-menu-hint" }, hint) : null))
+        ))
+      ]
     ), document.body) : null
   );
 }
@@ -9688,6 +9718,28 @@ function BrandName() {
 }
 var SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
+.bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
+.bt-menu .bt-profile-row>.bt-you{flex:none}
+.bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}
+.bt-profile-text{display:flex;flex-direction:column;min-width:0}
+.bt-profile-name{font-size:14px;font-weight:600;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-profile-hint{font-size:12px;color:var(--bt-ink-3)}
+.bt-profile{width:240px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;box-sizing:border-box}
+.bt-menu .bt-profile-face{position:relative;width:64px;height:64px;min-height:0;padding:0;border-radius:50%;corner-shape:round;justify-content:center}
+.bt-menu .bt-profile-face:hover{background:none}
+.bt-profile-face>.bt-you{width:64px;height:64px}
+.bt-profile-face>.bt-you .bt-mark{width:40px!important;height:40px!important}
+.bt-profile-cam{position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;corner-shape:round;display:grid;place-items:center;background:var(--bt-card);box-shadow:0 0 0 1px var(--bt-line-2);color:var(--bt-ink-2)}
+.bt-menu .bt-profile-cam svg{width:14px;height:14px;margin:0}
+.bt-menu .bt-profile-reset{width:auto;min-height:0;padding:2px 6px;font-size:12px;color:var(--bt-ink-2)}
+.bt-profile-tip{font-size:12px;color:var(--bt-ink-3)}
+.bt-profile input{width:100%;box-sizing:border-box;height:32px;border:0;border-radius:8px;background:var(--bt-hover);color:var(--bt-ink);font:inherit;font-size:13px;padding:0 10px;outline:none;text-align:center;box-shadow:inset 0 0 0 .5px var(--bt-line-2)}
+.bt-profile input:focus{box-shadow:inset 0 0 0 1px var(--bt-accent)}
+.bt-profile .bt-confirm-row{align-self:stretch}
+.bt-menu .bt-profile .bt-confirm-row button{width:auto;min-height:0;height:28px;padding:0 14px;border-radius:999px;font-size:13px;justify-content:center}
+.bt-menu .bt-profile .bt-confirm-row .bt-soft{background:var(--bt-hover)}
+.bt-menu .bt-profile .bt-confirm-row .bt-confirm-go{background:var(--bt-accent);color:var(--bt-accent-ink);font-weight:500}
+.bt-menu .bt-profile .bt-confirm-row .bt-confirm-go:hover{background:var(--bt-accent);opacity:.9}
 .bt-account:has(.bt-you-name){display:inline-flex;align-items:center;gap:10px;width:auto;max-width:200px;padding-right:12px;border-radius:999px}
 .bt-you-name{min-width:0;font-size:14px;font-weight:500;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-rail .bt-you-name,[class*="_collapsed"] .bt-you-name{display:none}

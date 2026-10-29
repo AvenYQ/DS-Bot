@@ -114,7 +114,7 @@ html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:dra
 html[data-ds-bot-mac] .bt-side-top>.bt-brand{order:-2}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1}
 /* Expanded, as in Grok Bot: the sidebar toggle is a plain icon left of search and new chat. */
-html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{background:none!important;box-shadow:none!important;border-color:transparent!important;width:30px;height:30px;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
+html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{background:transparent!important;box-shadow:none!important;border-color:transparent!important;width:30px;height:30px;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse:hover{background:var(--bt-hover)!important}
 /* Collapsed, as in Grok Bot: a rail of avatars under the traffic lights (the app moves the
    lights left and the page widens the rail to 72px), and at its foot the sidebar toggle and
