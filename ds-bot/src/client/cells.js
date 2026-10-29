@@ -10,7 +10,7 @@ import { AnsweredReply, WidgetCell } from './widget-cell.js'
 import { SecretToolCell } from './secret-card.js'
 import { HandoffCall } from './handoff-card.js'
 import { t } from './i18n.js'
-import { SEALS, SEAL_PREFIX, StampIcon, Verdict, VerdictChoice, sealMessage } from './seal.js'
+import { Stamp, freshStamp, verdictOf } from './seal.js'
 import { call } from './api.js'
 import { failureLabel } from './diagnostics.js'
 import { turnReasoning, thinkingStep, opensReply } from './turn-reasoning.js'
@@ -32,7 +32,7 @@ const mdLabels = () => ({ code: { copyLabel: t('Copy'), copiedLabel: t('Copied')
 // row, so it lines up with the bubble whether or not reactions hang below it.
 // `fold`: past what a bubble folds (fold.js); `whole`: the last text is only the start
 // of its message (see useFold).
-export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole }) {
+export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole, stamp }) {
   const onClick = (event) => {
     const target = mentionTarget(event)
     if (target === null) return
@@ -50,17 +50,14 @@ export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, 
         live: streaming && last,
         lead: lead && last ? lead : null,
         whole: last ? whole : undefined,
+        stamp: last && !streaming ? stamp : undefined,
       })
     }))
 }
 
-function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole }) {
+function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole, stamp }) {
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live })
   const key = msgKey ? `${msgKey}:${index}` : undefined
-  const sealed = picked.find(entry => entry.startsWith(SEAL_PREFIX))?.slice(SEAL_PREFIX.length)
-  const emojis = picked.filter(entry => !entry.startsWith(SEAL_PREFIX))
-  // Only a seal pressed in this window lands with the stamp motion.
-  const [fresh, setFresh] = useState('')
   const body = h(MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels(), variant: 'compact', fileMentions: mentions })
   const row = useRef(null)
   // Touch has no hover: a tap on the bubble opens its tools, a tap elsewhere
@@ -74,19 +71,15 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
   return h('div', { ref: row, className: 'bt-msg', onClick: tapTools },
     h('div', { className: 'bt-msg-line' },
       lead,
-      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined },
+      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined, 'data-stamped': stamp ? '' : undefined, 'data-fresh': stamp?.fresh || undefined },
         control ? h('div', { className: 'bt-fold-body' }, body) : body,
-        control),
+        control,
+        stamp ? h(Stamp, stamp) : null),
       live ? null : h(MessageTools, {
         text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, actions, open: toolsOpen,
         react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined,
-        seal: key && sessionId && !sealed ? (kind, reason) => {
-          setFresh(kind)
-          actions.toggleReaction(msgKey, index, `${SEAL_PREFIX}${kind}`)
-          return actions.send(sessionId, sealMessage(kind, text, reason))
-        } : undefined,
       })),
-    emojis.length || sealed ? h('div', { className: 'bt-reacts' }, sealed ? h(Verdict, { kind: sealed, fresh: fresh === sealed }) : null, emojis.map(emoji => h('button', {
+    picked.length ? h('div', { className: 'bt-reacts' }, picked.map(emoji => h('button', {
       key: emoji, type: 'button', className: 'bt-react', 'aria-label': t('Remove reaction {emoji}', { emoji }), onClick: () => actions.toggleReaction(msgKey, index, emoji),
     }, emoji))) : null)
 }
@@ -115,7 +108,7 @@ function useDismiss(open, close, refs) {
 
 // The hover toolbar beside a reply bubble: Add reaction, Reply, More. `open` is
 // the touch fallback: a tap on the bubble toggles it (see Bubble).
-function MessageTools({ text, name, sessionId, react, seal, actions, open: tapped }) {
+function MessageTools({ text, name, sessionId, react, actions, open: tapped }) {
   // The anchor element is kept, not its rect: the visible viewport can move
   // (on-screen keyboard) while the popover is open.
   const [panel, setPanel] = useState(null)
@@ -130,7 +123,7 @@ function MessageTools({ text, name, sessionId, react, seal, actions, open: tappe
     if (!panel) return null
     const rect = panel.node.getBoundingClientRect()
     const below = rect.bottom + 220 < viewBottom()
-    return panel.kind === 'react' || panel.kind === 'seal'
+    return panel.kind === 'react'
       // The strip hangs off its center anchor: clamp the center so the strip
       // itself stays inside the viewport.
       ? { left: Math.min(Math.max(rect.left + rect.width / 2, STRIP_HALF), window.innerWidth - STRIP_HALF), top: rect.top - 6, '--bt-origin': 'bottom center' }
@@ -148,31 +141,12 @@ function MessageTools({ text, name, sessionId, react, seal, actions, open: tappe
   const item = (label, Icon, run) => h('button', { key: label, type: 'button', role: 'menuitem', onClick: () => { close(); run() } }, h(Icon), label)
   return h('div', { ref: tools, className: 'bt-tools', 'data-open': panel !== null || tapped || undefined },
     react ? h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('Add reaction'), title: t('Add reaction'), 'aria-expanded': panel?.kind === 'react', onClick: event => open('react', event) }, h(SmileIcon)) : null,
-    seal ? h('button', { type: 'button', className: 'bt-tool bt-tool-seal', 'aria-label': t('Seal a decision'), title: t('Seal a decision'), 'aria-expanded': panel?.kind === 'seal', onClick: event => open('seal', event) }, h(StampIcon)) : null,
     sessionId ? h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('Reply'), title: t('Reply'), onClick: () => actions.quote(sessionId, text) }, h(ReplyIcon)) : null,
     h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('More message actions'), title: t('More'), 'aria-haspopup': 'menu', 'aria-expanded': panel?.kind === 'more', onClick: event => open('more', event) }, copied ? h(CheckIcon) : h(DotsIcon)),
     panel?.kind === 'react' ? createPortal(h('div', { ref: pop, className: 'bt-react-strip', role: 'menu', 'aria-label': t('Reactions'), style: place },
       REACTIONS.map(emoji => h('button', { key: emoji, type: 'button', role: 'menuitem', 'aria-label': emoji, onClick: () => { close(); react(emoji) } }, emoji))), document.body) : null,
-    panel?.kind === 'seal' ? createPortal(h(SealPicker, { boxRef: pop, place, onSeal: (kind, reason) => { close(); void Promise.resolve(seal(kind, reason)).catch(error => actions.reportError?.(error, 'seal')) } }), document.body) : null,
     panel?.kind === 'more' ? createPortal(h('div', { ref: pop, className: 'bt-menu', role: 'menu', 'aria-label': t('Message actions'), style: place },
       item(t('Copy'), CopyIcon, copy), item(t('Download'), DownloadIcon, download)), document.body) : null)
-}
-
-// The verdicts to choose from, in the reaction strip's shape; 驳回 can carry a reason,
-// written in the same strip before it is sent.
-function SealPicker({ boxRef: ref, place, onSeal }) {
-  const [reason, setReason] = useState(null)
-  const rejection = SEALS.find(entry => entry.reason)
-  if (reason !== null) {
-    return h('form', { ref, className: 'bt-react-strip bt-verdict-strip', style: place, onSubmit: (event) => { event.preventDefault(); onSeal(rejection.kind, reason) } },
-      h('input', { autoFocus: true, value: reason, maxLength: 200, placeholder: t('Reason (optional), then Enter'), 'aria-label': t('Reason for rejecting'), onChange: event => setReason(event.target.value) }),
-      h('button', { type: 'submit', 'aria-label': rejection.kind }, h(VerdictChoice, { seal: rejection })))
-  }
-  return h('div', { ref, className: 'bt-react-strip bt-verdict-strip', role: 'menu', 'aria-label': t('Seal a decision'), style: place },
-    SEALS.map(entry => h('button', {
-      key: entry.kind, type: 'button', role: 'menuitem', 'aria-label': entry.kind,
-      onClick: () => (entry.reason ? setReason('') : onSeal(entry.kind, '')),
-    }, h(VerdictChoice, { seal: entry }))))
 }
 
 // A Turn's settled thinking time, fetched per count of settled steps: while a turn
@@ -250,7 +224,7 @@ function useFileMentions({ node, openFile, fileMentions, useTurnData }) {
   }, [fileMentions, openFile, seq, tail, turn])
 }
 
-export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, actions }) {
+export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, useTurnUser, actions }) {
   const roster = useRoster(value => value)
   const data = node.data
   const steps = useTurnSteps(String(data.turn))
@@ -266,6 +240,15 @@ export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentio
   // earlier step's cell.
   const thinking = groupPart === 'response' || !shown ? undefined : thinkingStep(members)
   const ms = useThinkingMs({ sessionId, turn: data.turn, settledSteps: members.filter(step => step.status !== 'running').length, skip: hidden || reasoning === '' })
+  // 朱批: the user's next message, when it is only a verdict, stamps the last words of
+  // this Turn's reply.
+  const answers = useTurnUser ? useTurnUser(String(Number(data.turn) + 1)) : undefined
+  const answer = Array.isArray(answers) ? answers[0] : undefined
+  const verdict = answer ? verdictOf(contentText(answer.content)) : undefined
+  const lastSpoken = [...members].reverse().find(step => step.blocks?.some(block => block.kind === 'text' && block.text.trim() !== ''))
+  const stampHere = verdict !== undefined && groupPart !== 'reasoning' && (lastSpoken === data || (lastSpoken?.seq !== undefined && lastSpoken.seq === data.seq))
+  const stampKey = `${sessionId}:${data.turn}`
+  const freshStampHere = useMemo(() => (stampHere ? freshStamp(stampKey, answer?.time) : false), [stampKey, stampHere])
   // A streaming reply stands in for the activity row.
   useLiveNote(actions, sessionId, `text:${node.key ?? data.seq}`, !hidden && running && texts.length > 0 ? { text: true } : null)
   if (hidden) return null
@@ -299,7 +282,7 @@ export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentio
       // time makes one Elapsed show settled + running.
       ...(thinking !== undefined ? { at: typeof thinking.time === 'number' ? thinking.time - (ms ?? 0) : undefined } : { ms }),
     }) : null,
-    texts.length ? h(Bubbles, { texts, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ''}`, useUi, mentions, fold: FOLD_HUGE }) : null)
+    texts.length ? h(Bubbles, { texts, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ''}`, useUi, mentions, fold: FOLD_HUGE, stamp: stampHere ? { verdict, fresh: freshStampHere } : undefined }) : null)
 }
 
 function EventLine({ prefix, bots, joiner = t('and'), onOpen, whole = false }) {

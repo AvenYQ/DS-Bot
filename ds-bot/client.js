@@ -491,12 +491,9 @@ var ZH = {
   "Theme accent": "主题强调色",
   "Custom accent": "自定义强调色",
   "Chat color": "聊天配色",
-  "Seal a decision": "朱批",
   Approved: "已准",
   Rejected: "已驳回",
   Noted: "已阅",
-  "Reason (optional), then Enter": "驳回理由（可不填），回车盖章",
-  "Reason for rejecting": "驳回理由",
   "Change my picture": "更换头像",
   "Click the picture to change it": "点头像可以更换图片",
   "Your name": "你的名字",
@@ -2471,10 +2468,10 @@ function useLinger(value, ms) {
 
 // src/client/styles.js
 var SHELL_CSS = `
-body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
-body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62)}
+body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join("")}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join("")}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
@@ -3082,17 +3079,23 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-react-strip button:hover{background:var(--bt-hover);transform:scale(1.15)}
 .bt-react-strip button:active{transform:scale(.92)}
 .bt-reacts{display:flex;gap:4px;margin-top:4px}
-/* 朱批 verdicts: a chip under the Bot's bubble, in the reactions' shape, tinted by tone. */
-.bt-verdict{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:999px;font-size:12px;line-height:1;font-weight:500;color:var(--bt-tone);background:color-mix(in srgb,var(--bt-tone) 10%,transparent)}
-.bt-verdict svg,.bt-verdict-choice svg{flex:none;width:14px;height:14px}
-.bt-verdict[data-fresh]{animation:bt-pop-lift ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
-:is(.bt-verdict,.bt-verdict-choice)[data-tone=yes]{--bt-tone:var(--bt-green)}
-:is(.bt-verdict,.bt-verdict-choice)[data-tone=no]{--bt-tone:var(--bt-danger)}
-:is(.bt-verdict,.bt-verdict-choice)[data-tone=noted]{--bt-tone:var(--bt-ink-2)}
-.bt-verdict-strip button{width:auto!important;padding:0 10px!important;border-radius:999px}
-.bt-verdict-choice{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:var(--bt-ink)}
-.bt-verdict-choice svg{color:var(--bt-tone)}
-.bt-verdict-strip input{width:200px;height:28px;margin-left:4px;border:0;border-radius:999px;background:var(--bt-hover);color:var(--bt-ink);font:inherit;font-size:13px;padding:0 12px;outline:none}
+/* 朱批: when the user answers with a verdict, a cinnabar seal is stamped askew on the tail
+   of the answered bubble: a double frame around Song-style characters, inked rather than
+   painted (multiply, a little thin). */
+.bt-bubble[data-stamped]{position:relative;overflow:visible}
+.bt-msg:has(.bt-bubble[data-stamped]){margin-bottom:14px}
+.bt-stamp{position:absolute;right:-30px;bottom:-18px;display:grid;place-items:center;box-sizing:border-box;width:44px;height:44px;border:2px solid var(--bt-stamp);border-radius:6px;color:var(--bt-stamp);rotate:-11deg;opacity:.86;mix-blend-mode:multiply;pointer-events:none;box-shadow:inset 0 0 0 2px var(--bt-bubble),inset 0 0 0 3px var(--bt-stamp)}
+.bt-stamp[data-len="2"]{width:40px;height:52px}
+.bt-stamp-text{font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:23px;line-height:1;letter-spacing:0}
+.bt-stamp[data-len="2"] .bt-stamp-text{writing-mode:vertical-rl;font-size:17px;letter-spacing:1px}
+.bt-stamp[data-tone=yes],.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-cinnabar)}
+.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 55%,var(--bt-ink-2))}
+body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;opacity:.9}
+.bt-stamp[data-fresh]{animation:bt-stamp-down .52s cubic-bezier(.3,1.5,.5,1) both}
+.bt-bubble[data-fresh]{animation:bt-stamp-press .3s ease-out .2s both}
+@keyframes bt-stamp-down{0%{scale:2.3;rotate:-2deg;opacity:0;filter:blur(3px)}45%{scale:.9;rotate:-12deg;opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:-11deg;opacity:.86}}
+@keyframes bt-stamp-press{0%{translate:0 0}35%{translate:0 2px}100%{translate:0 0}}
+@media (prefers-reduced-motion:reduce){.bt-stamp[data-fresh],.bt-bubble[data-fresh]{animation:none}}
 .bt-react{height:22px;min-width:30px;padding:0 6px;border-radius:999px;border:.5px solid var(--bt-line-2);background:var(--bt-main);font-size:13px;line-height:20px;cursor:pointer;animation:bt-react-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing};transition:background-color .12s ease,${spring(SPRING_TAP, "scale")}}
 .bt-react:hover{background:var(--bt-hover)}
 .bt-react:active{scale:.92}
@@ -3965,9 +3968,6 @@ var ChatsIcon = lineIcon(["M3.5 5.5A1.5 1.5 0 0 1 5 4h7a1.5 1.5 0 0 1 1.5 1.5V10
 var SETTINGS_ICONS = { general: GearIcon, bots: PeopleIcon, groups: ChatsIcon, usage: GaugeIcon };
 var ImageIcon = lineIcon(["M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5z", "M4 13l3.5-3.5L11 13l2-2 3 3", "M12.5 7.5h.01"]);
 var UndoIcon = lineIcon(["M7 8H12a4 4 0 0 1 0 8H8", "M9.5 5.5 7 8l2.5 2.5"]);
-var StampIcon = lineIcon(["M8 3.5h4l-.6 5.5H8.6z", "M4.5 12.5A1.5 1.5 0 0 1 6 11h8a1.5 1.5 0 0 1 1.5 1.5V14h-11z", "M5 16.5h10"]);
-var XIcon = lineIcon(["M6 6l8 8", "M14 6l-8 8"]);
-var EyeIcon = lineIcon(["M2.5 10s2.8-5 7.5-5 7.5 5 7.5 5-2.8 5-7.5 5-7.5-5-7.5-5z", "M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"]);
 
 // src/client/card-hold.js
 var import_react4 = require("react");
@@ -6952,30 +6952,29 @@ var SECRET_CSS = `
 
 // src/client/seal.js
 var import_react11 = require("react");
-var SEALS = [
-  { kind: "准", say: "准奏，照此办理。", done: "Approved", tone: "yes", Icon: CheckIcon },
-  { kind: "驳回", say: "驳回，请重新拟办。", because: "驳回。理由：", done: "Rejected", tone: "no", reason: true, Icon: XIcon },
-  { kind: "知道了", say: "知道了，不必回复。", done: "Noted", tone: "noted", Icon: EyeIcon }
+var VERDICTS = [
+  { stamp: "准", tone: "yes", label: "Approved", words: ["准", "准了", "准奏", "照准", "批准", "同意", "可", "可以", "行"] },
+  { stamp: "驳回", tone: "no", label: "Rejected", words: ["驳回", "不准", "不行", "否", "不同意", "不可以", "拒绝"] },
+  { stamp: "已阅", tone: "noted", label: "Noted", words: ["知道了", "已阅", "阅", "收到", "好的"] }
 ];
-var SEAL_PREFIX = "seal:";
-var QUOTE_MAX = 60;
-var sealOf = (kind) => SEALS.find((seal) => seal.kind === kind);
-function sealMessage(kind, excerpt, reason = "") {
-  const seal = sealOf(kind);
-  const why = reason.replace(/\s+/g, " ").trim();
-  const head = why !== "" && seal.because ? `${seal.because}${why.replace(/[。.!！]$/u, "")}。` : seal.say;
-  const flat = excerpt.replace(/\s+/g, " ").trim();
-  const quote = flat.length > QUOTE_MAX ? `${flat.slice(0, QUOTE_MAX)}…` : flat;
-  return quote ? `${head}
-（批复：${quote}）` : head;
+var BY_WORD = new Map(VERDICTS.flatMap((verdict) => verdict.words.map((word) => [word, verdict])));
+function verdictOf(text) {
+  const bare2 = String(text ?? "").replace(/[\s\p{P}\p{S}]/gu, "");
+  return BY_WORD.get(bare2);
 }
-function Verdict({ kind, fresh }) {
-  const seal = sealOf(kind);
-  if (seal === void 0) return null;
-  return (0, import_react11.createElement)("span", { className: "bt-verdict", "data-tone": seal.tone, "data-fresh": fresh || void 0 }, (0, import_react11.createElement)(seal.Icon), t(seal.done));
+var OPENED = Date.now();
+var stamped = /* @__PURE__ */ new Set();
+function freshStamp(key, time) {
+  if (stamped.has(key)) return false;
+  stamped.add(key);
+  return Number.isFinite(time) && time > OPENED;
 }
-function VerdictChoice({ seal }) {
-  return (0, import_react11.createElement)("span", { className: "bt-verdict-choice", "data-tone": seal.tone }, (0, import_react11.createElement)(seal.Icon), seal.kind);
+function Stamp({ verdict, fresh }) {
+  return (0, import_react11.createElement)(
+    "span",
+    { className: "bt-stamp", "data-tone": verdict.tone, "data-len": verdict.stamp.length, "data-fresh": fresh || void 0, role: "img", "aria-label": t(verdict.label) },
+    (0, import_react11.createElement)("span", { className: "bt-stamp-text" }, verdict.stamp)
+  );
 }
 
 // src/client/turn-reasoning.js
@@ -7400,7 +7399,7 @@ function BtwTurnTail({ turn, sessionId, useRoster, actions }) {
 var import_react14 = require("react");
 var import_react_dom = require("react-dom");
 var mdLabels3 = () => ({ code: { copyLabel: t("Copy"), copiedLabel: t("Copied") }, footnotes: t("Footnotes") });
-function Bubbles({ texts: texts2, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole }) {
+function Bubbles({ texts: texts2, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole, stamp }) {
   const onClick = (event) => {
     const target = mentionTarget(event);
     if (target === null) return;
@@ -7428,17 +7427,15 @@ function Bubbles({ texts: texts2, roster, selfId, actions, streaming, sessionId,
         picked: msgKey ? reactions?.[index] ?? [] : [],
         live: streaming && last,
         lead: lead && last ? lead : null,
-        whole: last ? whole : void 0
+        whole: last ? whole : void 0,
+        stamp: last && !streaming ? stamp : void 0
       });
     })
   );
 }
-function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole }) {
+function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole, stamp }) {
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live });
   const key = msgKey ? `${msgKey}:${index}` : void 0;
-  const sealed = picked.find((entry) => entry.startsWith(SEAL_PREFIX))?.slice(SEAL_PREFIX.length);
-  const emojis = picked.filter((entry) => !entry.startsWith(SEAL_PREFIX));
-  const [fresh, setFresh] = (0, import_react14.useState)("");
   const body = (0, import_react14.createElement)(import_dsh_client_ui_primitives.MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels3(), variant: "compact", fileMentions: mentions });
   const row = (0, import_react14.useRef)(null);
   const [toolsOpen, setToolsOpen] = (0, import_react14.useState)(false);
@@ -7456,9 +7453,10 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
       lead,
       (0, import_react14.createElement)(
         "div",
-        { className: "bt-bubble", "data-folded": folded || void 0 },
+        { className: "bt-bubble", "data-folded": folded || void 0, "data-stamped": stamp ? "" : void 0, "data-fresh": stamp?.fresh || void 0 },
         control ? (0, import_react14.createElement)("div", { className: "bt-fold-body" }, body) : body,
-        control
+        control,
+        stamp ? (0, import_react14.createElement)(Stamp, stamp) : null
       ),
       live ? null : (0, import_react14.createElement)(MessageTools, {
         text: folded ? text : shown,
@@ -7466,15 +7464,10 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
         sessionId,
         actions,
         open: toolsOpen,
-        react: key ? (emoji) => actions.toggleReaction(msgKey, index, emoji) : void 0,
-        seal: key && sessionId && !sealed ? (kind, reason) => {
-          setFresh(kind);
-          actions.toggleReaction(msgKey, index, `${SEAL_PREFIX}${kind}`);
-          return actions.send(sessionId, sealMessage(kind, text, reason));
-        } : void 0
+        react: key ? (emoji) => actions.toggleReaction(msgKey, index, emoji) : void 0
       })
     ),
-    emojis.length || sealed ? (0, import_react14.createElement)("div", { className: "bt-reacts" }, sealed ? (0, import_react14.createElement)(Verdict, { kind: sealed, fresh: fresh === sealed }) : null, emojis.map((emoji) => (0, import_react14.createElement)("button", {
+    picked.length ? (0, import_react14.createElement)("div", { className: "bt-reacts" }, picked.map((emoji) => (0, import_react14.createElement)("button", {
       key: emoji,
       type: "button",
       className: "bt-react",
@@ -7508,7 +7501,7 @@ function useDismiss(open, close, refs) {
     };
   }, [open]);
 }
-function MessageTools({ text, name, sessionId, react, seal, actions, open: tapped }) {
+function MessageTools({ text, name, sessionId, react, actions, open: tapped }) {
   const [panel, setPanel] = (0, import_react14.useState)(null);
   const [copied, setCopied] = (0, import_react14.useState)(false);
   const tools = (0, import_react14.useRef)(null);
@@ -7527,7 +7520,7 @@ function MessageTools({ text, name, sessionId, react, seal, actions, open: tappe
     if (!panel) return null;
     const rect = panel.node.getBoundingClientRect();
     const below = rect.bottom + 220 < viewBottom();
-    return panel.kind === "react" || panel.kind === "seal" ? { left: Math.min(Math.max(rect.left + rect.width / 2, STRIP_HALF), window.innerWidth - STRIP_HALF), top: rect.top - 6, "--bt-origin": "bottom center" } : { left: Math.min(rect.left, window.innerWidth - 208), ...below ? { top: rect.bottom + 4 } : { bottom: viewBottom() - rect.top + 4, "--bt-origin": "bottom left" } };
+    return panel.kind === "react" ? { left: Math.min(Math.max(rect.left + rect.width / 2, STRIP_HALF), window.innerWidth - STRIP_HALF), top: rect.top - 6, "--bt-origin": "bottom center" } : { left: Math.min(rect.left, window.innerWidth - 208), ...below ? { top: rect.bottom + 4 } : { bottom: viewBottom() - rect.top + 4, "--bt-origin": "bottom left" } };
   }, [panel, tick]);
   const copy2 = () => {
     void navigator.clipboard?.writeText(text).then(() => {
@@ -7549,7 +7542,6 @@ function MessageTools({ text, name, sessionId, react, seal, actions, open: tappe
     "div",
     { ref: tools, className: "bt-tools", "data-open": panel !== null || tapped || void 0 },
     react ? (0, import_react14.createElement)("button", { type: "button", className: "bt-tool", "aria-label": t("Add reaction"), title: t("Add reaction"), "aria-expanded": panel?.kind === "react", onClick: (event) => open("react", event) }, (0, import_react14.createElement)(SmileIcon)) : null,
-    seal ? (0, import_react14.createElement)("button", { type: "button", className: "bt-tool bt-tool-seal", "aria-label": t("Seal a decision"), title: t("Seal a decision"), "aria-expanded": panel?.kind === "seal", onClick: (event) => open("seal", event) }, (0, import_react14.createElement)(StampIcon)) : null,
     sessionId ? (0, import_react14.createElement)("button", { type: "button", className: "bt-tool", "aria-label": t("Reply"), title: t("Reply"), onClick: () => actions.quote(sessionId, text) }, (0, import_react14.createElement)(ReplyIcon)) : null,
     (0, import_react14.createElement)("button", { type: "button", className: "bt-tool", "aria-label": t("More message actions"), title: t("More"), "aria-haspopup": "menu", "aria-expanded": panel?.kind === "more", onClick: (event) => open("more", event) }, copied ? (0, import_react14.createElement)(CheckIcon) : (0, import_react14.createElement)(DotsIcon)),
     panel?.kind === "react" ? (0, import_react_dom.createPortal)((0, import_react14.createElement)(
@@ -7560,42 +7552,12 @@ function MessageTools({ text, name, sessionId, react, seal, actions, open: tappe
         react(emoji);
       } }, emoji))
     ), document.body) : null,
-    panel?.kind === "seal" ? (0, import_react_dom.createPortal)((0, import_react14.createElement)(SealPicker, { boxRef: pop, place, onSeal: (kind, reason) => {
-      close();
-      void Promise.resolve(seal(kind, reason)).catch((error) => actions.reportError?.(error, "seal"));
-    } }), document.body) : null,
     panel?.kind === "more" ? (0, import_react_dom.createPortal)((0, import_react14.createElement)(
       "div",
       { ref: pop, className: "bt-menu", role: "menu", "aria-label": t("Message actions"), style: place },
       item(t("Copy"), CopyIcon, copy2),
       item(t("Download"), DownloadIcon, download2)
     ), document.body) : null
-  );
-}
-function SealPicker({ boxRef: ref, place, onSeal }) {
-  const [reason, setReason] = (0, import_react14.useState)(null);
-  const rejection = SEALS.find((entry) => entry.reason);
-  if (reason !== null) {
-    return (0, import_react14.createElement)(
-      "form",
-      { ref, className: "bt-react-strip bt-verdict-strip", style: place, onSubmit: (event) => {
-        event.preventDefault();
-        onSeal(rejection.kind, reason);
-      } },
-      (0, import_react14.createElement)("input", { autoFocus: true, value: reason, maxLength: 200, placeholder: t("Reason (optional), then Enter"), "aria-label": t("Reason for rejecting"), onChange: (event) => setReason(event.target.value) }),
-      (0, import_react14.createElement)("button", { type: "submit", "aria-label": rejection.kind }, (0, import_react14.createElement)(VerdictChoice, { seal: rejection }))
-    );
-  }
-  return (0, import_react14.createElement)(
-    "div",
-    { ref, className: "bt-react-strip bt-verdict-strip", role: "menu", "aria-label": t("Seal a decision"), style: place },
-    SEALS.map((entry) => (0, import_react14.createElement)("button", {
-      key: entry.kind,
-      type: "button",
-      role: "menuitem",
-      "aria-label": entry.kind,
-      onClick: () => entry.reason ? setReason("") : onSeal(entry.kind, "")
-    }, (0, import_react14.createElement)(VerdictChoice, { seal: entry })))
   );
 }
 var thinkingTimes = /* @__PURE__ */ new Map();
@@ -7673,7 +7635,7 @@ function useFileMentions({ node, openFile, fileMentions, useTurnData }) {
     return tail?.closing?.finalNode.seq === seq ? fileMentions({ turn, seq, openFile }) : void 0;
   }, [fileMentions, openFile, seq, tail, turn]);
 }
-function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, actions }) {
+function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, useTurnUser, actions }) {
   const roster = useRoster((value) => value);
   const data = node.data;
   const steps = useTurnSteps(String(data.turn));
@@ -7687,6 +7649,13 @@ function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, use
   const reasoning = groupPart === "response" || !shown ? "" : turnReasoning(steps, data);
   const thinking = groupPart === "response" || !shown ? void 0 : thinkingStep(members);
   const ms = useThinkingMs({ sessionId, turn: data.turn, settledSteps: members.filter((step) => step.status !== "running").length, skip: hidden || reasoning === "" });
+  const answers = useTurnUser ? useTurnUser(String(Number(data.turn) + 1)) : void 0;
+  const answer = Array.isArray(answers) ? answers[0] : void 0;
+  const verdict = answer ? verdictOf(contentText(answer.content)) : void 0;
+  const lastSpoken = [...members].reverse().find((step) => step.blocks?.some((block) => block.kind === "text" && block.text.trim() !== ""));
+  const stampHere = verdict !== void 0 && groupPart !== "reasoning" && (lastSpoken === data || lastSpoken?.seq !== void 0 && lastSpoken.seq === data.seq);
+  const stampKey = `${sessionId}:${data.turn}`;
+  const freshStampHere = (0, import_react14.useMemo)(() => stampHere ? freshStamp(stampKey, answer?.time) : false, [stampKey, stampHere]);
   useLiveNote(actions, sessionId, `text:${node.key ?? data.seq}`, !hidden && running && texts2.length > 0 ? { text: true } : null);
   if (hidden) return null;
   const relays = relayPart(data, groupPart) ? relaysBefore(contexts, steps, data) : [];
@@ -7719,7 +7688,7 @@ function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, use
       // time makes one Elapsed show settled + running.
       ...thinking !== void 0 ? { at: typeof thinking.time === "number" ? thinking.time - (ms ?? 0) : void 0 } : { ms }
     }) : null,
-    texts2.length ? (0, import_react14.createElement)(Bubbles, { texts: texts2, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ""}`, useUi, mentions, fold: FOLD_HUGE }) : null
+    texts2.length ? (0, import_react14.createElement)(Bubbles, { texts: texts2, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ""}`, useUi, mentions, fold: FOLD_HUGE, stamp: stampHere ? { verdict, fresh: freshStampHere } : void 0 }) : null
   );
 }
 function EventLine({ prefix, bots, joiner = t("and"), onOpen, whole = false }) {
@@ -20330,6 +20299,12 @@ function apply(ctx) {
         const snapshot = chat.getSnapshot();
         if (snapshot === void 0) throw new Error("ds-bot: Chat target is unavailable");
         return snapshot.nodes.turnDataSource(Number(turn), "context");
+      },
+      // The user's message that opens a Turn: the one after a reply answers it (朱批).
+      turnUser: (turn) => {
+        const snapshot = chat.getSnapshot();
+        if (snapshot === void 0) throw new Error("ds-bot: Chat target is unavailable");
+        return snapshot.nodes.turnDataSource(Number(turn), "user");
       }
     } };
   };

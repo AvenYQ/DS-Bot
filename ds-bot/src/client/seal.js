@@ -1,40 +1,36 @@
 import { createElement as h } from 'react'
-import { CheckIcon, XIcon, EyeIcon } from './icons.js'
-export { StampIcon } from './icons.js'
 import { t } from './i18n.js'
 
-// 朱批: a verdict on a Bot's message answers it in the user's name. The verdict shows
-// under the bubble (kept with the reactions, as "seal:<kind>"), and a message goes to the
-// chat that names the start of what was answered, so the Bot knows what was approved or
-// rejected. It is drawn in the app's own quiet style: icon, short word, tinted chip.
-export const SEALS = [
-  { kind: '准', say: '准奏，照此办理。', done: 'Approved', tone: 'yes', Icon: CheckIcon },
-  { kind: '驳回', say: '驳回，请重新拟办。', because: '驳回。理由：', done: 'Rejected', tone: 'no', reason: true, Icon: XIcon },
-  { kind: '知道了', say: '知道了，不必回复。', done: 'Noted', tone: 'noted', Icon: EyeIcon },
+// 朱批: when the user answers a Bot's message with nothing but a verdict ("准",
+// "不同意", "知道了"), a seal is stamped askew on the tail of the message it answers.
+// The words go to the Bot as an ordinary message; the seal is drawn from the transcript
+// alone, so it shows the same on every device, and it is stamped with motion only for a
+// reply sent while this window is open.
+const VERDICTS = [
+  { stamp: '准', tone: 'yes', label: 'Approved', words: ['准', '准了', '准奏', '照准', '批准', '同意', '可', '可以', '行'] },
+  { stamp: '驳回', tone: 'no', label: 'Rejected', words: ['驳回', '不准', '不行', '否', '不同意', '不可以', '拒绝'] },
+  { stamp: '已阅', tone: 'noted', label: 'Noted', words: ['知道了', '已阅', '阅', '收到', '好的'] },
 ]
-export const SEAL_PREFIX = 'seal:'
-const QUOTE_MAX = 60
-const sealOf = kind => SEALS.find(seal => seal.kind === kind)
+const BY_WORD = new Map(VERDICTS.flatMap(verdict => verdict.words.map(word => [word, verdict])))
 
-// The words sent in the user's name: plain sentences that read well wherever the message
-// is drawn, and that tell the Bot which of its messages they answer.
-export function sealMessage(kind, excerpt, reason = '') {
-  const seal = sealOf(kind)
-  const why = reason.replace(/\s+/g, ' ').trim()
-  const head = why !== '' && seal.because ? `${seal.because}${why.replace(/[。.!！]$/u, '')}。` : seal.say
-  const flat = excerpt.replace(/\s+/g, ' ').trim()
-  const quote = flat.length > QUOTE_MAX ? `${flat.slice(0, QUOTE_MAX)}…` : flat
-  return quote ? `${head}\n（批复：${quote}）` : head
+// The verdict a whole message gives, if it is nothing more than one of the words;
+// spaces and punctuation around it do not count.
+export function verdictOf(text) {
+  const bare = String(text ?? '').replace(/[\s\p{P}\p{S}]/gu, '')
+  return BY_WORD.get(bare)
 }
 
-// The chip under a Bot's bubble once it has a verdict.
-export function Verdict({ kind, fresh }) {
-  const seal = sealOf(kind)
-  if (seal === undefined) return null
-  return h('span', { className: 'bt-verdict', 'data-tone': seal.tone, 'data-fresh': fresh || undefined }, h(seal.Icon), t(seal.done))
+const OPENED = Date.now()
+const stamped = new Set()
+// Whether the seal for `key` should land with motion: once, for a reply newer than this
+// window.
+export function freshStamp(key, time) {
+  if (stamped.has(key)) return false
+  stamped.add(key)
+  return Number.isFinite(time) && time > OPENED
 }
 
-// A choice in the picker.
-export function VerdictChoice({ seal }) {
-  return h('span', { className: 'bt-verdict-choice', 'data-tone': seal.tone }, h(seal.Icon), seal.kind)
+export function Stamp({ verdict, fresh }) {
+  return h('span', { className: 'bt-stamp', 'data-tone': verdict.tone, 'data-len': verdict.stamp.length, 'data-fresh': fresh || undefined, role: 'img', 'aria-label': t(verdict.label) },
+    h('span', { className: 'bt-stamp-text' }, verdict.stamp))
 }

@@ -670,6 +670,12 @@ export function apply(ctx) {
         if (snapshot === undefined) throw new Error('ds-bot: Chat target is unavailable')
         return snapshot.nodes.turnDataSource(Number(turn), 'context')
       },
+      // The user's message that opens a Turn: the one after a reply answers it (朱批).
+      turnUser: (turn) => {
+        const snapshot = chat.getSnapshot()
+        if (snapshot === undefined) throw new Error('ds-bot: Chat target is unavailable')
+        return snapshot.nodes.turnDataSource(Number(turn), 'user')
+      },
     } }
   }
 
