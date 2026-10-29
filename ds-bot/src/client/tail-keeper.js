@@ -12,8 +12,11 @@
 //   padding), the view finishes the way down.
 // Once the reader scrolls up themselves the view is left where they put it.
 const NEAR = 24
-const HOLD_MS = 180
-const EASE_MS = 220
+// A held height waits for the transcript to go quiet: while a reply is still arriving its
+// text fills the room the typing row left, so nothing has to move at all.
+const QUIET_MS = 500
+const EASE_MS = 360
+const running = () => document.documentElement.hasAttribute('data-bt-running')
 
 export function installTailKeeper() {
   let scroller = null
@@ -45,6 +48,11 @@ export function installTailKeeper() {
   // The held height comes down to what the content needs, the view kept at the bottom.
   const release = () => {
     if (!flow || !scroller) return letGo()
+    // While the reply is still coming, its text will fill the room: keep waiting.
+    if (running()) {
+      holdTimer = setTimeout(release, QUIET_MS)
+      return undefined
+    }
     // Measuring and easing move the scroll position; that is not the reader leaving.
     ours = Date.now()
     const from = held
@@ -77,6 +85,10 @@ export function installTailKeeper() {
 
   const changed = () => {
     if (!scroller || easing) return
+    if (held) {
+      clearTimeout(holdTimer)
+      holdTimer = setTimeout(release, QUIET_MS)
+    }
     const next = scroller.scrollHeight
     const delta = next - height
     height = next
@@ -88,7 +100,7 @@ export function installTailKeeper() {
       height = scroller.scrollHeight
       toBottom()
       clearTimeout(holdTimer)
-      holdTimer = setTimeout(release, HOLD_MS)
+      holdTimer = setTimeout(release, QUIET_MS)
       return
     }
     // Content that came back past what was held needs the hold no more.
@@ -103,10 +115,23 @@ export function installTailKeeper() {
   const resize = new ResizeObserver(changed)
 
   let settle = 0
+  // The browser's scroll anchoring keeps some message in the middle still when content
+  // around it changes, which at the end of a turn nudged a pinned view a few pixels up (and
+  // the follow pulled it back down: the sink and bounce). While the view is pinned to the
+  // bottom, anchoring is off, so the bottom is what stays put.
+  const anchor = () => { if (scroller) scroller.style.overflowAnchor = atBottom ? 'none' : '' }
   const onScroll = () => {
     if (Date.now() - ours < 120 && Date.now() - userAt > 300) return
     if (easing && Date.now() - userAt > 300) return
+    const was = atBottom
     atBottom = gap() <= NEAR
+    // Nudged a little without the reader: back to the bottom now, before the frame is
+    // drawn. A long move (a jump to an earlier message) is left alone.
+    if (was && Date.now() - userAt > 300 && gap() > 1 && gap() <= NEAR * 2) {
+      atBottom = true
+      toBottom()
+    }
+    anchor()
     if (!atBottom && Date.now() - userAt < 300 && held) letGo()
     clearTimeout(settle)
     settle = setTimeout(() => {
@@ -139,6 +164,7 @@ export function installTailKeeper() {
     }
     height = scroller.scrollHeight
     atBottom = gap() <= NEAR
+    anchor()
   }
   const scan = () => attach(document.querySelector('[data-conversation-scroll]'))
   let pending = 0

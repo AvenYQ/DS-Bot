@@ -561,6 +561,12 @@ function decide(body) {
   if (/^\s*慢慢说/.test(userText) && tools.has('list_bots')) {
     return [{ ...text('好，我一点一点说：先看目标，再看约束，然后定下一步，最后去问问团队现在各自在忙什么。'), slow: true }, tool('list_bots', {})]
   }
+  // "长回复": several paragraphs streamed slowly, then the turn ends: exercises how the
+  // transcript settles when a long streamed reply finishes.
+  if (/^\s*长回复/.test(userText)) {
+    const paragraphs = ['**第一段。** 内阁始于永乐年间，起初只是皇帝身边的顾问，品级不高，却日渐要紧。', '第二段：仁宣以后有了票拟之权，奏章先由内阁拟出处理意见，再呈皇帝批红。', '第三段：嘉靖、万历年间首辅权重，严嵩、高拱、张居正先后当国，几与宰相无异。', '- 要点一：票拟\n- 要点二：批红\n- 要点三：首辅', '最后一段：内阁的权力终究来自皇帝的信任，信任在则权倾朝野，信任去则一纸诏书便可罢免。']
+    return [{ ...text(paragraphs.join('\n\n')), slow: true }]
+  }
   // "卡片 K": a reply of about K thousand characters (default 4) that ends with a question card.
   const card = /^卡片(?:\s+(\d+))?/.exec(userText)
   if (card && tools.has('ask_user')) {
