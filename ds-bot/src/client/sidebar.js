@@ -51,6 +51,10 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const running = useSessionStatus(map => map.get(part)?.running === true)
   const active = useSessionRetainInfo(part, info => (info?.retainedBy?.mainView ?? 0) > 0)
   const unread = useSessionStatus(map => map.get(part)?.completionUnread === true || map.get(part)?.pendingInteraction !== undefined) || (marked && !active)
+  // Finished work not yet seen is sealed 办 instead of the plain dot; a question waiting
+  // for the user keeps the dot.
+  const finished = useSessionStatus(map => map.get(part)?.completionUnread === true && map.get(part)?.pendingInteraction === undefined)
+  const done = finished && !active && !running
   useMarkedUnread(id, active, marked, actions)
   const main = isMainOf(roster, id)
   const tile = roster.mainBotId === id
@@ -88,13 +92,17 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   },
   h(BotAvatar, { bot, size: 36, state, main }),
   pinned && !wide ? h(PinMark) : null,
+  // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
+  !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
+  !wide && done ? h('span', { className: 'bt-done', 'aria-hidden': true }, '办') : null,
   wide ? h('span', { className: 'bt-row-body' },
     h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, bot.name), pinned ? h(PinMark) : null),
     runningLine ? h('span', { className: 'bt-row-preview' }, runningLine)
       : awayLine ? h('span', { className: 'bt-row-preview' }, awayLine)
         : waitsFor ? h('span', { className: 'bt-row-preview' }, waitsFor)
           : preview ? h('span', { className: 'bt-row-preview' }, preview) : null) : null,
-  wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null)
+  wide && done ? h('span', { className: 'bt-done', 'aria-hidden': true }, '办')
+    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null)
 }
 
 function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
@@ -753,6 +761,16 @@ export function BrandName() {
 // are CSS-module names, so they match on their stems.
 export const SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
+/* Work at a glance: dots over a Bot's mark in the rail while it works, and a small
+   cinnabar 办 seal, stamped askew, on finished work not yet seen. */
+.bt-busy{position:absolute;top:3px;left:calc(50% + 9px);display:inline-flex;align-items:center;gap:2px;height:12px;padding:0 4px;border-radius:999px;background:var(--bt-card);box-shadow:0 0 0 .5px var(--bt-line-2),0 1px 2px rgba(0,0,0,.08);pointer-events:none}
+.bt-busy i{width:3px;height:3px;border-radius:50%;background:var(--bt-ink-2);animation:bt-busy-dot 1.2s ease-in-out infinite}
+.bt-busy i:nth-child(2){animation-delay:.15s}
+.bt-busy i:nth-child(3){animation-delay:.3s}
+@keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
+.bt-done{flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-cinnabar);border-radius:4px;color:var(--bt-cinnabar);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;opacity:.9;pointer-events:none;animation:bt-stamp-down .45s cubic-bezier(.3,1.5,.5,1) both}
+.bt-rail .bt-done{position:absolute;top:28px;left:calc(50% + 7px);width:16px;height:16px;font-size:10px;background:var(--bt-sidebar)}
+@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done{animation:none}}
 .bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
 .bt-menu .bt-profile-row>.bt-you{flex:none}
 .bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}
@@ -816,6 +834,7 @@ export const SIDEBAR_CSS = `
 .bt-brand .bt-mark{flex:none}
 .bt-pin{flex:none;display:inline-flex;color:var(--bt-ink-3)}
 .bt-rail .bt-row{position:relative}
+.bt-rail>.bt-list{margin-inline:-16px;padding-inline:16px}
 .bt-rail .bt-pin{position:absolute;top:3px;left:calc(50% + 12px)}
 .bt-side .bt-read-only{margin:4px 8px 6px;padding:8px 10px;border-radius:10px;background:var(--bt-hover);font-size:12px;line-height:1.45;text-align:left}
 [class*="_footArea"]:has(.bt-foot-account){grid-template-columns:auto minmax(0,1fr) auto;column-gap:6px}

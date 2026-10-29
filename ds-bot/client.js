@@ -491,6 +491,9 @@ var ZH = {
   "Theme accent": "主题强调色",
   "Custom accent": "自定义强调色",
   "Chat color": "聊天配色",
+  "Court phrasing": "朝堂用语",
+  "What a Bot is doing reads like a court errand: 拟写文书, 打探消息.": "Bot 干活时的状态换成朝堂说法，比如「拟写文书」「打探消息」。",
+  "Court phrasing must be on or off": "朝堂用语只能打开或关闭",
   Approved: "已准",
   Rejected: "已驳回",
   Noted: "已阅",
@@ -1237,7 +1240,38 @@ function installLocale(locale) {
     if (typeof off === "function") off();
   };
 }
+var COURT = {
+  "Thinking about it": "斟酌中",
+  "Weighing the options": "权衡利弊",
+  "Working out a plan": "筹谋中",
+  "Sorting out the details": "梳理细节",
+  "On it": "遵旨办理",
+  "Busy with it": "正在操办",
+  "Moving ahead": "推进中",
+  "Taking care of it": "料理中",
+  "Making headway": "已有眉目",
+  "Searching online": "打探消息",
+  "Reading a page": "查阅文书",
+  "Running shell commands": "差人办事",
+  "Opening a file": "调阅卷宗",
+  "Looking through files": "翻检卷宗",
+  "Writing changes": "拟写文书",
+  "Working on an image": "绘制图样",
+  "Posting in the group": "上奏朝议",
+  "Asking another Bot": "咨询同僚",
+  "Asking {name}": "咨询 {name}",
+  "Checking the team": "点检百官",
+  "Looking back through the chat": "翻阅旧档",
+  "Checking memory": "回想旧事",
+  "Saving to memory": "记入起居注",
+  "{name} is typing…": "{name} 正在拟旨…"
+};
+var court = false;
+function setCourt(on) {
+  court = on === true;
+}
 function t(key, params) {
+  if (court && Object.hasOwn(COURT, key) && language().startsWith("zh")) return fill(COURT[key], params);
   return bound ? bound(key, params) : fill(key, params);
 }
 function hostText(message) {
@@ -8942,6 +8976,8 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const running = useSessionStatus((map) => map.get(part)?.running === true);
   const active = useSessionRetainInfo(part, (info) => (info?.retainedBy?.mainView ?? 0) > 0);
   const unread = useSessionStatus((map) => map.get(part)?.completionUnread === true || map.get(part)?.pendingInteraction !== void 0) || marked && !active;
+  const finished = useSessionStatus((map) => map.get(part)?.completionUnread === true && map.get(part)?.pendingInteraction === void 0);
+  const done = finished && !active && !running;
   useMarkedUnread(id, active, marked, actions);
   const main = isMainOf(roster, id);
   const tile = roster.mainBotId === id;
@@ -8994,13 +9030,16 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     },
     (0, import_react17.createElement)(BotAvatar, { bot, size: 36, state, main }),
     pinned && !wide ? (0, import_react17.createElement)(PinMark) : null,
+    // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
+    !wide && (running || away) ? (0, import_react17.createElement)("span", { className: "bt-busy", "aria-hidden": true }, (0, import_react17.createElement)("i"), (0, import_react17.createElement)("i"), (0, import_react17.createElement)("i")) : null,
+    !wide && done ? (0, import_react17.createElement)("span", { className: "bt-done", "aria-hidden": true }, "办") : null,
     wide ? (0, import_react17.createElement)(
       "span",
       { className: "bt-row-body" },
       (0, import_react17.createElement)("span", { className: "bt-row-name" }, (0, import_react17.createElement)("span", { className: "bt-row-title" }, bot.name), pinned ? (0, import_react17.createElement)(PinMark) : null),
       runningLine ? (0, import_react17.createElement)("span", { className: "bt-row-preview" }, runningLine) : awayLine ? (0, import_react17.createElement)("span", { className: "bt-row-preview" }, awayLine) : waitsFor ? (0, import_react17.createElement)("span", { className: "bt-row-preview" }, waitsFor) : preview ? (0, import_react17.createElement)("span", { className: "bt-row-preview" }, preview) : null
     ) : null,
-    wide && unread && !active ? (0, import_react17.createElement)("span", { className: "bt-unread", "aria-hidden": true }) : null
+    wide && done ? (0, import_react17.createElement)("span", { className: "bt-done", "aria-hidden": true }, "办") : wide && unread && !active ? (0, import_react17.createElement)("span", { className: "bt-unread", "aria-hidden": true }) : null
   );
 }
 function RoomRow({ room: room2, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
@@ -9781,6 +9820,16 @@ function BrandName() {
 }
 var SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
+/* Work at a glance: dots over a Bot's mark in the rail while it works, and a small
+   cinnabar 办 seal, stamped askew, on finished work not yet seen. */
+.bt-busy{position:absolute;top:3px;left:calc(50% + 9px);display:inline-flex;align-items:center;gap:2px;height:12px;padding:0 4px;border-radius:999px;background:var(--bt-card);box-shadow:0 0 0 .5px var(--bt-line-2),0 1px 2px rgba(0,0,0,.08);pointer-events:none}
+.bt-busy i{width:3px;height:3px;border-radius:50%;background:var(--bt-ink-2);animation:bt-busy-dot 1.2s ease-in-out infinite}
+.bt-busy i:nth-child(2){animation-delay:.15s}
+.bt-busy i:nth-child(3){animation-delay:.3s}
+@keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
+.bt-done{flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-cinnabar);border-radius:4px;color:var(--bt-cinnabar);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;opacity:.9;pointer-events:none;animation:bt-stamp-down .45s cubic-bezier(.3,1.5,.5,1) both}
+.bt-rail .bt-done{position:absolute;top:28px;left:calc(50% + 7px);width:16px;height:16px;font-size:10px;background:var(--bt-sidebar)}
+@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done{animation:none}}
 .bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
 .bt-menu .bt-profile-row>.bt-you{flex:none}
 .bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}
@@ -9844,6 +9893,7 @@ var SIDEBAR_CSS = `
 .bt-brand .bt-mark{flex:none}
 .bt-pin{flex:none;display:inline-flex;color:var(--bt-ink-3)}
 .bt-rail .bt-row{position:relative}
+.bt-rail>.bt-list{margin-inline:-16px;padding-inline:16px}
 .bt-rail .bt-pin{position:absolute;top:3px;left:calc(50% + 12px)}
 .bt-side .bt-read-only{margin:4px 8px 6px;padding:8px 10px;border-radius:10px;background:var(--bt-hover);font-size:12px;line-height:1.45;text-align:left}
 [class*="_footArea"]:has(.bt-foot-account){grid-template-columns:auto minmax(0,1fr) auto;column-gap:6px}
@@ -16248,6 +16298,11 @@ function GeneralPage({ roster, actions, run: run2 }) {
           (0, import_react41.createElement)("option", { value: "theme" }, t("Theme color"))
         )
       ),
+      (0, import_react41.createElement)(
+        SetRow,
+        { label: t("Court phrasing"), hint: t("What a Bot is doing reads like a court errand: 拟写文书, 打探消息.") },
+        (0, import_react41.createElement)(Switch, { label: t("Court phrasing"), on: prefs.court !== false, onChange: (court2) => run2(actions.setPrefs({ court: court2 })) })
+      ),
       (0, import_react41.createElement)(SetRow, { label: t("Message layout") }, (0, import_react41.createElement)(Choice, { label: t("Message layout"), value: layoutOf(prefs), options: LAYOUTS, pick: (id) => run2(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === "flat" ? (0, import_react41.createElement)(SetRow, { label: t("Text width") }, (0, import_react41.createElement)(WidthSlider, { label: t("Text width"), value: flatWidthOf(prefs), save: (flatWidth) => run2(actions.setPrefs({ flatWidth })) })) : null,
@@ -19957,6 +20012,7 @@ function apply(ctx) {
       const id = themes[prefs.theme] ? prefs.theme : "deepseek";
       const accent = isHex(prefs.accent) ? prefs.accent : void 0;
       const motion = prefs.motion === "quiet" || prefs.motion === "lively" ? prefs.motion : "normal";
+      setCourt(prefs.court !== false);
       const layout = layoutOf(prefs);
       const width = widthOf(prefs);
       const flatWidth = flatWidthOf(prefs);
@@ -19973,7 +20029,7 @@ function apply(ctx) {
       if (typeof release === "function") release();
       if (snapshot.ready) {
         try {
-          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor }));
+          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court }));
         } catch {
         }
       }

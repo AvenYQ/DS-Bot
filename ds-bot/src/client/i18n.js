@@ -431,6 +431,9 @@ const ZH = {
   'Theme accent': '主题强调色',
   'Custom accent': '自定义强调色',
   'Chat color': '聊天配色',
+  'Court phrasing': '朝堂用语',
+  'What a Bot is doing reads like a court errand: 拟写文书, 打探消息.': 'Bot 干活时的状态换成朝堂说法，比如「拟写文书」「打探消息」。',
+  'Court phrasing must be on or off': '朝堂用语只能打开或关闭',
   Approved: '已准',
   Rejected: '已驳回',
   Noted: '已阅',
@@ -1196,7 +1199,22 @@ export function installLocale(locale) {
   }
 }
 
+// 朝堂用语: with the court phrasing on (Settings > Appearance), what a Bot is doing reads
+// as a court official's errand in Chinese. Only these status lines change.
+const COURT = {
+  'Thinking about it': '斟酌中', 'Weighing the options': '权衡利弊', 'Working out a plan': '筹谋中', 'Sorting out the details': '梳理细节',
+  'On it': '遵旨办理', 'Busy with it': '正在操办', 'Moving ahead': '推进中', 'Taking care of it': '料理中', 'Making headway': '已有眉目',
+  'Searching online': '打探消息', 'Reading a page': '查阅文书', 'Running shell commands': '差人办事', 'Opening a file': '调阅卷宗',
+  'Looking through files': '翻检卷宗', 'Writing changes': '拟写文书', 'Working on an image': '绘制图样',
+  'Posting in the group': '上奏朝议', 'Asking another Bot': '咨询同僚', 'Asking {name}': '咨询 {name}',
+  'Checking the team': '点检百官', 'Looking back through the chat': '翻阅旧档', 'Checking memory': '回想旧事', 'Saving to memory': '记入起居注',
+  '{name} is typing…': '{name} 正在拟旨…',
+}
+let court = false
+export function setCourt(on) { court = on === true }
+
 export function t(key, params) {
+  if (court && Object.hasOwn(COURT, key) && language().startsWith('zh')) return fill(COURT[key], params)
   return bound ? bound(key, params) : fill(key, params)
 }
 
