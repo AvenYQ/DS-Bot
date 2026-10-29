@@ -167,18 +167,14 @@ export function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useL
     }, 140)
     return () => clearTimeout(timer)
   }, [visible])
-  // Removing the row at a pinned tail moves the transcript down; a tail
-  // shift eases that collapse instead of jumping.
+  // Removing the row at a pinned tail would move the transcript down; the
+  // tail keeper holds it there and eases any real loss.
   useLayoutEffect(() => {
     if (phase !== null) return
     endedAt.current = Date.now()
     setShown(null)
-    const before = shift.current
+    // The transcript's own keeper (tail-keeper.js) holds the bottom while the row goes.
     shift.current = null
-    const scroller = document.querySelector('[data-conversation-scroll]')
-    if (before === null || !scroller || reducedMotion()) return
-    const delta = before - scroller.scrollTop
-    if (delta > 0) scroller.querySelector('[data-chat-flow]')?.animate([{ transform: `translateY(${-delta}px)` }, { transform: 'none' }], { duration: 140, easing: 'cubic-bezier(.23,1,.32,1)' })
   }, [phase])
   // Cancelled tools never report a result, so their notes end with the run.
   useEffect(() => { if (!running) actions.clearLive(sessionId) }, [running, sessionId])
