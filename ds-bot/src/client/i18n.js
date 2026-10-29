@@ -329,6 +329,7 @@ const ZH = {
   Profile: '资料',
   Label: '标签',
   Catchphrases: '口头禅',
+  'Shown as a tile at the top of the sidebar.': '在侧栏顶部显示成一张头像卡片',
   'Shown while it works, in place of Thinking. Separate with 、': '干活时轮流显示，代替「思考中」，用「、」隔开',
   'Let me check、On it': '容我看看、这就去办',
   'Optional. Shown under the name.': '可选，显示在名字下方。',

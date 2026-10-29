@@ -1,11 +1,12 @@
 import { createElement as h, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { FishLogo } from './dsh-primitives.js'
-import { isMainOf } from './sources.js'
+import { isMainOf, isPinned } from './sources.js'
+import { useDragSort } from './drag-sort.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
 import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
-import { botState, BotMark, BotAvatar, RoomAvatar } from './mark.js'
+import { botState, BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
 import { reducedMotion } from './activity-row.js'
 import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
@@ -47,6 +48,8 @@ const waitingFor = (roster, waits) => {
 function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, wide, marked, folded = false }) {
   const id = bot.id
   const part = currentPart(bot)
+  // The chat's copy of the photo is made ahead, so opening the chat shows it at once.
+  warmPhoto(bot.avatar?.image)
   const preview = useSessions(list => previewOf(list, part, roster.exchangeTurns[part]))
   const running = useSessionStatus(map => map.get(part)?.running === true)
   const active = useSessionRetainInfo(part, info => (info?.retainedBy?.mainView ?? 0) > 0)
@@ -57,7 +60,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const done = finished && !active && !running
   useMarkedUnread(id, active, marked, actions)
   const main = isMainOf(roster, id)
-  const tile = roster.mainBotId === id
+  const tile = isPinned(roster, bot)
   const approval = useApproval(useWork, entry => entry.botId === id)
   const alert = roster.questions?.[part] !== undefined || approval
   const doing = useActivity(map => map[id])
@@ -75,14 +78,14 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     event.preventDefault()
     actions.openMenu({ kind: 'bot', id, x: event.clientX, y: event.clientY })
   }
-  const pinned = bot.pinned === true && !tile
+  const pinned = false
   const label = [bot.name, main ? t('Main Bot') : '', pinned ? t('Pinned') : '', running || away ? t('Working') : '', waitsFor, approval ? t('Waiting for your approval') : alert ? t('Waiting for your answer') : '', unread ? t('Unread activity') : ''].filter(Boolean).join(', ')
   if (tile && wide) {
     return h('div', { className: 'bt-tile-wrap' }, h('button', {
       type: 'button', className: 'bt-tile', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
       'data-bot-id': id, title: preview || bot.name, onClick: () => actions.openSession(id), onContextMenu,
     },
-    h(BotAvatar, { bot, size: 60, state, main: true }),
+    h(BotAvatar, { bot, size: 60, state, main, shared: true }),
     h('span', { className: 'bt-tile-name' }, bot.name),
     bot.role ? h('span', { className: 'bt-chip' }, bot.role) : null))
   }
@@ -90,7 +93,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
     'data-bot-id': id, title: wide ? undefined : bot.name, onClick: () => actions.openSession(id), onContextMenu,
   },
-  h(BotAvatar, { bot, size: 36, state, main }),
+  h(BotAvatar, { bot, size: 36, state, main, shared: true }),
   pinned && !wide ? h(PinMark) : null,
   // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
   !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
@@ -236,15 +239,23 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
 // List rows glide to new places on a spring.
 const GLIDE = springEasing(1000, 63)
 
-function useListGlide(listRef, layout, key) {
+function useListGlide(listRef, layout, key, handoff) {
   const tops = useRef({ layout, map: new Map() })
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) return
+    // A drop hands over where it left every row: the lifted rows let go here, and the
+    // list glides from there.
+    const dropped = handoff?.current
+    if (dropped) {
+      handoff.current = null
+      dropped.settle()
+      tops.current = { layout, map: dropped.seen }
+    }
     const next = new Map()
     const still = reducedMotion() || tops.current.layout !== layout
-    for (const row of list.querySelectorAll('[data-bot-id],[data-room-id],[data-agent-id]')) {
-      const id = row.dataset.botId ?? row.dataset.roomId ?? row.dataset.agentId
+    for (const row of list.querySelectorAll('[data-bot-id],[data-room-id],[data-agent-id],.bt-sec[data-section]')) {
+      const id = row.dataset.botId ?? row.dataset.roomId ?? row.dataset.agentId ?? `section:${row.dataset.section}`
       // offsetTop ignores transforms, so a glide in flight does not skew the next one.
       const top = row.offsetTop
       next.set(id, top)
@@ -273,16 +284,20 @@ export function TeamSidebar(props) {
   const order = useMemo(() => {
     const stamps = JSON.parse(updated)
     const entries = [
-      ...roster.bots.filter(bot => bot.id !== roster.mainBotId).map(bot => ({ kind: 'bot', item: bot, at: stamps[currentPart(bot)] ?? bot.createdAt })),
+      ...roster.bots.map(bot => ({ kind: 'bot', item: bot, at: stamps[currentPart(bot)] ?? bot.createdAt })),
       ...roster.rooms.map(room => ({ kind: 'room', item: room, at: stamps[room.id] ?? room.createdAt })),
       // The Agent sorts by its most recent Session, falling back to when it was added.
       ...(roster.agents ?? []).map(agent => ({ kind: 'agent', item: agent, at: Math.max(0, ...agent.sessions.map(id => stamps[id] ?? 0)) || agent.createdAt })),
     ]
-    return entries.sort((a, b) => Number(Boolean(b.item.pinned)) - Number(Boolean(a.item.pinned)) || b.at - a.at)
+    // Rows the user arranged keep that order; the rest follow, newest activity first.
+    const rank = entry => (Number.isFinite(entry.item.rank) ? entry.item.rank : Infinity)
+    return entries.sort((a, b) => rank(a) - rank(b) || b.at - a.at)
   }, [roster, updated])
-  const main = roster.byId[roster.mainBotId]
-  const groups = useMemo(() => sectionGroups(order, roster.sections ?? []), [order, roster.sections])
-  useListGlide(listRef, wide, `${order.map(entry => entry.item.id).join(',')}|${(roster.sections ?? []).map(section => `${section.name}${section.collapsed ? '-' : '+'}`).join(',')}`)
+  const groups = useMemo(() => sectionGroups(order, roster.sections ?? [], roster), [order, roster])
+  const handoff = useRef(null)
+  const listKey = `${order.map(entry => `${entry.item.id}${isPinned(roster, entry.item) ? '*' : ''}:${entry.item.section ?? ''}`).join(',')}|${(roster.sections ?? []).map(section => `${section.name}${section.collapsed ? '-' : '+'}`).join(',')}`
+  useListGlide(listRef, wide, listKey, handoff)
+  useDragSort(listRef, { enabled: wide && !roster.readOnly, actions, onLand: (seen, settle) => { handoff.current = { seen, settle } } })
   useLandOnMainBot(roster, useSessions, actions)
   // The shell keeps wide content during its collapse fade. Normalize through its
   // public expansion action before toggling; coalesce synchronous activations
@@ -323,10 +338,12 @@ export function TeamSidebar(props) {
           h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon))),
     wide && roster.readOnly ? h('div', { className: 'bt-hint bt-read-only', role: 'status' }, hostText(roster.readOnly)) : null,
     h('div', { ref: listRef, className: 'bt-list', role: 'region', 'aria-label': t('Bot list') },
-      main ? h(BotRow, { ...rowProps, bot: main, marked: markedUnread[main.id] === true }) : roster.ready ? null : h('div', { className: 'bt-hint' }, t('Setting up your Main Bot…')),
+      roster.ready || roster.byId[roster.mainBotId] ? null : h('div', { className: 'bt-hint' }, t('Setting up your Main Bot…')),
+      groups.tiles.length > 0 ? h('div', { className: 'bt-tiles' }, groups.tiles.map(entry => rowOf(entry))) : null,
       groups.pinned.map(entry => rowOf(entry)),
       groups.sections.map(({ section, entries }) => h(Fragment, { key: `section:${section.name}` },
-        h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide, actions }),
+        // In the rail an empty section draws no rule, so rules never double up.
+        wide || entries.some(entry => !entry.item.hidden) ? h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide, actions }) : null,
         // A rail has no room for headings, so it shows every row under a thin rule.
         entries.map(entry => rowOf(entry, wide && section.collapsed === true)))),
       groups.sections.length > 0 && groups.loose.length > 0 && wide ? h('div', { className: 'bt-sec-rest', role: 'separator' }) : null,
@@ -345,18 +362,23 @@ export function TeamSidebar(props) {
 // Pinned rows stay on top whatever their section; then each section in the user's
 // order, its rows by recent activity; then the rows in no section. The DSH Agent
 // is in no section.
-export function sectionGroups(order, sections) {
+export function sectionGroups(order, sections, roster = {}) {
   const key = name => String(name).toLocaleLowerCase()
   const slots = new Map(sections.map(section => [key(section.name), { section, entries: [] }]))
+  const tiles = []
   const pinned = []
   const loose = []
   for (const entry of order) {
     const slot = entry.kind !== 'agent' && typeof entry.item.section === 'string' ? slots.get(key(entry.item.section)) : undefined
-    if (entry.item.pinned) pinned.push(entry)
+    if (entry.kind === 'bot' && isPinned(roster, entry.item)) tiles.push(entry)
+    else if (entry.item.pinned === true) pinned.push(entry)
     else if (slot) slot.entries.push(entry)
     else loose.push(entry)
   }
-  return { pinned, sections: [...slots.values()], loose }
+  // Tiles keep the order they were pinned in, the first Main Bot first.
+  const rank = entry => (entry.item.id === roster.mainBotId ? -Infinity : entry.item.pinnedAt ?? entry.item.createdAt ?? 0)
+  tiles.sort((a, b) => rank(a) - rank(b))
+  return { tiles, pinned, sections: [...slots.values()], loose }
 }
 
 // A section's heading: a click folds or opens it, and its menu renames, moves or
@@ -366,7 +388,7 @@ function SectionHeader({ section, count, wide, actions }) {
   const folded = section.collapsed === true
   const openMenu = (x, y) => actions.openMenu({ kind: 'section', id: section.name, x, y })
   const fold = () => { void Promise.resolve(actions.arrangeSection(section.name, { collapsed: !folded })).catch(error => actions.reportError?.(error, 'section')) }
-  return h('div', { className: 'bt-sec', 'data-folded': folded || undefined, onContextMenu: (event) => { event.preventDefault(); openMenu(event.clientX, event.clientY) } },
+  return h('div', { className: 'bt-sec', 'data-section': section.name, 'data-folded': folded || undefined, onContextMenu: (event) => { event.preventDefault(); openMenu(event.clientX, event.clientY) } },
     h('button', { type: 'button', className: 'bt-sec-head', 'aria-expanded': !folded, onClick: fold },
       h('span', { className: 'bt-sec-caret', 'aria-hidden': true }, h(ChevronRightIcon)),
       h('span', { className: 'bt-sec-name' }, section.name),
@@ -770,7 +792,12 @@ export const SIDEBAR_CSS = `
 @keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
 .bt-done{flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-cinnabar);border-radius:4px;color:var(--bt-cinnabar);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;opacity:.9;pointer-events:none;animation:bt-stamp-down .45s cubic-bezier(.3,1.5,.5,1) both}
 .bt-rail .bt-done{position:absolute;top:28px;left:calc(50% + 7px);width:16px;height:16px;font-size:10px;background:var(--bt-sidebar)}
-@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done{animation:none}}
+/* Opening the sidebar: its rows ease in from the left while the column widens, a beat after
+   the top row, instead of being uncovered as the column grows. */
+@keyframes bt-wide-in{from{opacity:0;transform:translateX(-10px)}}
+.bt-side:not(.bt-rail)>.bt-side-top{animation:bt-wide-in .3s cubic-bezier(.32,.72,0,1) backwards}
+.bt-side:not(.bt-rail)>.bt-list{animation:bt-wide-in .34s cubic-bezier(.32,.72,0,1) .04s backwards}
+@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list{animation:none}}
 .bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
 .bt-menu .bt-profile-row>.bt-you{flex:none}
 .bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}

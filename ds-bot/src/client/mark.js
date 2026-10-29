@@ -48,7 +48,31 @@ function useGaze(ref, enabled) {
 // fidget and moment); transcript marks stay still so a long chat does not run dozens
 // of animations.
 const FIDGETS = ['hop', 'sway', 'stretch', 'look']
-export function BotMark({ bot, look: given, size = 36, state = 'idle', live = false, gaze = false, pokeable = false, label }) {
+// Chromium runs one animation per image resource: a new <img> of an animated photo restarts
+// it in every other <img> of the same URL. The sidebar's avatars are always there and keep the
+// photo's own URL; every other place (the chat's header, the typing row…) shows a copy of
+// its own, made once per photo, so opening a chat does not rewind the sidebar.
+const copies = new Map()
+function photoCopy(src, onReady) {
+  const known = copies.get(src)
+  if (typeof known === 'string') return known
+  if (known === undefined) {
+    const waiting = new Set()
+    copies.set(src, waiting)
+    fetch(src, { credentials: 'same-origin' })
+      .then(response => (response.ok ? response.blob() : Promise.reject(new Error(String(response.status)))))
+      .then(blob => URL.createObjectURL(blob), () => src)
+      .then((url) => {
+        copies.set(src, url)
+        for (const ready of waiting) ready()
+      })
+  }
+  if (onReady) copies.get(src).add(onReady)
+  return undefined
+}
+export const warmPhoto = src => { if (typeof src === 'string' && src !== '') photoCopy(src) }
+
+export function BotMark({ bot, look: given, size = 36, state = 'idle', live = false, gaze = false, pokeable = false, label, shared = false }) {
   const look = given ?? lookOf(bot)
   const ref = useRef(null)
   const maskId = useRef('')
@@ -57,6 +81,8 @@ export function BotMark({ bot, look: given, size = 36, state = 'idle', live = fa
   // A photo that does not load shows the character instead; a new photo is tried again.
   const [broken, setBroken] = useState('')
   const image = look.image && look.image !== broken ? look.image : undefined
+  const [, copied] = useState(0)
+  const copy = image === undefined || shared ? image : photoCopy(image, () => copied(n => n + 1))
   useGaze(ref, gaze)
   const common = {
     ref,
@@ -74,7 +100,8 @@ export function BotMark({ bot, look: given, size = 36, state = 'idle', live = fa
     onClick: pokeable ? () => setPoked(true) : undefined,
     onAnimationEnd: poked ? (event) => { if (/^bt-poke/.test(event.animationName)) setPoked(false) } : undefined,
   }
-  if (image) return h('span', common, h('img', { className: 'bt-mark-img', src: image, alt: '', draggable: false, onError: () => setBroken(image) }))
+  // Until its copy is ready a photo shows nothing, rather than the shared URL.
+  if (image) return h('span', common, copy === undefined ? null : h('img', { className: 'bt-mark-img', src: copy, alt: '', draggable: false, onError: () => setBroken(image) }))
   const box = shapeOf(look.shape).size
   return h('span', common, h('svg', { viewBox: `0 0 ${box} ${box}`, dangerouslySetInnerHTML: { __html: characterMarkup(look.shape, look.color).replaceAll(MASK_ID, maskId.current) } }))
 }
@@ -109,12 +136,12 @@ function useSettled(state) {
   return settled
 }
 
-export function BotAvatar({ bot, size, state = 'idle', main, admin, badge = true, live = true, gaze = false, pokeable = false }) {
+export function BotAvatar({ bot, size, state = 'idle', main, admin, badge = true, live = true, gaze = false, pokeable = false, shared = false }) {
   const settled = useSettled(state)
   if (bot === undefined) return h(BotMark, { size })
   const badgeKind = !badge ? null : state === 'alert' ? 'alert' : state !== 'idle' && state !== 'waiting' ? 'working' : admin ? 'admin' : main ? 'main' : null
   return h('span', { className: 'bt-mark', style: { width: size, height: size, '--bt-size': `${size}px` } },
-    h(BotMark, { bot, size, state: settled ? 'done' : state, live, gaze, pokeable }),
+    h(BotMark, { bot, size, state: settled ? 'done' : state, live, gaze, pokeable, shared }),
     badgeKind === 'working' ? h('span', { className: 'bt-badge bt-badge-working', 'aria-label': t('Working'), role: 'img' }) : null,
     badgeKind === 'alert' ? h('span', { className: 'bt-badge bt-badge-alert', 'aria-label': t('Waiting for your answer'), role: 'img' }, '?') : null,
     badgeKind === 'admin' ? h('span', { className: 'bt-badge bt-badge-admin', 'aria-label': t('Admin'), role: 'img' }, h(StarIcon)) : null,

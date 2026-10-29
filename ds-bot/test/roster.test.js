@@ -1019,3 +1019,22 @@ test('a Bot keeps catchphrases of its own, cleaned, and loses them on an empty e
   const plain = (await call('create-bot', { name: 'Plain' })).value
   assert.equal(plain.phrases, undefined)
 })
+
+test('dragged rows join a section in the order they were dropped, and pinning keeps its order', async (t) => {
+  const { call, stop } = start(undefined, { models: ['deepseek-v4-flash'] })
+  t.after(stop)
+  const a = (await call('create-bot', { name: 'Alpha', phrases: '在办' })).value
+  const b = (await call('create-bot', { name: 'Beta' })).value
+  let view = (await call('arrange-entries', { section: '内廷', ids: [b.id, a.id] })).value
+  const byId = id => view.bots.find(bot => bot.id === id)
+  assert.equal(byId(a.id).section, '内廷')
+  assert.deepEqual([byId(b.id).rank, byId(a.id).rank], [0, 1])
+  assert.deepEqual(byId(a.id).phrases, ['在办'])
+  assert.deepEqual(view.sections.map(section => section.name), ['内廷'])
+  view = (await call('arrange-entries', { section: '', ids: [a.id] })).value
+  assert.equal(byId(a.id).section, undefined)
+  const pinned = (await call('set-flags', { id: b.id, pinned: true })).value
+  assert.equal(typeof pinned.pinnedAt, 'number')
+  const unpinned = (await call('set-flags', { id: b.id, pinned: false })).value
+  assert.equal(unpinned.pinnedAt, undefined)
+})

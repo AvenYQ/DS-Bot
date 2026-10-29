@@ -8,6 +8,8 @@ import { themeCss, shellTokens, registry, registerShape, registerTheme, allTheme
 import { MENTION_ORIGIN, currentPart } from './text.js'
 import { SHELL_CSS, CONVERSATION_CSS, installStyles, installCompiledStyles } from './styles.js'
 import { lookOf } from './mark.js'
+import { DRAG_SORT_CSS } from './drag-sort.js'
+import { installTailKeeper } from './tail-keeper.js'
 import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, BotReturn, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
 import { HeaderPill } from './header.js'
 import { ComposerPlus, ComposerVoice, menuIcons } from './composer.js'
@@ -815,7 +817,7 @@ export function apply(ctx) {
   // so a surface change withdraws the whole group and the outlets re-render.
   const installShell = () => [
     () => installCompiledStyles(SHELL_CSS, 'shell'),
-    () => installCompiledStyles(SIDEBAR_CSS, 'sidebar'),
+    () => installCompiledStyles(SIDEBAR_CSS + DRAG_SORT_CSS, 'sidebar'),
     () => installCompiledStyles(SECRET_CSS, 'secrets'),
     () => installCompiledStyles(MODEL_CSS + FOLDER_CSS + BOT_SETTINGS_CSS + GROUP_SETTINGS_CSS + AVATAR_LIBRARY_CSS, 'models'),
     () => installCompiledStyles(USAGE_CSS, 'usage'),
@@ -831,6 +833,7 @@ export function apply(ctx) {
     () => installCompiledStyles(BROWSER_CSS, 'browser'),
     () => installTheme(),
     () => installChatColor(),
+    () => installTailKeeper(),
     () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
     () => shadow('sidebar.brand.mark', { priority: BOT_PRIORITY }, BrandMark),
     () => shadow('sidebar.brand.name', { priority: BOT_PRIORITY }, BrandName),

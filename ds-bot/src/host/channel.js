@@ -353,6 +353,10 @@ export function install(rt) {
           await rt.load()
           await rt.setSection(body.id, body.section ?? null)
           return ok(view())
+        case 'arrange-entries':
+          await rt.load()
+          await rt.arrangeEntries(body.section ?? null, body.ids)
+          return ok(view())
         case 'section-create':
           await rt.load()
           await rt.createSection(body.name)

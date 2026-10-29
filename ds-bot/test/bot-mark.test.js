@@ -18,7 +18,11 @@ const react = {
   createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }),
   useState: initial => [states.length > 0 ? states.shift() : initial, value => sets.push(value)], useEffect: () => {}, useRef: current => ({ current }), useLayoutEffect: () => {}, Fragment: 'fragment',
 }
-runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require: name => (name === 'react' ? react : {}) })
+const fetched = []
+let finishCopy
+const fetchStub = (src) => { fetched.push(src); return new Promise((resolve) => { finishCopy = () => resolve({ ok: true, blob: () => Promise.resolve('blob') }) }) }
+const URLStub = { createObjectURL: () => 'blob:copy' }
+runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require: name => (name === 'react' ? react : {}), fetch: fetchStub, URL: URLStub })
 const { botState, BotAvatar, BotMark, SHELL_CSS } = module.exports
 
 test('a Bot that waits for work it handed on has a mark of its own, behind a running turn and a question', () => {
@@ -41,17 +45,31 @@ test('a waiting Bot does not wear the working badge, since no turn of it runs', 
 test('a photo that does not load shows the Bot\'s character instead', () => {
   const photo = 'data:image/png;base64,iVBORw0KGgo='
   const bot = { id: 'b', name: 'Writer', avatar: { shape: 'fox', image: photo } }
-  const img = BotMark({ bot }).children[0]
+  const img = BotMark({ bot, shared: true }).children[0]
   assert.equal(img.type, 'img')
   sets.length = 0
   img.props.onError()
   assert.deepEqual(sets, [photo])
   // Rendered again with that photo marked broken: the character, not an empty image.
   states.push(false, photo)
-  const mark = BotMark({ bot })
+  const mark = BotMark({ bot, shared: true })
   assert.equal(mark.children[0].type, 'svg')
   assert.notEqual(mark.props['data-shape'], 'image')
   // A new photo is tried again.
   states.push(false, photo)
-  assert.equal(BotMark({ bot: { ...bot, avatar: { ...bot.avatar, image: `${photo}AA` } } }).children[0].type, 'img')
+  assert.equal(BotMark({ bot: { ...bot, avatar: { ...bot.avatar, image: `${photo}AA` } }, shared: true }).children[0].type, 'img')
+})
+
+test('a photo outside the sidebar shows a copy of its own, so a new one does not rewind the sidebar\'s', async () => {
+  const photo = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
+  const bot = { id: 'g', name: 'Painter', avatar: { image: photo } }
+  // The sidebar keeps the photo's own URL.
+  assert.equal(BotMark({ bot, shared: true }).children[0].props.src, photo)
+  // Elsewhere nothing shows until the copy is made, and the copy is made once.
+  assert.equal(BotMark({ bot }).children[0], null)
+  BotMark({ bot })
+  assert.deepEqual(fetched.filter(src => src === photo), [photo])
+  finishCopy()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(BotMark({ bot }).children[0].props.src, 'blob:copy')
 })

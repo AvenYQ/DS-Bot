@@ -371,7 +371,12 @@ export function install(rt) {
   async function setFlags(id, { pinned, hidden }) {
     const entry = rt.botOf(id) ?? rt.roomOf(id) ?? rt.own(state.agents, id)
     if (entry === undefined) throw new Error('Unknown conversation')
-    if (typeof pinned === 'boolean') entry.pinned = pinned
+    if (typeof pinned === 'boolean') {
+      // The order of the pinned tiles is the order they were pinned in.
+      if (pinned && entry.pinned !== true) entry.pinnedAt = Date.now()
+      if (!pinned) delete entry.pinnedAt
+      entry.pinned = pinned
+    }
     if (typeof hidden === 'boolean') entry.hidden = hidden
     await rt.save()
     return entry
