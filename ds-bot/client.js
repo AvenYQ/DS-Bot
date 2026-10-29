@@ -2473,7 +2473,7 @@ ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join("")}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
 .bt-mark svg{width:100%;height:100%;overflow:visible}
-.bt-mark-img{width:100%;height:100%;border-radius:50%;corner-shape:round;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--bt-line)}
+.bt-mark-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--bt-line)}
 .bt-mark .bt-b,.bt-mark .bt-eye,.bt-mark .bt-eyes,.bt-mark .bt-gaze{transform-box:fill-box}
 .bt-mark .bt-b{transform-origin:50% 100%}
 .bt-mark .bt-eye,.bt-mark .bt-eyes{transform-origin:center}
@@ -3081,7 +3081,7 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-react:active{scale:.92}
 @keyframes bt-react-pop{from{transform:scale(.6);opacity:0}}
 .bt-bubble a[href^="${MENTION_ORIGIN}"] svg{display:none}
-.bt-you{width:36px;height:36px;border-radius:50%;corner-shape:round;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bt-ink) 5%,var(--bt-sidebar));color:var(--bt-ink-2);box-shadow:inset 0 0 0 1px var(--bt-line);transition:background-color .12s ease}
+.bt-you{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bt-ink) 5%,var(--bt-sidebar));color:var(--bt-ink-2);box-shadow:inset 0 0 0 1px var(--bt-line);transition:background-color .12s ease}
 button:hover .bt-you{background:color-mix(in srgb,var(--bt-ink) 9%,var(--bt-sidebar))}
 .bt-you-wrap{display:inline-flex;padding:0}
 
@@ -9725,7 +9725,7 @@ var SIDEBAR_CSS = `
 .bt-profile-name{font-size:14px;font-weight:600;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-profile-hint{font-size:12px;color:var(--bt-ink-3)}
 .bt-profile{width:100%;padding:10px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:10px;box-sizing:border-box}
-.bt-menu .bt-profile-face{position:relative;width:64px;height:64px;min-height:0;padding:0;border-radius:50%;corner-shape:round;justify-content:center}
+.bt-menu .bt-profile-face{position:relative;width:64px;height:64px;min-height:0;padding:0;border-radius:50%;justify-content:center}
 .bt-menu .bt-profile-face:hover{background:none}
 .bt-profile-face>.bt-you{width:64px;height:64px}
 .bt-profile-face>.bt-you .bt-mark{width:40px!important;height:40px!important}
@@ -9744,7 +9744,7 @@ var SIDEBAR_CSS = `
 .bt-you-name{min-width:0;font-size:14px;font-weight:500;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-rail .bt-you-name,[class*="_collapsed"] .bt-you-name{display:none}
 [class*="_collapsed"] .bt-account,.bt-rail .bt-account{width:36px;padding:0;gap:0}
-.bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;corner-shape:round;display:block}
+.bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
 .bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
 .bt-sec-head:hover{color:var(--bt-ink)}
