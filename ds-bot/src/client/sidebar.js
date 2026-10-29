@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { FishLogo } from './dsh-primitives.js'
 import { isMainOf } from './sources.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
-import { PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
+import { ChevronRightIcon, DotsIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
 import { botState, BotMark, BotAvatar, RoomAvatar } from './mark.js'
 import { reducedMotion } from './activity-row.js'
@@ -43,7 +43,7 @@ const waitingFor = (roster, waits) => {
   return names.length === 0 ? '' : t('Waiting for {names}', { names: names.join(t(' and ')) })
 }
 
-function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, wide, marked }) {
+function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, wide, marked, folded = false }) {
   const id = bot.id
   const part = currentPart(bot)
   const preview = useSessions(list => previewOf(list, part, roster.exchangeTurns[part]))
@@ -65,7 +65,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const awayLine = away ? workLine(roster.roomsById[groups[0].id]?.name ?? t('a group chat'), groups[0], groups.length - 1) : null
   const waits = workKeys(useWork ? useWork(work => JSON.stringify(work.waiting?.[id] ?? null)) : 'null')
   const waitsFor = state === 'waiting' ? waitingFor(roster, waits) : ''
-  if (bot.hidden && !active && !main) return null
+  if ((bot.hidden || folded) && !active && !main) return null
   const onContextMenu = (event) => {
     event.preventDefault()
     actions.openMenu({ kind: 'bot', id, x: event.clientX, y: event.clientY })
@@ -96,7 +96,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null)
 }
 
-function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked }) {
+function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
   const id = room.id
   const fallback = useSessions(list => previewOf(list, id))
   const preview = room.preview?.replace(/\s+/g, ' ').trim() || fallback
@@ -107,7 +107,7 @@ function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSess
   const members = workKeys(useGroupWork(useWork, rooms => (rooms[id] ?? []).map(entry => ({ id: entry.botId, ...doingOf(entry) }))))
   const first = roster.byId[members[0]?.id]
   const workingLine = first ? workLine(first.name, members[0], members.length - 1) : null
-  if (room.hidden && !active) return null
+  if ((room.hidden || folded) && !active) return null
   const pinned = room.pinned === true
   const label = [room.name, pinned ? t('Pinned') : '', members.length > 0 ? t('Working') : '', approval ? t('Waiting for your approval') : ''].filter(Boolean).join(', ')
   return h('button', {
@@ -272,7 +272,8 @@ export function TeamSidebar(props) {
     return entries.sort((a, b) => Number(Boolean(b.item.pinned)) - Number(Boolean(a.item.pinned)) || b.at - a.at)
   }, [roster, updated])
   const main = roster.byId[roster.mainBotId]
-  useListGlide(listRef, wide, order.map(entry => entry.item.id).join(','))
+  const groups = useMemo(() => sectionGroups(order, roster.sections ?? []), [order, roster.sections])
+  useListGlide(listRef, wide, `${order.map(entry => entry.item.id).join(',')}|${(roster.sections ?? []).map(section => `${section.name}${section.collapsed ? '-' : '+'}`).join(',')}`)
   useLandOnMainBot(roster, useSessions, actions)
   // The shell keeps wide content during its collapse fade. Normalize through its
   // public expansion action before toggling; coalesce synchronous activations
@@ -314,11 +315,57 @@ export function TeamSidebar(props) {
     wide && roster.readOnly ? h('div', { className: 'bt-hint bt-read-only', role: 'status' }, hostText(roster.readOnly)) : null,
     h('div', { ref: listRef, className: 'bt-list', role: 'region', 'aria-label': t('Bot list') },
       main ? h(BotRow, { ...rowProps, bot: main, marked: markedUnread[main.id] === true }) : roster.ready ? null : h('div', { className: 'bt-hint' }, t('Setting up your Main Bot…')),
-      order.map(entry => (entry.kind === 'bot'
-        ? h(BotRow, { key: entry.item.id, ...rowProps, bot: entry.item, marked: markedUnread[entry.item.id] === true })
-        : entry.kind === 'room'
-          ? h(RoomRow, { key: entry.item.id, ...rowProps, room: entry.item, marked: markedUnread[entry.item.id] === true })
-          : h(AgentRow, { key: entry.item.id, ...rowProps, agent: entry.item, marked: markedUnread[entry.item.id] === true })))))
+      groups.pinned.map(entry => rowOf(entry)),
+      groups.sections.map(({ section, entries }) => h(Fragment, { key: `section:${section.name}` },
+        h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide, actions }),
+        // A rail has no room for headings, so it shows every row under a thin rule.
+        entries.map(entry => rowOf(entry, wide && section.collapsed === true)))),
+      groups.sections.length > 0 && groups.loose.length > 0 && wide ? h('div', { className: 'bt-sec-rest', role: 'separator' }) : null,
+      groups.loose.map(entry => rowOf(entry))))
+
+  function rowOf(entry, folded = false) {
+    const marked = markedUnread[entry.item.id] === true
+    return entry.kind === 'bot'
+      ? h(BotRow, { key: entry.item.id, ...rowProps, bot: entry.item, marked, folded })
+      : entry.kind === 'room'
+        ? h(RoomRow, { key: entry.item.id, ...rowProps, room: entry.item, marked, folded })
+        : h(AgentRow, { key: entry.item.id, ...rowProps, agent: entry.item, marked })
+  }
+}
+
+// Pinned rows stay on top whatever their section; then each section in the user's
+// order, its rows by recent activity; then the rows in no section. The DSH Agent
+// is in no section.
+export function sectionGroups(order, sections) {
+  const key = name => String(name).toLocaleLowerCase()
+  const slots = new Map(sections.map(section => [key(section.name), { section, entries: [] }]))
+  const pinned = []
+  const loose = []
+  for (const entry of order) {
+    const slot = entry.kind !== 'agent' && typeof entry.item.section === 'string' ? slots.get(key(entry.item.section)) : undefined
+    if (entry.item.pinned) pinned.push(entry)
+    else if (slot) slot.entries.push(entry)
+    else loose.push(entry)
+  }
+  return { pinned, sections: [...slots.values()], loose }
+}
+
+// A section's heading: a click folds or opens it, and its menu renames, moves or
+// deletes it.
+function SectionHeader({ section, count, wide, actions }) {
+  if (!wide) return h('div', { className: 'bt-sec-rule', role: 'separator', title: section.name })
+  const folded = section.collapsed === true
+  const openMenu = (x, y) => actions.openMenu({ kind: 'section', id: section.name, x, y })
+  const fold = () => { void Promise.resolve(actions.arrangeSection(section.name, { collapsed: !folded })).catch(error => actions.reportError?.(error, 'section')) }
+  return h('div', { className: 'bt-sec', 'data-folded': folded || undefined, onContextMenu: (event) => { event.preventDefault(); openMenu(event.clientX, event.clientY) } },
+    h('button', { type: 'button', className: 'bt-sec-head', 'aria-expanded': !folded, onClick: fold },
+      h('span', { className: 'bt-sec-caret', 'aria-hidden': true }, h(ChevronRightIcon)),
+      h('span', { className: 'bt-sec-name' }, section.name),
+      folded && count > 0 ? h('span', { className: 'bt-sec-count' }, count) : null),
+    h('button', {
+      type: 'button', className: 'bt-sec-more', 'aria-label': t('{name} actions', { name: section.name }),
+      onClick: (event) => { const box = event.currentTarget.getBoundingClientRect(); openMenu(box.left, box.bottom + 4) },
+    }, h(DotsIcon)))
 }
 
 // The update button at the sidebar's top right: a cloud while a newer DS Bot —
@@ -662,6 +709,26 @@ export function BrandName() {
 // FooterAccount only shows when the seat went to no one. The shell's footer classes
 // are CSS-module names, so they match on their stems.
 export const SIDEBAR_CSS = `
+.bt-sec{display:flex;align-items:center;gap:2px;margin-top:8px;padding-right:4px;border-radius:8px}
+.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:26px;padding:0 6px;border:0;border-radius:8px;background:none;color:var(--bt-ink-3);font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;text-align:left;cursor:pointer;transition:color .12s ease,background-color .12s ease}
+.bt-sec-head:hover{color:var(--bt-ink);background:var(--bt-hover)}
+.bt-sec-caret{flex:none;display:inline-flex;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-sec-caret svg{width:12px;height:12px}
+.bt-sec[data-folded] .bt-sec-caret{transform:none}
+.bt-sec-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-sec-count{flex:none;margin-left:2px;font-weight:500;font-variant-numeric:tabular-nums}
+.bt-sec-more{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:6px;background:none;color:var(--bt-ink-3);cursor:pointer;opacity:0;transition:opacity .12s ease}
+.bt-sec:hover .bt-sec-more,.bt-sec-more:focus-visible{opacity:1}
+.bt-sec-more:hover{background:var(--bt-hover);color:var(--bt-ink)}
+.bt-sec-more svg{width:16px;height:16px}
+.bt-sec-rule,.bt-sec-rest{flex:none;height:.5px;margin:6px 12px;background:var(--bt-line-2)}
+.bt-sec-rest{margin:10px 8px 4px}
+@media (prefers-reduced-motion:reduce){.bt-sec-caret{transition:none}}
+.bt-menu-head{padding:4px 8px 2px;font-size:12px;line-height:16px;color:var(--bt-ink-3)}
+.bt-menu-field{padding:2px 2px 0}
+.bt-menu-field input{width:100%;box-sizing:border-box;height:30px;border:0;border-radius:6px;background:var(--bt-hover);color:var(--bt-ink);font:inherit;font-size:13px;padding:0 8px;outline:none;box-shadow:inset 0 0 0 .5px var(--bt-line-2)}
+.bt-menu-field input:focus{box-shadow:inset 0 0 0 1px var(--bt-accent)}
+.bt-menu .bt-menu-tick{flex:none;display:inline-flex;width:18px;justify-content:center}
 .bt-confirm{width:260px;max-width:72vw;padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
 .bt-confirm-text{margin:0;font-size:13px;line-height:19px;color:var(--bt-ink-2)}
 .bt-confirm-error{margin:0;font-size:12px;line-height:17px;color:var(--bt-danger);overflow-wrap:anywhere}

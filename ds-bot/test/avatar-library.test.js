@@ -284,3 +284,20 @@ test('a Bot cannot reach the library: no tool offers it', async (t) => {
   }
   assert.equal(existsSync(join(home, 'avatars')), false)
 })
+
+test('a large animated photo in the library goes by link, and a Bot that picks it keeps a copy', async (t) => {
+  const home = makeHome()
+  const { call, stop } = start(home)
+  t.after(async () => { await stop(); rmSync(home, { recursive: true, force: true, maxRetries: 5 }) })
+  const gif = Buffer.concat([Buffer.from('GIF89a', 'latin1'), Buffer.alloc(2 * 1024 * 1024, 3)])
+  const imported = (await call('avatar-import', { items: [{ name: 'moving.gif', image: asDataUrl('image/gif', gif) }] })).value
+  assert.equal(imported.imported.length, 1)
+  const entry = (await call('avatar-library', {})).value.items[0]
+  assert.match(entry.image, /^api\/bot\/avatar\?id=[0-9a-f]{64}\.gif$/)
+  const chief = (await call('state', {})).value.mainBotId
+  assert.equal((await call('update-bot', { id: chief, avatar: { image: entry.image } })).ok, true)
+  // The library loses the photo; the Bot still has its own copy.
+  await call('avatar-delete', { id: entry.id })
+  assert.ok(existsSync(join(home, 'avatars', 'bots', `${entry.id}.gif`)))
+  assert.equal((await call('state', {})).value.bots.find(bot => bot.id === chief).avatar.image, entry.image)
+})

@@ -1,7 +1,7 @@
 import { createElement as h, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { isMainOf } from './sources.js'
 import { currentPart } from './text.js'
-import { GearIcon, PinIcon, UnreadIcon, PencilIcon, StarLineIcon, CopyIcon, HideIcon, TrashIcon, DuplicateIcon } from './icons.js'
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, ChevronRightIcon, CloseIcon, FolderIcon, GearIcon, PinIcon, UnreadIcon, PencilIcon, StarLineIcon, CopyIcon, HideIcon, TrashIcon, DuplicateIcon } from './icons.js'
 import { useEscape } from './overlay-hooks.js'
 import { useViewport, viewBottom } from './motion.js'
 import { t } from './i18n.js'
@@ -15,13 +15,16 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
   }, [])
   const ref = useRef(null)
   const [place, setPlace] = useState({ left: menu.x, top: menu.y })
+  // 'main', or 'sections' while the menu lists where to move the row.
+  const [pane, setPane] = useState('main')
   const tick = useViewport()
   useLayoutEffect(() => {
     const box = ref.current?.getBoundingClientRect()
     if (!box) return
     setPlace({ left: Math.max(8, Math.min(menu.x, window.innerWidth - box.width - 8)), top: Math.max(8, Math.min(menu.y, viewBottom() - box.height - 8)) })
-  }, [menu.x, menu.y, tick])
+  }, [menu.x, menu.y, tick, pane])
   if (menu.kind === 'agent' || menu.kind === 'agent-session') return h(AgentMenu, { menu, roster, actions, leaving })
+  if (menu.kind === 'section') return h(SectionMenu, { menu, roster, actions, leaving })
   const bot = roster.byId[menu.id]
   const room = roster.roomsById[menu.id]
   const entry = bot ?? room
@@ -29,10 +32,16 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
   const isMainBot = isMainOf(roster, menu.id)
   const isTile = roster.mainBotId === menu.id
   const mainCount = (roster.mainBotIds ?? []).length
+  const label = t('{name} actions', { name: bot?.name ?? room.name })
+  if (pane === 'sections') {
+    return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': label, style: place, 'data-leaving': leaving || undefined },
+      h(SectionPicker, { entry, roster, actions }))
+  }
   const groups = [
     [
       isTile ? null : [entry.pinned ? t('Unpin') : t('Pin'), PinIcon, () => actions.setFlags(menu.id, { pinned: !entry.pinned })],
       [t('Mark as Unread'), UnreadIcon, () => actions.markUnread(menu.id)],
+      isTile ? null : [t('Move to section'), FolderIcon, () => setPane('sections'), false, true],
     ],
     [
       bot ? [t('Rename Bot'), PencilIcon, () => actions.renameBot(bot.id)] : null,
@@ -49,13 +58,79 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
       isMainBot ? null : [room ? t('Delete group') : t('Delete'), TrashIcon, () => (bot ? actions.deleteBot(bot.id) : actions.deleteRoom(menu.id)), true],
     ],
   ].map(group => group.filter(Boolean)).filter(group => group.length > 0)
-  return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': t('{name} actions', { name: bot?.name ?? room.name }), style: place, 'data-leaving': leaving || undefined },
+  return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': label, style: place, 'data-leaving': leaving || undefined },
     groups.map((group, index) => h(Fragment, { key: index },
       index > 0 ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
-      group.map(([label, Icon, run, danger]) => h('button', {
-        key: label, type: 'button', role: 'menuitem', className: danger ? 'bt-danger' : undefined,
-        onClick: () => { actions.closeMenu(); void Promise.resolve(run()).catch(error => actions.reportError(error, 'menu')) },
-      }, h(Icon), label)))))
+      group.map(([text, Icon, run, danger, stays]) => h('button', {
+        key: text, type: 'button', role: 'menuitem', className: danger ? 'bt-danger' : undefined, 'aria-haspopup': stays ? 'menu' : undefined,
+        onClick: () => {
+          // An entry that opens another pane keeps the menu open.
+          if (stays) { run(); return }
+          actions.closeMenu()
+          void Promise.resolve(run()).catch(error => actions.reportError(error, 'menu'))
+        },
+      }, h(Icon), text, stays ? h('span', { style: { marginLeft: 'auto', display: 'inline-flex' } }, h(ChevronRightIcon)) : null)))))
+}
+
+const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLocaleLowerCase() === b.toLocaleLowerCase()
+
+// Where a Bot or group chat can go: a section that exists, a new one, or none.
+function SectionPicker({ entry, roster, actions }) {
+  const [draft, setDraft] = useState('')
+  const move = (section) => {
+    actions.closeMenu()
+    void Promise.resolve(actions.setSection(entry.id, section)).catch(error => actions.reportError(error, 'menu'))
+  }
+  const sections = roster.sections ?? []
+  return h(Fragment, null,
+    h('div', { className: 'bt-menu-head' }, t('Move {name} to', { name: entry.name })),
+    sections.map(section => h('button', { key: section.name, type: 'button', role: 'menuitemradio', 'aria-checked': sameName(entry.section, section.name), onClick: () => move(section.name) },
+      h('span', { className: 'bt-menu-tick', 'aria-hidden': true }, sameName(entry.section, section.name) ? h(CheckIcon) : null), section.name)),
+    sections.length > 0 ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
+    h('form', { className: 'bt-menu-field', onSubmit: (event) => { event.preventDefault(); if (draft.trim() !== '') move(draft.trim()) } },
+      h('input', { autoFocus: true, value: draft, maxLength: 24, placeholder: t('New section name, then Enter'), 'aria-label': t('New section'), onChange: event => setDraft(event.target.value) })),
+    typeof entry.section === 'string' && entry.section !== '' ? h('button', { type: 'button', role: 'menuitem', onClick: () => move('') }, h(CloseIcon), t('Remove from section')) : null)
+}
+
+// A section heading's menu: fold, rename, move, delete. Deleting keeps its rows.
+function SectionMenu({ menu, roster, actions, leaving }) {
+  useEscape(() => actions.closeMenu())
+  useEffect(() => {
+    const onDown = (event) => { if (!(event.target instanceof Element) || !event.target.closest('.bt-menu')) actions.closeMenu() }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [])
+  const ref = useRef(null)
+  const [place, setPlace] = useState({ left: menu.x, top: menu.y })
+  const [renaming, setRenaming] = useState(false)
+  const [draft, setDraft] = useState(menu.id)
+  const tick = useViewport()
+  useLayoutEffect(() => {
+    const box = ref.current?.getBoundingClientRect()
+    if (!box) return
+    setPlace({ left: Math.max(8, Math.min(menu.x, window.innerWidth - box.width - 8)), top: Math.max(8, Math.min(menu.y, viewBottom() - box.height - 8)) })
+  }, [menu.x, menu.y, tick, renaming])
+  const sections = roster.sections ?? []
+  const index = sections.findIndex(section => sameName(section.name, menu.id))
+  const section = sections[index]
+  if (section === undefined) return null
+  const run = (work) => { actions.closeMenu(); void Promise.resolve(work()).catch(error => actions.reportError(error, 'menu')) }
+  const members = [...roster.bots, ...roster.rooms].filter(item => sameName(item.section, section.name)).length
+  const items = [
+    [section.collapsed ? t('Expand section') : t('Collapse section'), ChevronRightIcon, () => actions.arrangeSection(section.name, { collapsed: !section.collapsed })],
+    [t('Rename section'), PencilIcon, null],
+    index > 0 ? [t('Move up'), ArrowUpIcon, () => actions.arrangeSection(section.name, { to: index - 1 })] : null,
+    index < sections.length - 1 ? [t('Move down'), ArrowDownIcon, () => actions.arrangeSection(section.name, { to: index + 1 })] : null,
+  ].filter(Boolean)
+  return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': t('{name} actions', { name: section.name }), style: place, 'data-leaving': leaving || undefined },
+    renaming
+      ? h('form', { className: 'bt-menu-field', onSubmit: (event) => { event.preventDefault(); if (draft.trim() !== '' && draft.trim() !== section.name) run(() => actions.renameSection(section.name, draft.trim())); else actions.closeMenu() } },
+          h('input', { autoFocus: true, value: draft, maxLength: 24, 'aria-label': t('Rename section'), onFocus: event => event.target.select(), onChange: event => setDraft(event.target.value) }))
+      : h(Fragment, null,
+          items.map(([text, Icon, work]) => h('button', { key: text, type: 'button', role: 'menuitem', onClick: () => (work ? run(work) : setRenaming(true)) }, h(Icon), text)),
+          h('div', { className: 'bt-menu-sep', role: 'separator' }),
+          h('div', { className: 'bt-menu-head' }, members > 0 ? t('Deleting keeps its {count} chats, out of any section.', { count: members }) : t('This section is empty.')),
+          h('button', { type: 'button', role: 'menuitem', className: 'bt-danger', onClick: () => run(() => actions.deleteSection(section.name)) }, h(TrashIcon), t('Delete section'))))
 }
 
 // Menus for the DSH Agent row and its Sessions; none of the Bot entries apply.
