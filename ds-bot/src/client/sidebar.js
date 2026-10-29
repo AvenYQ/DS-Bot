@@ -13,6 +13,8 @@ import { Shimmer, workPhrase } from './cells.js'
 import { springEasing, SPRING_SHAPE, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
 import { showsDshRow } from './dsh-offer.js'
+import { frameLayout, dragColumn, RAIL_WIDTH, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
+import { chatRoom, dshCollapsed } from './frame-watch.js'
 
 // -------------------------------------------------------------------------
 // Sidebar
@@ -25,6 +27,15 @@ function useMarkedUnread(id, active, marked, actions) {
 }
 
 const PinMark = () => h('span', { className: 'bt-pin', 'aria-hidden': true }, h(PinMarkIcon))
+
+// The rail shows a row's name only on hover; the wide list does so when the name is
+// cut, which only the laid-out row can tell, so it is measured as the pointer enters.
+const nameIfCut = (event) => {
+  const row = event.currentTarget
+  const name = row.querySelector('.bt-row-title')
+  if (name && name.scrollWidth > name.clientWidth) row.title = name.textContent
+  else row.removeAttribute('title')
+}
 
 // Whether an approval waits for the user: for a Bot, in any of its Sessions; for a group,
 // from any of its members there.
@@ -91,9 +102,9 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   }
   return h('button', {
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
-    'data-bot-id': id, title: wide ? undefined : bot.name, onClick: () => actions.openSession(id), onContextMenu,
+    'data-bot-id': id, title: wide ? undefined : bot.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id), onContextMenu,
   },
-  h(BotAvatar, { bot, size: 36, state, main, shared: true }),
+  h(BotAvatar, { bot, size: wide ? 36 : 44, state, main, shared: true }),
   pinned && !wide ? h(PinMark) : null,
   // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
   !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
@@ -105,7 +116,9 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
         : waitsFor ? h('span', { className: 'bt-row-preview' }, waitsFor)
           : preview ? h('span', { className: 'bt-row-preview' }, preview) : null) : null,
   wide && done ? h('span', { className: 'bt-done', 'aria-hidden': true }, '办')
-    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null)
+    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
+      // On the rail a finished job shows its 办 seal; a question or other unread news its dot.
+      : !wide && !active && (alert || (unread && !done)) ? h('span', { className: `bt-dot${alert ? ' bt-dot-wait' : ''}`, 'aria-hidden': true }) : null)
 }
 
 function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
@@ -124,16 +137,17 @@ function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSess
   const label = [room.name, pinned ? t('Pinned') : '', members.length > 0 ? t('Working') : '', approval ? t('Waiting for your approval') : ''].filter(Boolean).join(', ')
   return h('button', {
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
-    'data-room-id': id, onClick: () => actions.openSession(id),
+    'data-room-id': id, title: wide ? undefined : room.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id),
     onContextMenu: (event) => { event.preventDefault(); actions.openMenu({ kind: 'room', id, x: event.clientX, y: event.clientY }) },
   },
-  h(RoomAvatar, { room, roster, size: 36 }),
+  h(RoomAvatar, { room, roster, size: wide ? 36 : 44 }),
   pinned && !wide ? h(PinMark) : null,
   wide ? h('span', { className: 'bt-row-body' },
     h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, room.name), pinned ? h(PinMark) : null),
     workingLine ? h('span', { className: 'bt-row-preview' }, workingLine) : preview ? h('span', { className: 'bt-row-preview' }, preview) : null) : null,
   wide && approval && !active ? h('span', { className: 'bt-unread bt-unread-wait', 'aria-hidden': true })
-    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null)
+    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
+      : !wide && !active && (approval || unread) ? h('span', { className: `bt-dot${approval ? ' bt-dot-wait' : ''}`, 'aria-hidden': true }) : null)
 }
 
 // One expanded DSH Agent Session row: title, relative stamp, rename field, and a
@@ -221,11 +235,12 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
       'data-agent-id': agent.id, title: wide ? undefined : 'DSH Agent', onClick: () => actions.openAgent(agent.id),
       onContextMenu: (event) => { event.preventDefault(); actions.openMenu({ kind: 'agent', id: agent.id, x: event.clientX, y: event.clientY }) },
     },
-    h('span', { className: `bt-agent-ava${running ? ' bt-run' : ''}` }, h(FishLogo, { size: 22 })),
+    h('span', { className: `bt-agent-ava${running ? ' bt-run' : ''}` }, h(FishLogo, { size: wide ? 22 : 24 })),
     wide ? h('span', { className: 'bt-row-body' },
       h('span', { className: 'bt-row-name' }, 'DSH Agent'),
       preview ? h('span', { className: 'bt-row-preview' }, preview) : null) : null,
-    wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true }) : null),
+    wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
+      : !wide && unread && !active ? h('span', { className: 'bt-dot', 'aria-hidden': true }) : null),
     h('div', { className: 'bt-agent-sub', 'data-open': open || undefined },
       h('div', { className: 'bt-agent-sub-in' },
         h('button', { type: 'button', className: 'bt-agent-sub-row bt-agent-new', style: { '--i': 0 }, onClick: () => { void actions.newAgentSession(agent.id).catch(error => actions.reportError(error, 'agent-session')) } },
@@ -268,14 +283,48 @@ function useListGlide(listRef, layout, key, handoff) {
   }, [layout, key])
 }
 
+// In the Bot view the left column is ours, drawn on <body> over the shell's
+// collapsed sidebar: the open column or the avatar rail push the conversation
+// over, the drawer floats above it. Its right edge drags the open width, and
+// down to the rail.
+function LeftColumn({ mode, width, onGrip, children }) {
+  return createPortal(h('div', { className: 'bt-leftcol', 'data-left': mode, style: { width: `${width}px` } },
+    children,
+    h('div', { className: 'bt-leftcol-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': t('Resize sidebar'), title: t('Resize sidebar'), onPointerDown: onGrip })), document.body)
+}
+
+// The top-left switch hides the whole column and brings it back. Under a
+// Windows title bar it takes the shell's own place in the title band; elsewhere
+// it shows only while the column is hidden, since the column's own top row
+// carries it otherwise.
+function TitleToggle({ hidden, onToggle }) {
+  if (typeof document === 'undefined') return null
+  const titlebar = document.documentElement.hasAttribute('data-windows-titlebar')
+  if (!titlebar && !hidden) return null
+  const label = t(hidden ? 'Expand sidebar' : 'Collapse sidebar')
+  return createPortal(h('button', {
+    type: 'button', className: titlebar ? 'bt-title-toggle' : 'bt-round bt-title-toggle', 'aria-label': label, title: label, onClick: onToggle,
+  }, h(SidebarIcon)), document.body)
+}
+
 export function TeamSidebar(props) {
-  const { wide, expandSidebar, useRoster, useUi, useSessions, actions } = props
+  const { wide, useRoster, useUi, useSessions, actions } = props
   const listRef = useRef(null)
-  const closing = useRef(false)
-  useLayoutEffect(() => { closing.current = false })
   const roster = useRoster(value => value)
   const markedUnread = useUi(value => value.unread)
+  const uiNow = useUi(value => value)
   props.useRegistry(value => value)
+  const frameSnap = props.useFrame ? props.useFrame(value => value) : { viewport: typeof window === 'undefined' ? 0 : window.innerWidth, sidebarWidth: FALLBACK_SIDEBAR_WIDTH, collapsedWidth: 0 }
+  const pref = props.useSidebarPref ? props.useSidebarPref(value => value) : 'open'
+  const layout = frameLayout({
+    viewport: frameSnap.viewport, sidebarWidth: frameSnap.sidebarWidth,
+    pref, drawer: uiNow.leftDrawer === true,
+    panel: uiNow.details ? { view: uiNow.view, yielded: uiNow.panelYield === true } : null,
+  })
+  // A drag of the column's edge shows where it would land, live.
+  const [drag, setDrag] = useState(null)
+  const mode = drag?.left ?? layout.left
+  const wideContent = mode !== 'rail'
   const updated = useSessions(list => {
     const stamps = {}
     for (const id of list.ids) stamps[id] = list.byId[id]?.updatedAt ?? 0
@@ -296,19 +345,123 @@ export function TeamSidebar(props) {
   const groups = useMemo(() => sectionGroups(order, roster.sections ?? [], roster), [order, roster])
   const handoff = useRef(null)
   const listKey = `${order.map(entry => `${entry.item.id}${isPinned(roster, entry.item) ? '*' : ''}:${entry.item.section ?? ''}`).join(',')}|${(roster.sections ?? []).map(section => `${section.name}${section.collapsed ? '-' : '+'}`).join(',')}`
-  useListGlide(listRef, wide, listKey, handoff)
-  useDragSort(listRef, { enabled: wide && !roster.readOnly, actions, onLand: (seen, settle) => { handoff.current = { seen, settle } } })
+  useListGlide(listRef, wideContent, listKey, handoff)
+  useDragSort(listRef, { enabled: wideContent && !roster.readOnly, actions, onLand: (seen, settle) => { handoff.current = { seen, settle } } })
   useLandOnMainBot(roster, useSessions, actions)
-  // The shell keeps wide content during its collapse fade. Normalize through its
-  // public expansion action before toggling; coalesce synchronous activations
-  // until React commits the result.
+
+  // Our column pushes the conversation over by what it takes beyond the shell's
+  // collapsed track; a drawer floats over the rail's place, so it pushes as much
+  // as the rail and the chat stays put when it opens or closes.
+  const openWidth = drag?.width ?? frameSnap.sidebarWidth
+  const ourWidth = mode === 'rail' ? RAIL_WIDTH : openWidth
+  const pushed = mode === 'open' ? openWidth : mode === 'hidden' ? 0 : RAIL_WIDTH
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return
+    chatRoom.setLeft(Math.max(0, pushed - (frameSnap.collapsedWidth ?? 0)))
+  }, [pushed, frameSnap.collapsedWidth])
+  useEffect(() => () => { if (typeof document !== 'undefined') chatRoom.setLeft(null) }, [])
+
+  // The edge drag: live while the pointer moves, the column's new state on release.
+  const startDrag = (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const grip = event.currentTarget
+    grip.setPointerCapture?.(event.pointerId)
+    chatRoom.hold(true)
+    let last = null
+    let done = false
+    const onMove = (move) => { last = dragColumn(move.clientX, window.innerWidth); setDrag(last) }
+    const ends = ['pointerup', 'pointercancel', 'lostpointercapture']
+    const onEnd = (end) => {
+      if (done) return
+      done = true
+      if (end.type === 'pointerup') last = dragColumn(end.clientX, window.innerWidth)
+      grip.removeEventListener('pointermove', onMove)
+      for (const name of ends) grip.removeEventListener(name, onEnd)
+      setDrag(null)
+      chatRoom.hold(false)
+      if (last === null) return
+      // The drag is the latest explicit gesture: it takes back a yielded panel's room.
+      actions.setPanelYield?.(false)
+      if (last.left === 'rail') { actions.setLeftDrawer?.(false); actions.setSidebarPref?.('rail'); return }
+      actions.setSidebarWidth?.(last.width)
+      actions.setSidebarPref?.('open')
+      actions.setLeftDrawer?.(last.left === 'drawer')
+    }
+    grip.addEventListener('pointermove', onMove)
+    for (const name of ends) grip.addEventListener(name, onEnd)
+  }
+
+  // In the Bot view the shell's own sidebar stays collapsed under our column. A
+  // flip we did not ask for is the user's own switch gesture (the shell's button
+  // or shortcut where it still reaches), unless the width just crossed the
+  // shell's auto-collapse line, which re-applies the shell's own rule.
+  const dsh = useRef(null)
+  const requested = useRef(false)
+  // The request mark always lapses on its own: a re-render before the shell's
+  // flip must not leave it set, or the user's next switch would read as ours.
+  // A lapse checks the shell again, since our flip and another one landing in
+  // the same frame cancel out and no flip arrives to settle it.
+  const requestLapse = useRef(0)
+  const [lapsed, setLapsed] = useState(0)
+  useEffect(() => () => clearTimeout(requestLapse.current), [])
+  // The window's own resize event lands before the shell's next-frame measure,
+  // so it dates a width change even while our frame source still holds the old one.
+  const resizedAt = useRef(0)
+  useEffect(() => {
+    const onResize = () => { resizedAt.current = performance.now() }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const quiet = (on) => {
+    // Our own collapse of the shell's sidebar lands at once: its slide would drag
+    // the conversation across under our column.
+    if (on) document.documentElement.setAttribute('data-bt-collapsing', '')
+    else document.documentElement.removeAttribute('data-bt-collapsing')
+  }
+  useEffect(() => () => quiet(false), [])
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined' || typeof actions.toggleSidebar !== 'function') return undefined
+    const collapsed = dshCollapsed() ?? !wide
+    const prev = dsh.current
+    const viewport = window.innerWidth
+    dsh.current = { collapsed, viewport }
+    if (prev !== null && collapsed !== prev.collapsed) {
+      if (requested.current) requested.current = false
+      else if (!collapsed && userSidebarToggle({ before: prev, after: { collapsed, viewport }, sinceResize: performance.now() - resizedAt.current })) {
+        toggleRef.current()
+      }
+    }
+    if (collapsed) { requested.current = false; quiet(false); return undefined }
+    if (requested.current) return undefined
+    requested.current = true
+    quiet(true)
+    actions.toggleSidebar()
+    clearTimeout(requestLapse.current)
+    requestLapse.current = setTimeout(() => { requested.current = false; quiet(false); setLapsed(value => value + 1) }, 300)
+    return undefined
+  }, [wide, frameSnap.viewport, lapsed])
+
+  // The drawer closes on a row pick, on Escape and on a press outside it.
+  useEffect(() => {
+    if (mode !== 'drawer') return undefined
+    const onDown = (event) => {
+      if (event.target instanceof Element && event.target.closest('.bt-leftcol')) return
+      actions.setLeftDrawer?.(false)
+    }
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      actions.setLeftDrawer?.(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey, true)
+    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true) }
+  }, [mode])
+
   const navigate = (open, id) => {
     const result = open(id)
-    if (wide && window.innerWidth < 1024 && !closing.current) {
-      closing.current = true
-      expandSidebar?.()
-      actions.toggleSidebar()
-    }
+    if (uiNow.leftDrawer === true) actions.setLeftDrawer?.(false)
     return result
   }
   const rowActions = {
@@ -318,7 +471,7 @@ export function TeamSidebar(props) {
     openAgentSession: id => navigate(actions.openAgentSession, id),
     newAgentSession: id => navigate(actions.newAgentSession, id),
   }
-  const rowProps = { roster, actions: rowActions, useSessions, useUi, useSessionStatus: props.useSessionStatus, useSessionRetainInfo: props.useSessionRetainInfo, useActivity: props.useActivity, useWork: props.useWork, wide }
+  const rowProps = { roster, actions: rowActions, useSessions, useUi, useSessionStatus: props.useSessionStatus, useSessionRetainInfo: props.useSessionRetainInfo, useActivity: props.useActivity, useWork: props.useWork, wide: wideContent }
   // Typing while the sidebar has focus starts a search.
   const typeToSearch = (event) => {
     if (event.defaultPrevented || event.key.length !== 1 || event.key === ' ' || event.metaKey || event.ctrlKey || event.altKey || event.nativeEvent.isComposing) return
@@ -326,28 +479,72 @@ export function TeamSidebar(props) {
     event.preventDefault()
     actions.openPalette(event.key)
   }
-  return h('div', { className: wide ? 'bt-side' : 'bt-side bt-rail', onKeyDown: typeToSearch },
-    wide ? h('div', { className: 'bt-side-top' },
-      h('span', { className: 'bt-brand' }, h(BrandMark, { size: 22 }), h(BrandName)),
-      h(UpdateButton, { useUpdate: props.useUpdate, actions }),
-      h('button', { type: 'button', className: 'bt-round', 'aria-label': t('Search'), title: t('Search'), onClick: () => actions.openPalette() }, h(SearchIcon)),
-      h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
-      h('button', { type: 'button', className: 'bt-round bt-side-collapse', 'aria-label': t('Collapse sidebar'), title: t('Collapse sidebar'), onClick: () => actions.toggleSidebar() }, h(SidebarIcon)))
-      : h(Fragment, null,
-          h(UpdateButton, { useUpdate: props.useUpdate, actions }),
-          h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon))),
-    wide && roster.readOnly ? h('div', { className: 'bt-hint bt-read-only', role: 'status' }, hostText(roster.readOnly)) : null,
+  // The switch (the sidebar button, the shortcut) folds the open column to the rail of
+  // avatars and opens it again, as in Grok Bot. On a window too narrow for the open column
+  // the rail opens a drawer over the chat instead.
+  const onToggle = () => {
+    if (mode === 'drawer') { actions.setLeftDrawer?.(false); return }
+    if (mode === 'hidden') { actions.toggleLeftHidden?.(); return }
+    if (mode === 'open') { actions.setSidebarPref?.('rail'); return }
+    if (pref === 'open') actions.setLeftDrawer?.(true)
+    else actions.setSidebarPref?.('open')
+  }
+  // The shell's sidebar shortcut is caught on its way down, before the shell's
+  // own listener on window sees it: left to the shell, it would expand the shell's
+  // sidebar first and our sync would pull it back, a visible flash.
+  const toggleRef = useRef(onToggle)
+  toggleRef.current = onToggle
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.defaultPrevented || event.isComposing || !pressesShellShortcut(event, 'sidebar.left.toggle')) return
+      if (event.target instanceof Element && event.target.closest('.xterm')) return
+      if (document.querySelector('[aria-modal="true"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      toggleRef.current()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [])
+  const top = wideContent
+    ? h('div', { className: 'bt-side-top' },
+        h('span', { className: 'bt-brand' }, h(BrandMark, { size: 22 }), h(BrandName)),
+        h(UpdateButton, { useUpdate: props.useUpdate, actions }),
+        h('button', { type: 'button', className: 'bt-round', 'aria-label': t('Search'), title: t('Search'), onClick: () => actions.openPalette() }, h(SearchIcon)),
+        h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
+        h('button', { type: 'button', className: 'bt-round bt-side-collapse', 'aria-label': t('Collapse sidebar'), title: t('Collapse sidebar'), onClick: onToggle }, h(SidebarIcon)))
+    // The rail: the pinned Bots first, under a rule; its switch and new-chat button wait at
+    // its foot.
+    : h('div', { className: 'bt-rail-top' },
+        h(UpdateButton, { useUpdate: props.useUpdate, actions }),
+        groups.tiles.map(entry => rowOf(entry)),
+        groups.tiles.length > 0 ? h('span', { className: 'bt-rail-sep', 'aria-hidden': true }) : null)
+  // The foot stands in for the shell's hidden footer: the account avatar, and on
+  // the rail the new-chat button above it.
+  const foot = wideContent
+    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }))
+    : h('div', { className: 'bt-leftcol-foot bt-leftcol-foot-rail' },
+        h('button', { type: 'button', className: 'bt-round bt-rail-toggle', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: onToggle }, h(SidebarIcon)),
+        h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
+        h(AccountLauncher, { seat: false, actions, useRoster }))
+  const content = h('div', { className: wideContent ? 'bt-side' : 'bt-side bt-rail', onKeyDown: typeToSearch },
+    top,
+    wideContent && roster.readOnly ? h('div', { className: 'bt-hint bt-read-only', role: 'status' }, hostText(roster.readOnly)) : null,
     h('div', { ref: listRef, className: 'bt-list', role: 'region', 'aria-label': t('Bot list') },
       roster.ready || roster.byId[roster.mainBotId] ? null : h('div', { className: 'bt-hint' }, t('Setting up your Main Bot…')),
-      groups.tiles.length > 0 ? h('div', { className: 'bt-tiles' }, groups.tiles.map(entry => rowOf(entry))) : null,
+      wideContent && groups.tiles.length > 0 ? h('div', { className: 'bt-tiles' }, groups.tiles.map(entry => rowOf(entry))) : null,
       groups.pinned.map(entry => rowOf(entry)),
       groups.sections.map(({ section, entries }) => h(Fragment, { key: `section:${section.name}` },
         // In the rail an empty section draws no rule, so rules never double up.
-        wide || entries.some(entry => !entry.item.hidden) ? h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide, actions }) : null,
+        wideContent || entries.some(entry => !entry.item.hidden) ? h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide: wideContent, actions }) : null,
         // A rail has no room for headings, so it shows every row under a thin rule.
-        entries.map(entry => rowOf(entry, wide && section.collapsed === true)))),
-      groups.sections.length > 0 && groups.loose.length > 0 && wide ? h('div', { className: 'bt-sec-rest', role: 'separator' }) : null,
-      groups.loose.map(entry => rowOf(entry))))
+        entries.map(entry => rowOf(entry, wideContent && section.collapsed === true)))),
+      groups.sections.length > 0 && groups.loose.length > 0 && wideContent ? h('div', { className: 'bt-sec-rest', role: 'separator' }) : null,
+      groups.loose.map(entry => rowOf(entry))),
+    foot)
+  return h(Fragment, null,
+    h(TitleToggle, { hidden: mode === 'hidden', onToggle: () => actions.toggleLeftHidden?.() }),
+    mode === 'hidden' ? null : h(LeftColumn, { mode, width: ourWidth, onGrip: startDrag }, content))
 
   function rowOf(entry, folded = false) {
     const marked = markedUnread[entry.item.id] === true
@@ -561,6 +758,15 @@ function pressSettingsShortcut() {
     code: binding.code, key: binding.code === 'Comma' ? ',' : '', bubbles: true, cancelable: true,
     ctrlKey: held.has('control'), altKey: held.has('alt'), shiftKey: held.has('shift'), metaKey: held.has('meta'),
   }))
+}
+
+// Whether a key press is the shell's current binding for one of its shortcuts.
+function pressesShellShortcut(event, id) {
+  const binding = shellShortcuts?.catalog.getSnapshot().find(row => row.id === id)?.binding
+  if (!binding) return false
+  const held = new Set(binding.modifiers)
+  return event.code === binding.code && event.ctrlKey === held.has('control') && event.altKey === held.has('alt')
+    && event.shiftKey === held.has('shift') && event.metaKey === held.has('meta')
 }
 
 const NO_SUBSCRIBE = () => () => {}
@@ -862,7 +1068,7 @@ export const SIDEBAR_CSS = `
 .bt-pin{flex:none;display:inline-flex;color:var(--bt-ink-3)}
 .bt-rail .bt-row{position:relative}
 .bt-rail>.bt-list{margin-inline:-16px;padding-inline:16px}
-.bt-rail .bt-pin{position:absolute;top:3px;left:calc(50% + 12px)}
+.bt-rail .bt-pin{position:absolute;top:1px;left:calc(50% + 14px)}
 .bt-side .bt-read-only{margin:4px 8px 6px;padding:8px 10px;border-radius:10px;background:var(--bt-hover);font-size:12px;line-height:1.45;text-align:left}
 [class*="_footArea"]:has(.bt-foot-account){grid-template-columns:auto minmax(0,1fr) auto;column-gap:6px}
 [class*="_footArea"]>[class*="_footerActions"]>div>.bt-foot-account{grid-column:1;order:1;display:inline-flex}

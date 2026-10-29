@@ -105,9 +105,11 @@ function updatesBridge() {
   }
 }
 
-// macOS without a title bar: the traffic lights stand where the brand was, in the sidebar's
+// macOS without a title bar: the traffic lights stand where the brand was, in the column's
 // first row. That row and the conversation's header move the window (adoptDragRegions); the
 // controls in them stay clickable. In fullscreen the lights are gone and the brand comes back.
+// Folded to the rail (88px), the lights sit centred above the avatars (the app moves them,
+// see watchRail), and the rail starts below them.
 const MAC_FRAME_CSS = `
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top>.bt-brand{visibility:hidden}
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:drag}
@@ -116,31 +118,20 @@ html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1}
 /* Expanded, as in Grok Bot: the sidebar toggle is a plain icon left of search and new chat. */
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{background:transparent!important;box-shadow:none!important;border-color:transparent!important;width:30px;height:30px;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse:hover{background:var(--bt-hover)!important}
-/* Collapsed, as in Grok Bot: a rail of avatars under the traffic lights (the app moves the
-   lights left and the page widens the rail to 76px), and at its foot the sidebar toggle and
-   new chat, above the account. */
-/* On macOS DSH closes the sidebar's column to 0px and the page widens it to the rail after;
-   with no right panel open, the rail's width is set here from the first frame instead, so the
-   sidebar shrinks once, straight to 76px (watchRail covers the case with a right panel). */
-html[data-ds-bot-mac] [data-sidebar-collapsed][data-rightbar-collapsed]{grid-template-columns:76px minmax(0px,1fr) minmax(0px,0px)!important}
-/* Opening and closing the sidebar is one glide on one curve, however DSH times its own
-   transition; not while the window is resized or a column is dragged. */
-@media (prefers-reduced-motion:no-preference){html[data-ds-bot-mac]:not([data-bt-resizing]) :has(>[class*="_sidebarCol"]):not([data-dragging]){transition:grid-template-columns .32s cubic-bezier(.32,.72,0,1)!important}}
-html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]{position:relative;padding:52px 8px 6px!important}
-html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]::before{content:"";position:absolute;top:0;left:0;right:0;height:48px;-webkit-app-region:drag}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"]{-webkit-app-region:no-drag}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_regionArea"]{overflow:visible!important;margin-bottom:76px}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_footArea"]{display:flex!important;justify-content:center}
+/* The rail: a band for the lights on top that moves the window, the avatars below it. */
+html[data-ds-bot-mac]:not([data-fullscreen]) .bt-leftcol[data-left=rail]{padding-top:52px}
+html[data-ds-bot-mac] .bt-leftcol[data-left=rail]::before{content:"";position:absolute;top:0;left:0;right:0;height:46px;-webkit-app-region:drag}
 html[data-ds-bot-mac] .bt-rail .bt-list{scrollbar-width:none}
 html[data-ds-bot-mac] .bt-rail .bt-list::-webkit-scrollbar{display:none}
-html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"],.bt-rail>.bt-round:not(.bt-update)){position:absolute!important;left:50%;transform:translateX(-50%);margin:0!important;z-index:2}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"]{bottom:116px;height:32px;display:flex;align-items:center}
-html[data-ds-bot-mac] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update){bottom:82px}
-html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_toggle"],.bt-rail>.bt-round:not(.bt-update)){width:32px!important;height:32px!important;min-width:0!important;padding:0!important;border:0!important;border-radius:8px!important;display:inline-grid!important;place-items:center;background:none!important;box-shadow:none!important;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
-html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_toggle"],.bt-rail>.bt-round:not(.bt-update)):hover{background:var(--bt-hover)!important;color:var(--bt-ink)}
-html[data-ds-bot-mac] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update) svg{width:18px;height:18px}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_railMark"]{display:none}
-html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_panelIcon"]{display:block!important;opacity:1!important;width:18px;height:18px}
+/* At the rail's foot the toggle and new chat are plain icons, as in Grok Bot. */
+html[data-ds-bot-mac] .bt-leftcol-foot-rail>.bt-round{width:32px;height:32px;min-width:0;padding:0;border:0!important;border-radius:8px;display:inline-grid;place-items:center;background:none!important;box-shadow:none!important;color:color-mix(in srgb,var(--bt-ink) 72%,transparent)}
+html[data-ds-bot-mac] .bt-leftcol-foot-rail>.bt-round:hover{background:var(--bt-hover)!important;color:var(--bt-ink)}
+html[data-ds-bot-mac] .bt-leftcol-foot-rail>.bt-round svg{width:18px;height:18px}
+/* With the column hidden its switch waits right of the lights, on their line. */
+html[data-ds-bot-mac]:not([data-fullscreen]) .bt-title-toggle{left:84px!important;top:10px!important;background:transparent!important;box-shadow:none!important;border-color:transparent!important;width:30px;height:30px}
+/* Opening and folding the column is one glide on one curve, the conversation beside it on the
+   same one; not while the window is resized (a drag of the edge holds the glide itself). */
+@media (prefers-reduced-motion:no-preference){html[data-ds-bot-mac]:not([data-bt-resizing]) :is(.bt-leftcol,[class*="_centerCol"]){transition:width .32s cubic-bezier(.32,.72,0,1),margin-left .32s cubic-bezier(.32,.72,0,1)}}
 `
 
 function macFrameless() {
@@ -188,26 +179,18 @@ function adoptDragRegions() {
   window.addEventListener('load', copy, { once: true })
 }
 
-// DSH sets the rail's width on the frame's grid (56px), too narrow for the traffic lights:
-// while the sidebar is collapsed its column becomes 76px, and the app moves the lights.
-// DSH narrows the column first and marks the sidebar collapsed only when that animation
-// ends, so the narrow column itself is the sign: it goes to 76px at once, and the sidebar
-// shrinks straight to its final width instead of to 56px and then out again.
-const RAIL = '76px'
+// Folded to the rail, the column is too narrow for the lights where they stand when it is
+// open: the app moves them to the rail's middle. The column says which it is (data-left).
 function watchRail() {
   let collapsed
   const sync = () => {
-    const frame = document.querySelector('[class*="_sidebarCol"]')?.parentElement
-    const columns = frame?.style.gridTemplateColumns
-    const lead = typeof columns === 'string' ? /^(\d+(?:\.\d+)?)px /.exec(columns) : null
-    const now = lead !== null ? Number(lead[1]) <= parseFloat(RAIL) : document.querySelector('[class*="_root"][class*="_collapsed"]') !== null
+    const now = document.querySelector('.bt-leftcol')?.getAttribute('data-left') === 'rail'
     if (now !== collapsed) {
       collapsed = now
       ipcRenderer.send('ds-bot:mac-lights', now)
     }
-    if (now && lead !== null && `${lead[1]}px` !== RAIL) frame.style.gridTemplateColumns = columns.replace(/^\d+(?:\.\d+)?px/, RAIL)
   }
-  new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'style'], childList: true })
+  new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-left'], childList: true })
   sync()
 }
 
