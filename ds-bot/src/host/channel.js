@@ -263,7 +263,7 @@ export function install(rt) {
           return ok([...rt.roomProgress.entries()].filter(([, entry]) => entry.roomId === body.roomId).map(([callId, entry]) => ({ callId, replies: entry.replies, speaking: entry.speaking ?? null })))
         case 'create-bot': {
           await rt.bootstrap()
-          const bot = await rt.createBot({ name: body.name, role: body.role, color: body.color, instructions: body.instructions, brief: body.brief, avatar: body.avatar, model: body.model, effort: body.effort, workDir: body.workDir })
+          const bot = await rt.createBot({ name: body.name, role: body.role, phrases: body.phrases, color: body.color, instructions: body.instructions, brief: body.brief, avatar: body.avatar, model: body.model, effort: body.effort, workDir: body.workDir })
           return ok(bot)
         }
         case 'update-bot':
@@ -352,6 +352,10 @@ export function install(rt) {
         case 'set-section':
           await rt.load()
           await rt.setSection(body.id, body.section ?? null)
+          return ok(view())
+        case 'arrange-entries':
+          await rt.load()
+          await rt.arrangeEntries(body.section ?? null, body.ids)
           return ok(view())
         case 'section-create':
           await rt.load()

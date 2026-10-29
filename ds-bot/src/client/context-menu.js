@@ -1,5 +1,5 @@
 import { createElement as h, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { isMainOf } from './sources.js'
+import { isMainOf, isPinned } from './sources.js'
 import { currentPart } from './text.js'
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon, ChevronRightIcon, CloseIcon, FolderIcon, GearIcon, PinIcon, UnreadIcon, PencilIcon, StarLineIcon, CopyIcon, HideIcon, TrashIcon, DuplicateIcon } from './icons.js'
 import { useEscape } from './overlay-hooks.js'
@@ -30,7 +30,7 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
   const entry = bot ?? room
   if (entry === undefined) return null
   const isMainBot = isMainOf(roster, menu.id)
-  const isTile = roster.mainBotId === menu.id
+  const pinnedNow = isPinned(roster, entry)
   const mainCount = (roster.mainBotIds ?? []).length
   const label = t('{name} actions', { name: bot?.name ?? room.name })
   if (pane === 'sections') {
@@ -39,9 +39,9 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
   }
   const groups = [
     [
-      isTile ? null : [entry.pinned ? t('Unpin') : t('Pin'), PinIcon, () => actions.setFlags(menu.id, { pinned: !entry.pinned })],
+      [pinnedNow ? t('Unpin') : t('Pin'), PinIcon, () => actions.setFlags(menu.id, { pinned: !pinnedNow })],
       [t('Mark as Unread'), UnreadIcon, () => actions.markUnread(menu.id)],
-      isTile ? null : [t('Move to section'), FolderIcon, () => setPane('sections'), false, true],
+      [t('Move to section'), FolderIcon, () => setPane('sections'), false, true],
     ],
     [
       bot ? [t('Rename Bot'), PencilIcon, () => actions.renameBot(bot.id)] : null,

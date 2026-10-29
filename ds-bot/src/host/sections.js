@@ -97,6 +97,23 @@ export function install(rt) {
     return section
   }
 
+  // The user dragged rows: `ids` is the section's rows in their new order, and each joins
+  // the section (`section` '' or null: no section) at its place. The order sticks until
+  // the next drag; rows never arranged follow, newest activity first.
+  async function arrangeEntries(section, ids) {
+    writable()
+    const name = section === null || cleanSectionName(section) === '' ? undefined : ensure(section)
+    const list = Array.isArray(ids) ? ids.map(String) : []
+    list.forEach((id, rank) => {
+      const entry = rt.botOf(id) ?? rt.roomOf(id)
+      if (entry === undefined) return
+      if (name === undefined) delete entry.section
+      else entry.section = name
+      entry.rank = rank
+    })
+    await rt.save()
+  }
+
   // The headings in order: an entry that names a section the list lost (a hand-edited
   // state.json, an older copy) still gets its heading, after the others.
   const sectionsView = () => {
@@ -143,5 +160,5 @@ export function install(rt) {
     },
   }))
 
-  Object.assign(rt, { setSection, createSection, renameSection, deleteSection, arrangeSection, sectionsView })
+  Object.assign(rt, { setSection, createSection, renameSection, deleteSection, arrangeSection, arrangeEntries, sectionsView })
 }

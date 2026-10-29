@@ -815,13 +815,22 @@ function toolActivity(name, arg, findBot, self) {
 // What a Bot busy elsewhere is doing: what it said in the step it is on, its running
 // call's own description, else the kind of tool and what it works on. `doing` is a work
 // entry, or just a tool name.
-export function workPhrase(doing) {
+// A Bot with catchphrases of its own says one of them; it changes every few seconds
+// rather than on every render.
+export const PHRASE_TURN_MS = 6000
+export function ownPhrase(bot, at = Date.now()) {
+  const phrases = Array.isArray(bot?.phrases) ? bot.phrases.filter(phrase => typeof phrase === 'string' && phrase !== '') : []
+  return phrases.length === 0 ? undefined : phrases[Math.floor(at / PHRASE_TURN_MS) % phrases.length]
+}
+export const phrasePool = (bot, pool) => (Array.isArray(bot?.phrases) && bot.phrases.length > 0 ? bot.phrases : pool)
+
+export function workPhrase(doing, bot) {
   const { tool, said, note, target, switching, folder } = typeof doing === 'string' ? { tool: doing } : doing ?? {}
   if (switching) return folder === true ? t('Switching working folder') : t('Moving to a fresh conversation')
   const own = (said || note)?.replace(/[\s.。…]+$/u, '')
   if (own) return own
-  if (!tool) return t('Thinking about it')
-  const label = toolActivity(tool, () => undefined, () => undefined)?.label ?? t('On it')
+  if (!tool) return ownPhrase(bot) ?? t('Thinking about it')
+  const label = toolActivity(tool, () => undefined, () => undefined)?.label ?? ownPhrase(bot) ?? t('On it')
   return target ? `${label} · ${target}` : label
 }
 

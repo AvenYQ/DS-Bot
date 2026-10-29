@@ -77,6 +77,7 @@ export function teamActions({ call, after, partFor, roster, ui, live, cards, hel
     renameSection: (name, to) => after(call('section-rename', { name, to })),
     deleteSection: name => after(call('section-delete', { name })),
     arrangeSection: (name, change) => after(call('section-arrange', { name, ...change })),
+    arrangeEntries: (section, ids) => after(call('arrange-entries', { section, ids })),
     deleteRoom: id => after(call('delete-room', { id })),
     openMenu: (menu) => { ui.set(state => ({ ...state, menu })) },
     closeMenu: () => { ui.set(state => (state.menu ? { ...state, menu: null } : state)) },

@@ -1006,3 +1006,35 @@ test('Bots and group chats are filed under sidebar sections that keep their orde
   assert.match(await tool({ names: 'Chief', section: 'x' }, writer.id), /^Only a Main Bot/)
   await until(() => JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).bots[writer.id]?.section === '内廷')
 })
+
+test('a Bot keeps catchphrases of its own, cleaned, and loses them on an empty edit', async (t) => {
+  const { call, stop } = start(undefined, { models: ['deepseek-v4-flash'] })
+  t.after(stop)
+  const writer = (await call('create-bot', { name: 'Writer', phrases: '翻阅史册…、考据中。、翻阅史册,  容臣细查 ' })).value
+  assert.deepEqual(writer.phrases, ['翻阅史册', '考据中', '容臣细查'])
+  const updated = (await call('update-bot', { id: writer.id, phrases: '这就去办\n马上' })).value
+  assert.deepEqual(updated.phrases, ['这就去办', '马上'])
+  const cleared = (await call('update-bot', { id: writer.id, phrases: '  ' })).value
+  assert.equal(cleared.phrases, undefined)
+  const plain = (await call('create-bot', { name: 'Plain' })).value
+  assert.equal(plain.phrases, undefined)
+})
+
+test('dragged rows join a section in the order they were dropped, and pinning keeps its order', async (t) => {
+  const { call, stop } = start(undefined, { models: ['deepseek-v4-flash'] })
+  t.after(stop)
+  const a = (await call('create-bot', { name: 'Alpha', phrases: '在办' })).value
+  const b = (await call('create-bot', { name: 'Beta' })).value
+  let view = (await call('arrange-entries', { section: '内廷', ids: [b.id, a.id] })).value
+  const byId = id => view.bots.find(bot => bot.id === id)
+  assert.equal(byId(a.id).section, '内廷')
+  assert.deepEqual([byId(b.id).rank, byId(a.id).rank], [0, 1])
+  assert.deepEqual(byId(a.id).phrases, ['在办'])
+  assert.deepEqual(view.sections.map(section => section.name), ['内廷'])
+  view = (await call('arrange-entries', { section: '', ids: [a.id] })).value
+  assert.equal(byId(a.id).section, undefined)
+  const pinned = (await call('set-flags', { id: b.id, pinned: true })).value
+  assert.equal(typeof pinned.pinnedAt, 'number')
+  const unpinned = (await call('set-flags', { id: b.id, pinned: false })).value
+  assert.equal(unpinned.pinnedAt, undefined)
+})

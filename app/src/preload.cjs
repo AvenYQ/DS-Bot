@@ -119,6 +119,13 @@ html[data-ds-bot-mac] .bt-side-top .bt-side-collapse:hover{background:var(--bt-h
 /* Collapsed, as in Grok Bot: a rail of avatars under the traffic lights (the app moves the
    lights left and the page widens the rail to 76px), and at its foot the sidebar toggle and
    new chat, above the account. */
+/* On macOS DSH closes the sidebar's column to 0px and the page widens it to the rail after;
+   with no right panel open, the rail's width is set here from the first frame instead, so the
+   sidebar shrinks once, straight to 76px (watchRail covers the case with a right panel). */
+html[data-ds-bot-mac] [data-sidebar-collapsed][data-rightbar-collapsed]{grid-template-columns:76px minmax(0px,1fr) minmax(0px,0px)!important}
+/* Opening and closing the sidebar is one glide on one curve, however DSH times its own
+   transition; not while the window is resized or a column is dragged. */
+@media (prefers-reduced-motion:no-preference){html[data-ds-bot-mac]:not([data-bt-resizing]) :has(>[class*="_sidebarCol"]):not([data-dragging]){transition:grid-template-columns .32s cubic-bezier(.32,.72,0,1)!important}}
 html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]{position:relative;padding:52px 8px 6px!important}
 html[data-ds-bot-mac] [class*="_root"][class*="_collapsed"]::before{content:"";position:absolute;top:0;left:0;right:0;height:48px;-webkit-app-region:drag}
 html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"]{-webkit-app-region:no-drag}
@@ -144,6 +151,12 @@ function macFrameless() {
   document.head.append(style)
   adoptDragRegions()
   watchRail()
+  let resizing
+  addEventListener('resize', () => {
+    root.dataset.btResizing = ''
+    clearTimeout(resizing)
+    resizing = setTimeout(() => { delete root.dataset.btResizing }, 200)
+  })
 }
 
 // Which parts of the page move the window is DSH's own: it marks them [data-window-drag]
@@ -177,21 +190,22 @@ function adoptDragRegions() {
 
 // DSH sets the rail's width on the frame's grid (56px), too narrow for the traffic lights:
 // while the sidebar is collapsed its column becomes 76px, and the app moves the lights.
+// DSH narrows the column first and marks the sidebar collapsed only when that animation
+// ends, so the narrow column itself is the sign: it goes to 76px at once, and the sidebar
+// shrinks straight to its final width instead of to 56px and then out again.
 const RAIL = '76px'
 function watchRail() {
   let collapsed
   const sync = () => {
-    const rail = document.querySelector('[class*="_root"][class*="_collapsed"]')
-    const now = rail !== null
+    const frame = document.querySelector('[class*="_sidebarCol"]')?.parentElement
+    const columns = frame?.style.gridTemplateColumns
+    const lead = typeof columns === 'string' ? /^(\d+(?:\.\d+)?)px /.exec(columns) : null
+    const now = lead !== null ? Number(lead[1]) <= parseFloat(RAIL) : document.querySelector('[class*="_root"][class*="_collapsed"]') !== null
     if (now !== collapsed) {
       collapsed = now
       ipcRenderer.send('ds-bot:mac-lights', now)
     }
-    const frame = document.querySelector('[class*="_sidebarCol"]')?.parentElement
-    const columns = frame?.style.gridTemplateColumns
-    if (now && typeof columns === 'string' && /^\d+px /.test(columns) && !columns.startsWith(`${RAIL} `)) {
-      frame.style.gridTemplateColumns = columns.replace(/^\d+px/, RAIL)
-    }
+    if (now && lead !== null && `${lead[1]}px` !== RAIL) frame.style.gridTemplateColumns = columns.replace(/^\d+(?:\.\d+)?px/, RAIL)
   }
   new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'style'], childList: true })
   sync()
