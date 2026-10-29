@@ -113,7 +113,21 @@ html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top>.bt-brand{visibility:h
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:drag}
 html[data-ds-bot-mac] .bt-side-top>.bt-brand{order:-2}
 html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1}
-html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side.bt-rail{padding-top:34px}
+/* Collapsed, as DSH's own desktop app does it: no rail at all, the conversation runs to the
+   window's edge, and two plain icons beside the traffic lights open the sidebar and start a
+   new chat. Fullscreen has no lights, so the icons move to the corner. */
+html[data-ds-bot-mac] [class*="_sidebarCol"]:has([class*="_collapsed"]){width:0!important;min-width:0!important;flex-basis:0!important;border:0!important;box-shadow:none!important}
+html[data-ds-bot-mac] [class*="_frame"]:has([class*="_sidebarCol"] [class*="_collapsed"]){grid-template-columns:0 minmax(0,1fr)!important}
+html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"],.bt-rail>.bt-round:not(.bt-update)){position:fixed;z-index:5;margin:0!important;-webkit-app-region:no-drag}
+html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"]{top:15px;left:85px;height:28px;display:flex;align-items:center}
+html[data-ds-bot-mac] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update){top:15px;left:121px}
+html[data-ds-bot-mac][data-fullscreen] [class*="_collapsed"] [class*="_logoRow"]{left:14px}
+html[data-ds-bot-mac][data-fullscreen] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update){left:50px}
+html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_toggle"],.bt-rail>.bt-round:not(.bt-update)){width:28px!important;height:28px!important;min-width:0!important;padding:0!important;border:0!important;border-radius:7px!important;display:inline-grid!important;place-items:center;background:none!important;box-shadow:none!important;color:color-mix(in srgb,var(--bt-ink) 82%,transparent)}
+html[data-ds-bot-mac] [class*="_collapsed"] :is([class*="_logoRow"] [class*="_toggle"],.bt-rail>.bt-round:not(.bt-update)):hover{background:var(--bt-hover)!important;color:var(--bt-ink)}
+html[data-ds-bot-mac] [class*="_collapsed"] .bt-rail>.bt-round:not(.bt-update) svg{width:18px;height:18px}
+html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_railMark"]{display:none}
+html[data-ds-bot-mac] [class*="_collapsed"] [class*="_logoRow"] [class*="_toggle"]::before{content:"";width:18px;height:18px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5'%3E%3Crect x='3' y='3.5' width='14' height='13' rx='2.5'/%3E%3Cpath d='M8 3.5v13'/%3E%3C/svg%3E") center/contain no-repeat}
 .dsb-mac-band{position:fixed;top:0;left:0;right:0;height:44px;pointer-events:none;-webkit-app-region:drag;z-index:0}
 html[data-fullscreen] .dsb-mac-band{display:none}
 html[data-ds-bot-mac] :is(button,a,input,textarea,select,label,summary,[role=button],[role=tab],[role=menu],[role=dialog],[contenteditable]){-webkit-app-region:no-drag}
