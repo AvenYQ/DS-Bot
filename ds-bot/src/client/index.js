@@ -35,7 +35,7 @@ import { SCHEDULE_CSS } from './schedules.js'
 import { STORAGE, migrateStorage } from './storage.js'
 import { noteLeft, setUnread, sharedMap, toggleReaction } from './shared-map.js'
 import { freePriority, groupsFor, readMode, surfaceGroups, writeMode } from './surface.js'
-import { installLocale, language, t } from './i18n.js'
+import { installLocale, language, t, setCourt } from './i18n.js'
 import { noteClientError, quietly } from './diagnostics.js'
 import { RIGHTBAR_ATTRIBUTES, columnOpened, createSwitchWindow, drawerOpened, rightColumnOpen } from './right-panel.js'
 import { ErrorToast, FEEDBACK_CSS } from './feedback.js'
@@ -334,6 +334,7 @@ export function apply(ctx) {
       const id = themes[prefs.theme] ? prefs.theme : 'deepseek'
       const accent = isHex(prefs.accent) ? prefs.accent : undefined
       const motion = prefs.motion === 'quiet' || prefs.motion === 'lively' ? prefs.motion : 'normal'
+      setCourt(prefs.court !== false)
       const layout = layoutOf(prefs)
       const width = widthOf(prefs)
       const flatWidth = flatWidthOf(prefs)
@@ -349,7 +350,7 @@ export function apply(ctx) {
       releaseTokens = ctx.theme.overrideTokens('ds-bot', shellTokens(themes[id]))
       if (typeof release === 'function') release()
       if (snapshot.ready) {
-        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor })) } catch { /* storage unavailable */ }
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court })) } catch { /* storage unavailable */ }
       }
     }
     render()
@@ -669,6 +670,12 @@ export function apply(ctx) {
         const snapshot = chat.getSnapshot()
         if (snapshot === undefined) throw new Error('ds-bot: Chat target is unavailable')
         return snapshot.nodes.turnDataSource(Number(turn), 'context')
+      },
+      // The user's message that opens a Turn: the one after a reply answers it (朱批).
+      turnUser: (turn) => {
+        const snapshot = chat.getSnapshot()
+        if (snapshot === undefined) throw new Error('ds-bot: Chat target is unavailable')
+        return snapshot.nodes.turnDataSource(Number(turn), 'user')
       },
     } }
   }

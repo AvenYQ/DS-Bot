@@ -13,15 +13,15 @@ import { SPRING_SHAPE, SPRING_TAP, SPRING_STRETCH, SPRING_POP, spring } from './
 // CONVERSATION_CSS re-skins the shell's own conversation DOM and styles what only
 // the conversation renders.
 export const SHELL_CSS = `
-body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
-body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62)}
+body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join('')}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join('')}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
 .bt-mark svg{width:100%;height:100%;overflow:visible}
-.bt-mark-img{width:100%;height:100%;border-radius:50%;corner-shape:round;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--bt-line)}
+.bt-mark-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--bt-line)}
 .bt-mark .bt-b,.bt-mark .bt-eye,.bt-mark .bt-eyes,.bt-mark .bt-gaze{transform-box:fill-box}
 .bt-mark .bt-b{transform-origin:50% 100%}
 .bt-mark .bt-eye,.bt-mark .bt-eyes{transform-origin:center}
@@ -624,12 +624,29 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-react-strip button:hover{background:var(--bt-hover);transform:scale(1.15)}
 .bt-react-strip button:active{transform:scale(.92)}
 .bt-reacts{display:flex;gap:4px;margin-top:4px}
+/* 朱批: when the user answers with a verdict, a cinnabar seal is stamped askew on the tail
+   of the answered bubble: a double frame around Song-style characters, inked rather than
+   painted (multiply, a little thin). */
+.bt-bubble[data-stamped]{position:relative;overflow:visible}
+.bt-msg:has(.bt-bubble[data-stamped]){margin-bottom:14px}
+.bt-stamp{position:absolute;right:-30px;bottom:-18px;display:grid;place-items:center;box-sizing:border-box;width:44px;height:44px;border:2px solid var(--bt-stamp);border-radius:6px;color:var(--bt-stamp);rotate:-11deg;opacity:.86;mix-blend-mode:multiply;pointer-events:none;box-shadow:inset 0 0 0 2px var(--bt-bubble),inset 0 0 0 3px var(--bt-stamp)}
+.bt-stamp[data-len="2"]{width:40px;height:52px}
+.bt-stamp-text{font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:23px;line-height:1;letter-spacing:0}
+.bt-stamp[data-len="2"] .bt-stamp-text{writing-mode:vertical-rl;font-size:17px;letter-spacing:1px}
+.bt-stamp[data-tone=yes],.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-cinnabar)}
+.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 55%,var(--bt-ink-2))}
+body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;opacity:.9}
+.bt-stamp[data-fresh]{animation:bt-stamp-down .52s cubic-bezier(.3,1.5,.5,1) both}
+.bt-bubble[data-fresh]{animation:bt-stamp-press .3s ease-out .2s both}
+@keyframes bt-stamp-down{0%{scale:2.3;rotate:-2deg;opacity:0;filter:blur(3px)}45%{scale:.9;rotate:-12deg;opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:-11deg;opacity:.86}}
+@keyframes bt-stamp-press{0%{translate:0 0}35%{translate:0 2px}100%{translate:0 0}}
+@media (prefers-reduced-motion:reduce){.bt-stamp[data-fresh],.bt-bubble[data-fresh]{animation:none}}
 .bt-react{height:22px;min-width:30px;padding:0 6px;border-radius:999px;border:.5px solid var(--bt-line-2);background:var(--bt-main);font-size:13px;line-height:20px;cursor:pointer;animation:bt-react-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing};transition:background-color .12s ease,${spring(SPRING_TAP, 'scale')}}
 .bt-react:hover{background:var(--bt-hover)}
 .bt-react:active{scale:.92}
 @keyframes bt-react-pop{from{transform:scale(.6);opacity:0}}
 .bt-bubble a[href^="${MENTION_ORIGIN}"] svg{display:none}
-.bt-you{width:36px;height:36px;border-radius:50%;corner-shape:round;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bt-ink) 5%,var(--bt-sidebar));color:var(--bt-ink-2);box-shadow:inset 0 0 0 1px var(--bt-line);transition:background-color .12s ease}
+.bt-you{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bt-ink) 5%,var(--bt-sidebar));color:var(--bt-ink-2);box-shadow:inset 0 0 0 1px var(--bt-line);transition:background-color .12s ease}
 button:hover .bt-you{background:color-mix(in srgb,var(--bt-ink) 9%,var(--bt-sidebar))}
 .bt-you-wrap{display:inline-flex;padding:0}
 

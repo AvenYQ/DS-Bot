@@ -104,6 +104,8 @@ function GeneralPage({ roster, actions, run }) {
         h('select', { className: 'bt-select', 'aria-label': t('Chat color'), value: prefs.chatColor === 'bot' ? 'bot' : 'theme', onChange: event => run(actions.setPrefs({ chatColor: event.target.value === 'bot' ? 'bot' : null })) },
           h('option', { value: 'bot' }, t('Bot color')),
           h('option', { value: 'theme' }, t('Theme color')))),
+      h(SetRow, { label: t('Court phrasing'), hint: t('What a Bot is doing reads like a court errand: 拟写文书, 打探消息.') },
+        h(Switch, { label: t('Court phrasing'), on: prefs.court !== false, onChange: court => run(actions.setPrefs({ court })) })),
       h(SetRow, { label: t('Message layout') }, h(Choice, { label: t('Message layout'), value: layoutOf(prefs), options: LAYOUTS, pick: id => run(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === 'flat' ? h(SetRow, { label: t('Text width') }, h(WidthSlider, { label: t('Text width'), value: flatWidthOf(prefs), save: flatWidth => run(actions.setPrefs({ flatWidth })) })) : null,

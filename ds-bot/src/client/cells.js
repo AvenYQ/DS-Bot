@@ -10,6 +10,7 @@ import { AnsweredReply, WidgetCell } from './widget-cell.js'
 import { SecretToolCell } from './secret-card.js'
 import { HandoffCall } from './handoff-card.js'
 import { t } from './i18n.js'
+import { Stamp, freshStamp, verdictOf } from './seal.js'
 import { call } from './api.js'
 import { failureLabel } from './diagnostics.js'
 import { turnReasoning, thinkingStep, opensReply } from './turn-reasoning.js'
@@ -31,7 +32,7 @@ const mdLabels = () => ({ code: { copyLabel: t('Copy'), copiedLabel: t('Copied')
 // row, so it lines up with the bubble whether or not reactions hang below it.
 // `fold`: past what a bubble folds (fold.js); `whole`: the last text is only the start
 // of its message (see useFold).
-export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole }) {
+export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, msgKey, useUi, lead, mentions, fold = FOLD_AT, whole, stamp }) {
   const onClick = (event) => {
     const target = mentionTarget(event)
     if (target === null) return
@@ -49,11 +50,12 @@ export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, 
         live: streaming && last,
         lead: lead && last ? lead : null,
         whole: last ? whole : undefined,
+        stamp: last && !streaming ? stamp : undefined,
       })
     }))
 }
 
-function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole }) {
+function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole, stamp }) {
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live })
   const key = msgKey ? `${msgKey}:${index}` : undefined
   const body = h(MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels(), variant: 'compact', fileMentions: mentions })
@@ -69,16 +71,21 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
   return h('div', { ref: row, className: 'bt-msg', onClick: tapTools },
     h('div', { className: 'bt-msg-line' },
       lead,
-      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined },
+      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined, 'data-stamped': stamp ? '' : undefined, 'data-fresh': stamp?.fresh || undefined },
         control ? h('div', { className: 'bt-fold-body' }, body) : body,
-        control),
-      live ? null : h(MessageTools, { text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined, actions, open: toolsOpen })),
+        control,
+        stamp ? h(Stamp, stamp) : null),
+      live ? null : h(MessageTools, {
+        text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, actions, open: toolsOpen,
+        react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined,
+      })),
     picked.length ? h('div', { className: 'bt-reacts' }, picked.map(emoji => h('button', {
       key: emoji, type: 'button', className: 'bt-react', 'aria-label': t('Remove reaction {emoji}', { emoji }), onClick: () => actions.toggleReaction(msgKey, index, emoji),
     }, emoji))) : null)
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
 // Half the reaction strip: six 32px buttons at 2px gaps plus its own padding and
 // the 8px margin it keeps from the screen edge.
 const STRIP_HALF = (REACTIONS.length * 34 + 10) / 2 + 8
@@ -217,7 +224,7 @@ function useFileMentions({ node, openFile, fileMentions, useTurnData }) {
   }, [fileMentions, openFile, seq, tail, turn])
 }
 
-export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, actions }) {
+export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, useTurnData, useRoster, useUi, useTurnSteps, useTurnContext, useTurnUser, actions }) {
   const roster = useRoster(value => value)
   const data = node.data
   const steps = useTurnSteps(String(data.turn))
@@ -233,6 +240,15 @@ export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentio
   // earlier step's cell.
   const thinking = groupPart === 'response' || !shown ? undefined : thinkingStep(members)
   const ms = useThinkingMs({ sessionId, turn: data.turn, settledSteps: members.filter(step => step.status !== 'running').length, skip: hidden || reasoning === '' })
+  // 朱批: the user's next message, when it is only a verdict, stamps the last words of
+  // this Turn's reply.
+  const answers = useTurnUser ? useTurnUser(String(Number(data.turn) + 1)) : undefined
+  const answer = Array.isArray(answers) ? answers[0] : undefined
+  const verdict = answer ? verdictOf(contentText(answer.content)) : undefined
+  const lastSpoken = [...members].reverse().find(step => step.blocks?.some(block => block.kind === 'text' && block.text.trim() !== ''))
+  const stampHere = verdict !== undefined && groupPart !== 'reasoning' && (lastSpoken === data || (lastSpoken?.seq !== undefined && lastSpoken.seq === data.seq))
+  const stampKey = `${sessionId}:${data.turn}`
+  const freshStampHere = useMemo(() => (stampHere ? freshStamp(stampKey, answer?.time) : false), [stampKey, stampHere])
   // A streaming reply stands in for the activity row.
   useLiveNote(actions, sessionId, `text:${node.key ?? data.seq}`, !hidden && running && texts.length > 0 ? { text: true } : null)
   if (hidden) return null
@@ -266,7 +282,7 @@ export function AssistantCell({ node, groupPart, sessionId, openFile, fileMentio
       // time makes one Elapsed show settled + running.
       ...(thinking !== undefined ? { at: typeof thinking.time === 'number' ? thinking.time - (ms ?? 0) : undefined } : { ms }),
     }) : null,
-    texts.length ? h(Bubbles, { texts, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ''}`, useUi, mentions, fold: FOLD_HUGE }) : null)
+    texts.length ? h(Bubbles, { texts, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ''}`, useUi, mentions, fold: FOLD_HUGE, stamp: stampHere ? { verdict, fresh: freshStampHere } : undefined }) : null)
 }
 
 function EventLine({ prefix, bots, joiner = t('and'), onOpen, whole = false }) {
