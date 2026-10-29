@@ -4280,10 +4280,19 @@ function installTailKeeper() {
   };
   const resize = new ResizeObserver(changed);
   let settle = 0;
+  const anchor = () => {
+    if (scroller) scroller.style.overflowAnchor = atBottom ? "none" : "";
+  };
   const onScroll = () => {
     if (Date.now() - ours < 120 && Date.now() - userAt > 300) return;
     if (easing && Date.now() - userAt > 300) return;
+    const was = atBottom;
     atBottom = gap() <= NEAR;
+    if (was && Date.now() - userAt > 300 && gap() > 1 && gap() <= NEAR * 2) {
+      atBottom = true;
+      toBottom();
+    }
+    anchor();
     if (!atBottom && Date.now() - userAt < 300 && held) letGo();
     clearTimeout(settle);
     settle = setTimeout(() => {
@@ -4317,6 +4326,7 @@ function installTailKeeper() {
     }
     height = scroller.scrollHeight;
     atBottom = gap() <= NEAR;
+    anchor();
   };
   const scan = () => attach(document.querySelector("[data-conversation-scroll]"));
   let pending = 0;

@@ -115,10 +115,23 @@ export function installTailKeeper() {
   const resize = new ResizeObserver(changed)
 
   let settle = 0
+  // The browser's scroll anchoring keeps some message in the middle still when content
+  // around it changes, which at the end of a turn nudged a pinned view a few pixels up (and
+  // the follow pulled it back down: the sink and bounce). While the view is pinned to the
+  // bottom, anchoring is off, so the bottom is what stays put.
+  const anchor = () => { if (scroller) scroller.style.overflowAnchor = atBottom ? 'none' : '' }
   const onScroll = () => {
     if (Date.now() - ours < 120 && Date.now() - userAt > 300) return
     if (easing && Date.now() - userAt > 300) return
+    const was = atBottom
     atBottom = gap() <= NEAR
+    // Nudged a little without the reader: back to the bottom now, before the frame is
+    // drawn. A long move (a jump to an earlier message) is left alone.
+    if (was && Date.now() - userAt > 300 && gap() > 1 && gap() <= NEAR * 2) {
+      atBottom = true
+      toBottom()
+    }
+    anchor()
     if (!atBottom && Date.now() - userAt < 300 && held) letGo()
     clearTimeout(settle)
     settle = setTimeout(() => {
@@ -151,6 +164,7 @@ export function installTailKeeper() {
     }
     height = scroller.scrollHeight
     atBottom = gap() <= NEAR
+    anchor()
   }
   const scan = () => attach(document.querySelector('[data-conversation-scroll]'))
   let pending = 0
