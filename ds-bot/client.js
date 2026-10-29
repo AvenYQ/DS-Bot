@@ -2476,9 +2476,9 @@ function useMorph(box, key) {
       return;
     }
     if (!node || key === state.key) return;
-    const running = node.getAnimations().filter((animation2) => animation2.id === "bt-morph");
-    const from = running.length ? node.offsetHeight : state.height;
-    for (const animation2 of running) animation2.cancel();
+    const running2 = node.getAnimations().filter((animation2) => animation2.id === "bt-morph");
+    const from = running2.length ? node.offsetHeight : state.height;
+    for (const animation2 of running2) animation2.cancel();
     const to = node.offsetHeight;
     Object.assign(state, { key, height: to });
     if (from === null || Math.abs(from - to) < 1 || reducedMotion()) return;
@@ -3735,7 +3735,7 @@ function installCompiledStyles(text, tag) {
 // src/client/mark.js
 var import_react2 = require("react");
 var STATES = ["idle", "thinking", "searching", "working", "sending", "orbit", "waiting", "alert", "done"];
-var botState = (running, activity, alert) => running ? STATES.includes(activity) && activity !== "waiting" ? activity : "working" : alert ? "alert" : activity === "waiting" ? "waiting" : "idle";
+var botState = (running2, activity, alert) => running2 ? STATES.includes(activity) && activity !== "waiting" ? activity : "working" : alert ? "alert" : activity === "waiting" ? "waiting" : "idle";
 var toolState = (name) => /^(message_bot|stop_bot|create_bot|update_bot|create_group|update_group|delete_group|post_to_group)$/.test(name) ? "sending" : /search|fetch|browse|read|grep|glob|list|recall/i.test(name) ? "searching" : "working";
 function useGaze(ref, enabled) {
   (0, import_react2.useEffect)(() => {
@@ -4188,8 +4188,9 @@ var DRAG_SORT_CSS = `
 
 // src/client/tail-keeper.js
 var NEAR = 24;
-var HOLD_MS2 = 180;
-var EASE_MS = 220;
+var QUIET_MS = 500;
+var EASE_MS = 360;
+var running = () => document.documentElement.hasAttribute("data-bt-running");
 function installTailKeeper() {
   let scroller = null;
   let flow = null;
@@ -4218,6 +4219,10 @@ function installTailKeeper() {
   };
   const release = () => {
     if (!flow || !scroller) return letGo();
+    if (running()) {
+      holdTimer = setTimeout(release, QUIET_MS);
+      return void 0;
+    }
     ours = Date.now();
     const from = held;
     flow.style.minHeight = "";
@@ -4248,6 +4253,10 @@ function installTailKeeper() {
   };
   const changed = () => {
     if (!scroller || easing) return;
+    if (held) {
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(release, QUIET_MS);
+    }
     const next = scroller.scrollHeight;
     const delta = next - height;
     height = next;
@@ -4258,7 +4267,7 @@ function installTailKeeper() {
       height = scroller.scrollHeight;
       toBottom();
       clearTimeout(holdTimer);
-      holdTimer = setTimeout(release, HOLD_MS2);
+      holdTimer = setTimeout(release, QUIET_MS);
       return;
     }
     if (held && flow) {
@@ -8123,7 +8132,7 @@ function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, use
   const mentions = useFileMentions({ node, openFile, fileMentions, useTurnData });
   const hidden = Boolean(roster.roomsById[sessionId]) || isHiddenTurn(roster, sessionId, data.turn);
   const texts2 = groupPart === "reasoning" ? [] : data.blocks.filter((block) => block.kind === "text" && block.text.trim() !== "").map((block) => block.text);
-  const running = data.status === "running";
+  const running2 = data.status === "running";
   const members = steps.length ? steps : [data];
   const shown = thinkingShown(roster.prefs);
   const reasoning = groupPart === "response" || !shown ? "" : turnReasoning(steps, data);
@@ -8136,7 +8145,7 @@ function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, use
   const stampHere = verdict !== void 0 && groupPart !== "reasoning" && (lastSpoken === data || lastSpoken?.seq !== void 0 && lastSpoken.seq === data.seq);
   const stampKey = `${sessionId}:${data.turn}`;
   const freshStampHere = (0, import_react15.useMemo)(() => stampHere ? freshStamp(stampKey, answer?.time) : false, [stampKey, stampHere]);
-  useLiveNote(actions, sessionId, `text:${node.key ?? data.seq}`, !hidden && running && texts2.length > 0 ? { text: true } : null);
+  useLiveNote(actions, sessionId, `text:${node.key ?? data.seq}`, !hidden && running2 && texts2.length > 0 ? { text: true } : null);
   if (hidden) return null;
   const relays = relayPart(data, groupPart) ? relaysBefore(contexts, steps, data) : [];
   if (texts2.length === 0 && !reasoning && relays.length === 0) return null;
@@ -8168,7 +8177,7 @@ function AssistantCell({ node, groupPart, sessionId, openFile, fileMentions, use
       // time makes one Elapsed show settled + running.
       ...thinking !== void 0 ? { at: typeof thinking.time === "number" ? thinking.time - (ms ?? 0) : void 0 } : { ms }
     }) : null,
-    texts2.length ? (0, import_react15.createElement)(Bubbles, { texts: texts2, roster, selfId, actions, streaming: running, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ""}`, useUi, mentions, fold: FOLD_HUGE, stamp: stampHere ? { verdict, fresh: freshStampHere } : void 0 }) : null
+    texts2.length ? (0, import_react15.createElement)(Bubbles, { texts: texts2, roster, selfId, actions, streaming: running2, sessionId, msgKey: `${sessionId}:${data.turn}:${node.key ?? data.seq ?? ""}`, useUi, mentions, fold: FOLD_HUGE, stamp: stampHere ? { verdict, fresh: freshStampHere } : void 0 }) : null
   );
 }
 function EventLine({ prefix, bots, joiner = t("and"), onOpen, whole = false }) {
@@ -8987,8 +8996,8 @@ function ToolCell({ node, sessionId, useRoster, useUi, useWork, useHeldCards, us
   const findBot = (nameOrId) => roster.byId[nameOrId] ?? roster.bots.find((bot) => bot.name.toLowerCase() === String(nameOrId ?? "").toLowerCase());
   const calls = hidden ? [] : callTree(root);
   const drawn = calls.filter((call2) => DRAWN.has(toolName(call2)));
-  const running = root.kind === "tool-result" ? void 0 : calls.findLast((call2) => call2.kind !== "tool-result");
-  const note = running ? toolActivity(toolName(running), toolArgs(running).text, findBot, roster.byId[sessionId]) : null;
+  const running2 = root.kind === "tool-result" ? void 0 : calls.findLast((call2) => call2.kind !== "tool-result");
+  const note = running2 ? toolActivity(toolName(running2), toolArgs(running2).text, findBot, roster.byId[sessionId]) : null;
   useLiveNote(actions, sessionId, `tool:${root.callId ?? node.key}`, note);
   useShownCards(actions, sessionId, drawn.filter((call2) => CARDS.has(toolName(call2)) && call2.callId).map((call2) => call2.callId));
   if (drawn.length === 0) return null;
@@ -9001,7 +9010,7 @@ var import_react16 = require("react");
 var import_react_dom2 = require("react-dom");
 var PHRASE_HOLD_MS = 800;
 var drawPhrase = (pool) => t(pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]);
-var rowVisible = ({ running, streaming, tools, relaying, bot, room: room2 }) => running && (!streaming || tools.length > 0) && !relaying && (bot !== void 0 || room2 !== void 0);
+var rowVisible = ({ running: running2, streaming, tools, relaying, bot, room: room2 }) => running2 && (!streaming || tools.length > 0) && !relaying && (bot !== void 0 || room2 !== void 0);
 var freshInputAt = (submissions, steeredAt) => Math.max(
   0,
   steeredAt ?? 0,
@@ -9092,10 +9101,10 @@ function useRowEntrances(replacing) {
 }
 function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, useSession, useWork, actions }) {
   const roster = useRoster((value) => value);
-  const running = useSessionStatus((map) => map.get(sessionId)?.running === true);
+  const running2 = useSessionStatus((map) => map.get(sessionId)?.running === true);
   const turnAt = useWork?.((work) => work.turns?.[sessionId]);
   const runAt = (0, import_react16.useRef)(0);
-  if (!running) runAt.current = 0;
+  if (!running2) runAt.current = 0;
   else if (runAt.current === 0) runAt.current = Date.now();
   const liveKey = useLive((state) => JSON.stringify(state[sessionId] ?? {}));
   const steeredAt = useWork?.((work) => work.steered?.[sessionId]);
@@ -9110,7 +9119,7 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, us
   const streaming = entries2.some((entry) => entry.text);
   const tools = entries2.filter((entry) => !entry.text).sort((a, b) => a.at - b.at);
   const relaying = tools.some((entry) => entry.relay);
-  const visible = moveAt !== 0 || rowVisible({ running, streaming, tools, relaying, bot, room: room2 });
+  const visible = moveAt !== 0 || rowVisible({ running: running2, streaming, tools, relaying, bot, room: room2 });
   const tool = tools.at(-1);
   const inputRef = (0, import_react16.useRef)(0);
   const inputAt = Math.max(inputRef.current, pendingInput);
@@ -9155,10 +9164,15 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, us
     shift.current = null;
   }, [phase]);
   (0, import_react16.useEffect)(() => {
-    if (!running) actions.clearLive(sessionId);
-  }, [running, sessionId]);
+    if (!running2) actions.clearLive(sessionId);
+  }, [running2, sessionId]);
+  (0, import_react16.useEffect)(() => {
+    if (!running2) return void 0;
+    document.documentElement.setAttribute("data-bt-running", "");
+    return () => document.documentElement.removeAttribute("data-bt-running");
+  }, [running2]);
   useRowEntrances(() => leaving.current || Date.now() - endedAt.current < 300);
-  const host = useRunningHost(running || moveAt !== 0);
+  const host = useRunningHost(running2 || moveAt !== 0);
   if (!host || phase === null || !shown) return null;
   return (0, import_react_dom2.createPortal)((0, import_react16.createElement)(
     "div",
@@ -9421,11 +9435,11 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const part = currentPart(bot);
   warmPhoto(bot.avatar?.image);
   const preview = useSessions((list) => previewOf(list, part, roster.exchangeTurns[part]));
-  const running = useSessionStatus((map) => map.get(part)?.running === true);
+  const running2 = useSessionStatus((map) => map.get(part)?.running === true);
   const active = useSessionRetainInfo(part, (info) => (info?.retainedBy?.mainView ?? 0) > 0);
   const unread = useSessionStatus((map) => map.get(part)?.completionUnread === true || map.get(part)?.pendingInteraction !== void 0) || marked && !active;
   const finished = useSessionStatus((map) => map.get(part)?.completionUnread === true && map.get(part)?.pendingInteraction === void 0);
-  const done = finished && !active && !running;
+  const done = finished && !active && !running2;
   useMarkedUnread(id, active, marked, actions);
   const main = isMainOf(roster, id);
   const tile = isPinned(roster, bot);
@@ -9433,9 +9447,9 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const alert = roster.questions?.[part] !== void 0 || approval;
   const doing = useActivity((map) => map[id]);
   const groups = workKeys(useGroupWork(useWork, (rooms) => Object.entries(rooms).flatMap(([roomId, entries2]) => entries2.filter((entry) => entry.botId === id).map((entry) => ({ id: roomId, ...doingOf(entry) })))));
-  const away = !running && groups.length > 0;
-  const state = botState(running || away, doing, alert);
-  const runningLine = running && doing ? doingLine(doing, bot) : null;
+  const away = !running2 && groups.length > 0;
+  const state = botState(running2 || away, doing, alert);
+  const runningLine = running2 && doing ? doingLine(doing, bot) : null;
   const awayLine = away ? workLine(roster.roomsById[groups[0].id]?.name ?? t("a group chat"), groups[0], groups.length - 1) : null;
   const waits = workKeys(useWork ? useWork((work) => JSON.stringify(work.waiting?.[id] ?? null)) : "null");
   const waitsFor = state === "waiting" ? waitingFor(roster, waits) : "";
@@ -9445,7 +9459,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     actions.openMenu({ kind: "bot", id, x: event.clientX, y: event.clientY });
   };
   const pinned = false;
-  const label = [bot.name, main ? t("Main Bot") : "", pinned ? t("Pinned") : "", running || away ? t("Working") : "", waitsFor, approval ? t("Waiting for your approval") : alert ? t("Waiting for your answer") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
+  const label = [bot.name, main ? t("Main Bot") : "", pinned ? t("Pinned") : "", running2 || away ? t("Working") : "", waitsFor, approval ? t("Waiting for your approval") : alert ? t("Waiting for your answer") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
   if (tile && wide) {
     return (0, import_react18.createElement)("div", { className: "bt-tile-wrap" }, (0, import_react18.createElement)(
       "button",
@@ -9479,7 +9493,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     (0, import_react18.createElement)(BotAvatar, { bot, size: 36, state, main, shared: true }),
     pinned && !wide ? (0, import_react18.createElement)(PinMark) : null,
     // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
-    !wide && (running || away) ? (0, import_react18.createElement)("span", { className: "bt-busy", "aria-hidden": true }, (0, import_react18.createElement)("i"), (0, import_react18.createElement)("i"), (0, import_react18.createElement)("i")) : null,
+    !wide && (running2 || away) ? (0, import_react18.createElement)("span", { className: "bt-busy", "aria-hidden": true }, (0, import_react18.createElement)("i"), (0, import_react18.createElement)("i"), (0, import_react18.createElement)("i")) : null,
     !wide && done ? (0, import_react18.createElement)("span", { className: "bt-done", "aria-hidden": true }, "办") : null,
     wide ? (0, import_react18.createElement)(
       "span",
@@ -9612,11 +9626,11 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
   }));
   const renaming = useUi((value) => value.renameAgent);
   const active = sessions.some((session) => session.active);
-  const running = sessions.some((session) => session.running);
+  const running2 = sessions.some((session) => session.running);
   const unread = sessions.some((session) => session.unread) || marked && !active;
   useMarkedUnread(agent.id, active, marked, actions);
   const preview = sessions[0]?.title ?? t("New session");
-  const label = ["DSH Agent", running ? t("Working") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
+  const label = ["DSH Agent", running2 ? t("Working") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
   const open = active && wide;
   return (0, import_react18.createElement)(
     "div",
@@ -9636,7 +9650,7 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
           actions.openMenu({ kind: "agent", id: agent.id, x: event.clientX, y: event.clientY });
         }
       },
-      (0, import_react18.createElement)("span", { className: `bt-agent-ava${running ? " bt-run" : ""}` }, (0, import_react18.createElement)(import_dsh_client_ui_primitives.FishLogo, { size: 22 })),
+      (0, import_react18.createElement)("span", { className: `bt-agent-ava${running2 ? " bt-run" : ""}` }, (0, import_react18.createElement)(import_dsh_client_ui_primitives.FishLogo, { size: 22 })),
       wide ? (0, import_react18.createElement)(
         "span",
         { className: "bt-row-body" },
@@ -10468,7 +10482,7 @@ function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useSe
     else document.body.style.removeProperty("--bt-first-sep");
     return () => document.body.style.removeProperty("--bt-first-sep");
   }, [opening]);
-  const running = useSessionStatus((map) => map.get(sessionId)?.running === true);
+  const running2 = useSessionStatus((map) => map.get(sessionId)?.running === true);
   const owner = roster.byId[sessionId]?.id ?? sessionId;
   const doing = useActivity((map) => map[owner]);
   const bot = roster.byId[sessionId];
@@ -10511,7 +10525,7 @@ function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useSe
         title: away ? name : void 0,
         onClick: () => away ? selectView("chat") : memoryNotice ? actions.openMemory(changed) : actions.toggleDetails(sessionId)
       },
-      bot ? (0, import_react19.createElement)(BotAvatar, { bot, size: 24, state: botState(running, doing, roster.questions?.[currentPart(bot)] !== void 0), badge: false }) : room2 ? (0, import_react19.createElement)(RoomAvatar, { room: room2, roster, size: 24 }) : null,
+      bot ? (0, import_react19.createElement)(BotAvatar, { bot, size: 24, state: botState(running2, doing, roster.questions?.[currentPart(bot)] !== void 0), badge: false }) : room2 ? (0, import_react19.createElement)(RoomAvatar, { room: room2, roster, size: 24 }) : null,
       (0, import_react19.createElement)("span", { className: "bt-pill-name" }, away ? t("Back to chat") : bot?.name ?? room2?.name ?? (title || t("New chat"))),
       (0, import_react19.createElement)(MemoryNotice, { shown: memoryNotice }),
       (0, import_react19.createElement)("span", { className: "bt-pill-go", "aria-hidden": true }, (0, import_react19.createElement)(GoArrow))
@@ -14185,7 +14199,7 @@ function VoiceMode({ sessionId, roster, actions, useSessions, useSessionStatus }
   const bot = roster.byId[sessionId];
   const room2 = roster.roomsById[sessionId];
   const name = bot?.name ?? room2?.name ?? t("Bot");
-  const running = useSessionStatus((map) => map.get(sessionId)?.running === true);
+  const running2 = useSessionStatus((map) => map.get(sessionId)?.running === true);
   const lastReply = useSessions((list) => {
     const outline = list.projectionsBySession?.[sessionId]?.values?.turnOutline ?? list.byId[sessionId]?.projectionValues?.turnOutline;
     const entry = Array.isArray(outline) ? outline[outline.length - 1] : void 0;
@@ -14314,7 +14328,7 @@ function VoiceMode({ sessionId, roster, actions, useSessions, useSessionStatus }
     };
   }, [speech, catalog, listen, cycle]);
   (0, import_react33.useEffect)(() => {
-    if (phase !== "thinking" || running || waiting.current === null) return;
+    if (phase !== "thinking" || running2 || waiting.current === null) return;
     const [count, text] = [lastReply.slice(0, lastReply.indexOf("|")), lastReply.slice(lastReply.indexOf("|") + 1)];
     if (count === waiting.current || !text.trim()) return;
     waiting.current = null;
@@ -14332,7 +14346,7 @@ function VoiceMode({ sessionId, roster, actions, useSessions, useSessionStatus }
     setPhase("speaking");
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
-  }, [phase, running, lastReply]);
+  }, [phase, running2, lastReply]);
   (0, import_react33.useEffect)(() => () => window.speechSynthesis?.cancel(), []);
   const micLevel = useMicLevel(!speech && phase === "listening" && dictation.listening);
   const level = speech ? serviceLevel : micLevel;
@@ -17513,7 +17527,7 @@ function PermissionRow({ bot, roster, actions, run: run2 }) {
     (0, import_react45.createElement)(PermissionPicker, { catalog, saved: bot.permission ?? catalog.defaultPreset, repick: bot.permission === void 0, onPick: (permission) => run2(actions.updateBot(bot.id, { permission })) })
   );
 }
-function RunStats({ bot, part, running, actions }) {
+function RunStats({ bot, part, running: running2, actions }) {
   const [values, setValues] = (0, import_react45.useState)(null);
   (0, import_react45.useEffect)(() => {
     if (!actions.runStats) return void 0;
@@ -17529,7 +17543,7 @@ function RunStats({ bot, part, running, actions }) {
     return () => {
       current = false;
     };
-  }, [bot.id, part, running]);
+  }, [bot.id, part, running2]);
   const shown = runStatsOf(values);
   if (shown.length === 0) return null;
   return (0, import_react45.createElement)(
@@ -17715,7 +17729,7 @@ function DetailsDrawer({ sessionId, startRenaming, startTab, hasStrip, roster, a
   const close = () => actions.closeOverlay();
   useEscape(close);
   const bot = owner;
-  const running = useSessionStatus((map) => map.get(part)?.running === true);
+  const running2 = useSessionStatus((map) => map.get(part)?.running === true);
   const doing = useActivity((map) => map[bot?.id ?? sessionId]);
   const transcript = useSessions((list) => transcriptOf(list, part, bot?.name ?? room2?.name ?? t("Bot"), roster.exchangeTurns[part]));
   const usage = useSessions((list) => usageOf(list, [part, ...bot?.parts ?? room2?.parts ?? []]));
@@ -17786,7 +17800,7 @@ function DetailsDrawer({ sessionId, startRenaming, startTab, hasStrip, roster, a
     (0, import_react45.createElement)(
       "div",
       { key: "id", className: "bt-drawer-id", "data-move": side },
-      bot ? (0, import_react45.createElement)(BotAvatar, { bot, size: 64, state: botState(running, doing, roster.questions?.[part] !== void 0), main: isMainBot, badge: false, gaze: true, pokeable: true }) : (0, import_react45.createElement)(MemberPile, { room: room2, roster }),
+      bot ? (0, import_react45.createElement)(BotAvatar, { bot, size: 64, state: botState(running2, doing, roster.questions?.[part] !== void 0), main: isMainBot, badge: false, gaze: true, pokeable: true }) : (0, import_react45.createElement)(MemberPile, { room: room2, roster }),
       editing ? (0, import_react45.createElement)("input", {
         className: "bt-drawer-name-input",
         autoFocus: true,
@@ -17820,7 +17834,7 @@ function DetailsDrawer({ sessionId, startRenaming, startTab, hasStrip, roster, a
       errorLine,
       room2 && tab === "details" ? (0, import_react45.createElement)(GroupOverview, { room: room2, roster, actions, usage, useWork, openSettings: () => setView("settings") }) : null,
       bot && tab === "details" ? [
-        (0, import_react45.createElement)(RunStats, { key: "stats", bot, part, running, actions }),
+        (0, import_react45.createElement)(RunStats, { key: "stats", bot, part, running: running2, actions }),
         (0, import_react45.createElement)(
           "div",
           { key: "model", className: "bt-drawer-model" },
@@ -20315,18 +20329,18 @@ function apply(ctx) {
   };
   ctx.effect(() => {
     let stopped = false;
-    let running = false;
+    let running2 = false;
     let timer;
     const loop = async () => {
       clearTimeout(timer);
-      if (running || stopped) return;
-      running = true;
+      if (running2 || stopped) return;
+      running2 = true;
       try {
         await pull();
       } catch (error) {
         if (!stopped) console.warn("[ds-bot] state", error);
       } finally {
-        running = false;
+        running2 = false;
       }
       if (!stopped) timer = setTimeout(loop, document.hidden ? 1e4 : 1500);
     };

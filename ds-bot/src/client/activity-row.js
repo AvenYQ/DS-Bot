@@ -178,6 +178,12 @@ export function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useL
   }, [phase])
   // Cancelled tools never report a result, so their notes end with the run.
   useEffect(() => { if (!running) actions.clearLive(sessionId) }, [running, sessionId])
+  // The transcript's keeper holds the bottom for as long as the reply is still coming.
+  useEffect(() => {
+    if (!running) return undefined
+    document.documentElement.setAttribute('data-bt-running', '')
+    return () => document.documentElement.removeAttribute('data-bt-running')
+  }, [running])
   // Only rows that take the activity row's place grow out of it.
   useRowEntrances(() => leaving.current || Date.now() - endedAt.current < 300)
   const host = useRunningHost(running || moveAt !== 0)
