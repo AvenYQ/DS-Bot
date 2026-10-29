@@ -109,6 +109,11 @@ export function install(rt) {
       else if (/^#[0-9a-f]{6}$/i.test(body.accent)) state.prefs.accent = body.accent
       else throw invalid('Accent must be a #rrggbb color')
     }
+    if (body.chatColor !== undefined) {
+      if (body.chatColor === 'bot') state.prefs.chatColor = 'bot'
+      else if (body.chatColor === null || body.chatColor === 'theme') delete state.prefs.chatColor
+      else throw invalid('Chat color must be bot or theme')
+    }
     if (body.motion !== undefined) {
       if (body.motion === null || body.motion === 'normal') delete state.prefs.motion
       else if (body.motion === 'quiet' || body.motion === 'lively') state.prefs.motion = body.motion

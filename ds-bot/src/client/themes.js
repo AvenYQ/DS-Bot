@@ -32,7 +32,7 @@ const THEMES = {
 // Text on the accent: near-black or white, whichever has the higher WCAG contrast.
 // (L + .05)² > 1.05 × (L(#141414) + .05) is "dark ink reads better".
 const DARK_INK = '#141414'
-const accentInk = accent => ((luminance(accent) + 0.05) ** 2 > 1.05 * (luminance(DARK_INK) + 0.05) ? DARK_INK : '#ffffff')
+export const accentInk = accent => ((luminance(accent) + 0.05) ** 2 > 1.05 * (luminance(DARK_INK) + 0.05) ? DARK_INK : '#ffffff')
 const rgba = (hex, alpha) => `rgba(${[1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16)).join(',')},${alpha})`
 function themeVars(mode, dark, accent = mode.accent) {
   return {

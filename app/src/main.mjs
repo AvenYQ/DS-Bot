@@ -592,6 +592,7 @@ async function flushDeferredUpdate() {
 function createWindow() {
   const dark = nativeTheme.shouldUseDarkColors
   const win32 = process.platform === 'win32'
+  const mac = process.platform === 'darwin'
   const win = new BrowserWindow({
     width: 1320, height: 860, minWidth: 720, minHeight: 480,
     title: 'DeepSeek Bot', show: false, icon: iconFile,
@@ -603,9 +604,12 @@ function createWindow() {
       titleBarOverlay: { height: CAPTION_HEIGHT, color: dark ? '#1b1b1c' : '#f9fafb', symbolColor: dark ? '#f9fafb' : '#0f1115' },
       ...(mica ? { backgroundMaterial: 'mica' } : {}),
     } : {}),
+    // macOS: no title bar either. The traffic lights sit in the sidebar's first row, beside
+    // its buttons, and the page marks the strip along the top that moves the window.
+    ...(mac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 21 } } : {}),
     webPreferences: {
       preload: join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, webviewTag: true,
-      additionalArguments: [`--ds-bot-origin=${origin}`, ...(win32 ? [`--ds-bot-caption=${String(CAPTION_HEIGHT)}`, ...(mica ? ['--ds-bot-mica'] : [])] : [])],
+      additionalArguments: [`--ds-bot-origin=${origin}`, ...(win32 ? [`--ds-bot-caption=${String(CAPTION_HEIGHT)}`, ...(mica ? ['--ds-bot-mica'] : [])] : []), ...(mac ? ['--ds-bot-mac-frame'] : [])],
     },
   })
   mainWindow = win
@@ -632,7 +636,7 @@ function createWindow() {
     downloadsBound = true
     contents.session.on('will-download', downloadSaver({ window: () => mainWindow, dialog, downloads: app.getPath('downloads') }))
   }
-  if (win32) {
+  if (win32 || mac) {
     // Fullscreen hides the caption buttons, and the page drops its band meanwhile. A reload
     // registers the page's listener again, so the state goes out after every load too.
     const sendFullscreen = () => { if (mainWindow !== undefined) contents.send(IPC.fullscreen, win.isFullScreen()) }

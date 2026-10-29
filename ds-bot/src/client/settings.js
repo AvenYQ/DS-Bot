@@ -100,6 +100,10 @@ function GeneralPage({ roster, actions, run }) {
           })),
           h('label', { className: 'bt-swatch bt-swatch-custom', title: t('Custom accent'), 'data-on': Boolean(prefs.accent) && !ACCENT_INKS.some(ink => INKS[ink][0] === prefs.accent) },
             h('input', { type: 'color', value: custom, 'aria-label': t('Custom accent'), onChange: event => pickCustom(event.target.value) })))),
+      h(SetRow, { label: t('Chat color'), hint: t("In a Bot's chat, the accent and your bubbles take the color of its avatar.") },
+        h('select', { className: 'bt-select', 'aria-label': t('Chat color'), value: prefs.chatColor === 'bot' ? 'bot' : 'theme', onChange: event => run(actions.setPrefs({ chatColor: event.target.value === 'bot' ? 'bot' : null })) },
+          h('option', { value: 'bot' }, t('Bot color')),
+          h('option', { value: 'theme' }, t('Theme color')))),
       h(SetRow, { label: t('Message layout') }, h(Choice, { label: t('Message layout'), value: layoutOf(prefs), options: LAYOUTS, pick: id => run(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === 'flat' ? h(SetRow, { label: t('Text width') }, h(WidthSlider, { label: t('Text width'), value: flatWidthOf(prefs), save: flatWidth => run(actions.setPrefs({ flatWidth })) })) : null,

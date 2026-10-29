@@ -19,14 +19,18 @@ if (host !== undefined && location.origin === host) {
     updates: updatesBridge(),
   })
   const caption = process.argv.find(value => value.startsWith('--ds-bot-caption='))
-  if (caption !== undefined) {
+  const macFrame = process.argv.includes('--ds-bot-mac-frame')
+  if (caption !== undefined || macFrame) {
     ipcRenderer.on('ds-bot:fullscreen', (_event, fullscreen) => {
       const root = document.documentElement
       if (root === null) return
       if (fullscreen) root.dataset.fullscreen = 'true'
       else delete root.dataset.fullscreen
     })
-    const start = () => { frameless(caption.slice('--ds-bot-caption='.length), process.argv.includes('--ds-bot-mica')) }
+    const start = () => {
+      if (macFrame) macFrameless()
+      else frameless(caption.slice('--ds-bot-caption='.length), process.argv.includes('--ds-bot-mica'))
+    }
     // A preload runs before the document root exists.
     if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', start, { once: true })
     else start()
@@ -99,6 +103,31 @@ function updatesBridge() {
       return () => { listeners.delete(listener) }
     },
   }
+}
+
+// macOS without a title bar: the traffic lights stand where the brand was, in the sidebar's
+// first row, and a strip along the top of the window moves it. Controls in the strip stay
+// clickable. In fullscreen the lights are gone and the brand comes back.
+const MAC_FRAME_CSS = `
+html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top>.bt-brand{visibility:hidden}
+html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:drag}
+html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1;margin-left:auto}
+html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side.bt-rail{padding-top:34px}
+.dsb-mac-band{position:fixed;top:0;left:0;right:0;height:44px;pointer-events:none;-webkit-app-region:drag;z-index:0}
+html[data-fullscreen] .dsb-mac-band{display:none}
+html[data-ds-bot-mac] :is(button,a,input,textarea,select,label,summary,[role=button],[role=tab],[role=menu],[role=dialog],[contenteditable]){-webkit-app-region:no-drag}
+`
+
+function macFrameless() {
+  const root = document.documentElement
+  root.dataset.dsBotMac = ''
+  const style = document.createElement('style')
+  style.textContent = MAC_FRAME_CSS
+  document.head.append(style)
+  const band = document.createElement('div')
+  band.className = 'dsb-mac-band'
+  band.setAttribute('aria-hidden', 'true')
+  document.body.prepend(band)
 }
 
 function frameless(height, mica) {

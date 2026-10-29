@@ -709,14 +709,17 @@ export function BrandName() {
 // FooterAccount only shows when the seat went to no one. The shell's footer classes
 // are CSS-module names, so they match on their stems.
 export const SIDEBAR_CSS = `
-.bt-sec{display:flex;align-items:center;gap:2px;margin-top:8px;padding-right:4px;border-radius:8px}
-.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:26px;padding:0 6px;border:0;border-radius:8px;background:none;color:var(--bt-ink-3);font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;text-align:left;cursor:pointer;transition:color .12s ease,background-color .12s ease}
-.bt-sec-head:hover{color:var(--bt-ink);background:var(--bt-hover)}
-.bt-sec-caret{flex:none;display:inline-flex;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
+.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
+.bt-sec-head:hover{color:var(--bt-ink)}
+/* The caret shows on hover, and stays while the section is folded. */
+.bt-sec-caret{order:1;flex:none;display:inline-flex;opacity:0;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .12s ease}
+.bt-sec:hover .bt-sec-caret,.bt-sec[data-folded] .bt-sec-caret,.bt-sec-head:focus-visible .bt-sec-caret{opacity:1}
+.bt-sec-count{order:2}
 .bt-sec-caret svg{width:12px;height:12px}
 .bt-sec[data-folded] .bt-sec-caret{transform:none}
 .bt-sec-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bt-sec-count{flex:none;margin-left:2px;font-weight:500;font-variant-numeric:tabular-nums}
+.bt-sec-count{flex:none;margin-left:2px;font-weight:400;font-variant-numeric:tabular-nums}
 .bt-sec-more{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:6px;background:none;color:var(--bt-ink-3);cursor:pointer;opacity:0;transition:opacity .12s ease}
 .bt-sec:hover .bt-sec-more,.bt-sec-more:focus-visible{opacity:1}
 .bt-sec-more:hover{background:var(--bt-hover);color:var(--bt-ink)}

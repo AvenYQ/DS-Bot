@@ -490,6 +490,10 @@ var ZH = {
   "Unread marks, badges, and the brand mark.": "未读标记、徽标和品牌标志。",
   "Theme accent": "主题强调色",
   "Custom accent": "自定义强调色",
+  "Chat color": "聊天配色",
+  "In a Bot's chat, the accent and your bubbles take the color of its avatar.": "在 Bot 的聊天里，强调色和你的气泡跟随它头像的颜色。",
+  "Bot color": "Bot 颜色",
+  "Theme color": "主题颜色（黑色）",
   "Message layout": "消息布局",
   Bubble: "气泡",
   Flat: "平铺",
@@ -1173,6 +1177,7 @@ var HOST_ZH = {
   "A Main Bot cannot be deleted; remove its Main Bot role first": "主 Bot 不能删除，请先取消它的主 Bot 身份",
   "Unknown theme": "未知主题",
   "Accent must be a #rrggbb color": "强调色必须是 #rrggbb 格式",
+  "Chat color must be bot or theme": "聊天配色只能是 Bot 颜色或主题颜色",
   "Type the key first": "请先输入密钥",
   "Choose every Bot or a list of Bots": "请选择所有 Bot 或指定的 Bot",
   "This request is gone": "这个请求已经不存在了",
@@ -1374,7 +1379,7 @@ var GRADIENTS = { aurora: [[0, "#A4FFB0"], [0.42, "#00F0E4"], [1, "#2E9EF7"]] };
 var ACCENT_INKS = ["deepseek", "charcoal", "graphite", "rose", "sky", "tangerine", "cobalt"];
 var LEGACY_INKS = { kimi: "charcoal", zai: "graphite", minimax: "rose", stepfun: "sky", mimo: "tangerine", qwen: "cobalt" };
 var isHex = (color) => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color);
-var luminance = (hex) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255).map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+var luminance = (hex2) => [1, 3, 5].map((index) => parseInt(hex2.slice(index, index + 2), 16) / 255).map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
 var inkName = (color) => INKS[color] ? color : INKS[LEGACY_INKS[color]] ? LEGACY_INKS[color] : "gray";
 var inkFill = (color) => isHex(color) ? color : `var(--bt-ink-${inkName(color)})`;
 var inkText = (color) => color === "black" ? "var(--bt-ink-gray)" : inkFill(color);
@@ -1530,10 +1535,10 @@ function indexRoster(value) {
   }
   return { ...value, agents: value.agents ?? [], sections: value.sections ?? [], byId, roomsById, agentsById, agentOf, ready: true };
 }
-function isAgentSession(roster, cache, sessionId) {
+function isAgentSession(roster, cache2, sessionId) {
   if (sessionId === void 0 || sessionId === null || sessionId === "") return false;
   if (roster.ready) return roster.agentOf[sessionId] !== void 0;
-  return cache.has(sessionId);
+  return cache2.has(sessionId);
 }
 var heldCardKey = (kind, requestId) => JSON.stringify([kind, requestId]);
 function countCards(state, sessionId, callIds, delta) {
@@ -1790,7 +1795,7 @@ var THEMES = {
 };
 var DARK_INK = "#141414";
 var accentInk = (accent) => (luminance(accent) + 0.05) ** 2 > 1.05 * (luminance(DARK_INK) + 0.05) ? DARK_INK : "#ffffff";
-var rgba = (hex, alpha) => `rgba(${[1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16)).join(",")},${alpha})`;
+var rgba = (hex2, alpha) => `rgba(${[1, 3, 5].map((index) => parseInt(hex2.slice(index, index + 2), 16)).join(",")},${alpha})`;
 function themeVars(mode, dark, accent = mode.accent) {
   return {
     "--bt-ink": mode.text,
@@ -1880,6 +1885,73 @@ var layoutOf = (prefs) => prefs?.layout === "flat" ? "flat" : "bubble";
 var thinkingShown = (prefs) => prefs?.thinking === true;
 var widthOf = (prefs) => percent(prefs?.width, 80);
 var flatWidthOf = (prefs) => percent(prefs?.flatWidth, 100);
+
+// src/client/chat-color.js
+var hex = (rgb) => `#${rgb.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+function edgeColor(data, width, height) {
+  const ring = Math.max(1, Math.round(Math.min(width, height) * 0.1));
+  const buckets = /* @__PURE__ */ new Map();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x >= ring && x < width - ring && y >= ring && y < height - ring) continue;
+      const at = (y * width + x) * 4;
+      if (data[at + 3] < 200) continue;
+      const key = data[at] >> 4 << 8 | data[at + 1] >> 4 << 4 | data[at + 2] >> 4;
+      const bucket = buckets.get(key) ?? [0, 0, 0, 0];
+      bucket[0] += data[at];
+      bucket[1] += data[at + 1];
+      bucket[2] += data[at + 2];
+      bucket[3]++;
+      buckets.set(key, bucket);
+    }
+  }
+  let best;
+  for (const bucket of buckets.values()) if (best === void 0 || bucket[3] > best[3]) best = bucket;
+  return best === void 0 ? void 0 : hex(best.slice(0, 3).map((sum) => sum / best[3]));
+}
+var cache = /* @__PURE__ */ new Map();
+function photoColor(src, onReady) {
+  if (cache.has(src)) {
+    const known = cache.get(src);
+    return typeof known === "string" ? known : void 0;
+  }
+  cache.set(src, null);
+  const image = new Image();
+  image.decoding = "async";
+  image.onload = () => {
+    try {
+      const side = 48;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = side;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      const crop = Math.min(image.naturalWidth, image.naturalHeight);
+      context.drawImage(image, (image.naturalWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, side, side);
+      const color = edgeColor(context.getImageData(0, 0, side, side).data, side, side);
+      if (color !== void 0) {
+        cache.set(src, color);
+        onReady?.();
+      }
+    } catch {
+    }
+  };
+  image.src = src;
+  return void 0;
+}
+function botChatColor(bot, onReady) {
+  const image = bot?.avatar?.image;
+  if (typeof image === "string" && image !== "") {
+    const color = photoColor(image, onReady);
+    return color === void 0 ? void 0 : [color, color];
+  }
+  const ink = INKS[colorOf(bot)];
+  return ink === void 0 ? void 0 : ink;
+}
+function chatColorCss([light, dark]) {
+  if (!isHex(light) || !isHex(dark)) return "";
+  const vars = (color) => `--bt-accent:${color};--bt-accent-ink:${accentInk(color)};--bt-user:${color};--bt-user-ink:${accentInk(color)}`;
+  return `html:root body{${vars(light)}}
+html:root body[data-ds-dark-theme]{${vars(dark)}}`;
+}
 
 // src/shared/mentions.js
 var ALL_WORDS = ["all", "everyone", "所有人", "全体"];
@@ -2511,10 +2583,10 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-row:hover{background:var(--bt-hover)}
 .bt-row[aria-current=page]{background:var(--bt-active)}
 .bt-row-body{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:400}
+.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:600}
 .bt-row-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-tag{flex:none;max-width:96px;font-size:12px;line-height:16px;font-weight:400;padding:1px 6px;border-radius:4px;background:var(--bt-tag-bg);color:var(--bt-tag-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bt-row-preview{font-size:13px;line-height:18px;color:var(--bt-ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-row-preview{font-size:13px;line-height:18px;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-unread{width:8px;height:8px;border-radius:50%;background:var(--bt-accent);flex:none;margin-right:2px;animation:bt-fade .13s cubic-bezier(.22,1,.36,1)}
 .bt-unread-wait{background:var(--bt-star)}
 .bt-rail{align-items:center;padding:0 0 8px}
@@ -3545,17 +3617,17 @@ function compileFragmentSelectors(text, names) {
 function installCompiledStyles(text, tag) {
   const style = installStyles("", tag);
   let disposed = false;
-  const cache = /* @__PURE__ */ new WeakMap();
+  const cache2 = /* @__PURE__ */ new WeakMap();
   const render = () => {
     if (disposed) return;
     if (!style.isConnected) document.head.appendChild(style);
     const names = /* @__PURE__ */ new Set();
     for (const sheet of document.styleSheets) {
       if (sheet.ownerNode?.dataset?.dshBot) continue;
-      let list = cache.get(sheet);
+      let list = cache2.get(sheet);
       if (!list) {
         list = sheetClassNames(sheet);
-        cache.set(sheet, list);
+        cache2.set(sheet, list);
       }
       for (const name of list) names.add(name);
     }
@@ -9362,14 +9434,17 @@ function BrandName() {
   return (0, import_react15.createElement)("span", { style: { fontWeight: 600, fontSize: 14 } }, "DS Bot");
 }
 var SIDEBAR_CSS = `
-.bt-sec{display:flex;align-items:center;gap:2px;margin-top:8px;padding-right:4px;border-radius:8px}
-.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:26px;padding:0 6px;border:0;border-radius:8px;background:none;color:var(--bt-ink-3);font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;text-align:left;cursor:pointer;transition:color .12s ease,background-color .12s ease}
-.bt-sec-head:hover{color:var(--bt-ink);background:var(--bt-hover)}
-.bt-sec-caret{flex:none;display:inline-flex;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
+.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
+.bt-sec-head:hover{color:var(--bt-ink)}
+/* The caret shows on hover, and stays while the section is folded. */
+.bt-sec-caret{order:1;flex:none;display:inline-flex;opacity:0;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .12s ease}
+.bt-sec:hover .bt-sec-caret,.bt-sec[data-folded] .bt-sec-caret,.bt-sec-head:focus-visible .bt-sec-caret{opacity:1}
+.bt-sec-count{order:2}
 .bt-sec-caret svg{width:12px;height:12px}
 .bt-sec[data-folded] .bt-sec-caret{transform:none}
 .bt-sec-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bt-sec-count{flex:none;margin-left:2px;font-weight:500;font-variant-numeric:tabular-nums}
+.bt-sec-count{flex:none;margin-left:2px;font-weight:400;font-variant-numeric:tabular-nums}
 .bt-sec-more{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:6px;background:none;color:var(--bt-ink-3);cursor:pointer;opacity:0;transition:opacity .12s ease}
 .bt-sec:hover .bt-sec-more,.bt-sec-more:focus-visible{opacity:1}
 .bt-sec-more:hover{background:var(--bt-hover);color:var(--bt-ink)}
@@ -16003,6 +16078,16 @@ function GeneralPage({ roster, actions, run: run2 }) {
           )
         )
       ),
+      (0, import_react40.createElement)(
+        SetRow,
+        { label: t("Chat color"), hint: t("In a Bot's chat, the accent and your bubbles take the color of its avatar.") },
+        (0, import_react40.createElement)(
+          "select",
+          { className: "bt-select", "aria-label": t("Chat color"), value: prefs.chatColor === "bot" ? "bot" : "theme", onChange: (event) => run2(actions.setPrefs({ chatColor: event.target.value === "bot" ? "bot" : null })) },
+          (0, import_react40.createElement)("option", { value: "bot" }, t("Bot color")),
+          (0, import_react40.createElement)("option", { value: "theme" }, t("Theme color"))
+        )
+      ),
       (0, import_react40.createElement)(SetRow, { label: t("Message layout") }, (0, import_react40.createElement)(Choice, { label: t("Message layout"), value: layoutOf(prefs), options: LAYOUTS, pick: (id) => run2(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === "flat" ? (0, import_react40.createElement)(SetRow, { label: t("Text width") }, (0, import_react40.createElement)(WidthSlider, { label: t("Text width"), value: flatWidthOf(prefs), save: (flatWidth) => run2(actions.setPrefs({ flatWidth })) })) : null,
@@ -19680,6 +19765,27 @@ function apply(ctx) {
       style.remove();
     };
   };
+  const installChatColor = () => {
+    const style = installStyles("", "chat-color");
+    let last = "";
+    const render = () => {
+      const snapshot = roster.getSnapshot();
+      const prefs = snapshot.ready ? snapshot.prefs ?? {} : savedPrefs;
+      const shown = Object.values(ctx.sessions.list.getSnapshot().byId ?? {}).find((session) => (session?.retainedBy?.mainView ?? 0) > 0)?.id;
+      const bot = prefs.chatColor === "bot" && shown !== void 0 ? snapshot.byId?.[shown] : void 0;
+      const colors = bot === void 0 ? void 0 : botChatColor(bot, render);
+      const next = colors === void 0 ? "" : chatColorCss(colors);
+      if (next !== last) style.textContent = last = next;
+    };
+    render();
+    const offRoster = roster.subscribe(render);
+    const offSessions = ctx.sessions.list.subscribe(render);
+    return () => {
+      offRoster();
+      offSessions();
+      style.remove();
+    };
+  };
   const installTheme = () => {
     const style = installStyles("", "theme");
     let key = "";
@@ -19707,7 +19813,7 @@ function apply(ctx) {
       if (typeof release === "function") release();
       if (snapshot.ready) {
         try {
-          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking }));
+          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor }));
         } catch {
         }
       }
@@ -20173,6 +20279,7 @@ function apply(ctx) {
     // Strip and panel styles also serve the side-chat tabs, which need no bridge.
     () => installCompiledStyles(BROWSER_CSS, "browser"),
     () => installTheme(),
+    () => installChatColor(),
     () => shadow("sidebar.workspaces", { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
     () => shadow("sidebar.brand.mark", { priority: BOT_PRIORITY }, BrandMark),
     () => shadow("sidebar.brand.name", { priority: BOT_PRIORITY }, BrandName),

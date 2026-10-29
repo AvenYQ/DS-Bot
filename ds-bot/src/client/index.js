@@ -3,6 +3,7 @@ import { isHex, inkText, paintCss } from './inks.js'
 import { DEFAULT_MASK, SHAPES, markupCache, maskOf } from './characters.js'
 import { createSource, EMPTY_ROSTER, indexRoster, isAgentSession } from './sources.js'
 import { teamActions } from './team-actions.js'
+import { botChatColor, chatColorCss } from './chat-color.js'
 import { themeCss, shellTokens, registry, registerShape, registerTheme, allThemes, layoutOf, widthOf, flatWidthOf } from './themes.js'
 import { MENTION_ORIGIN, currentPart } from './text.js'
 import { SHELL_CSS, CONVERSATION_CSS, installStyles, installCompiledStyles } from './styles.js'
@@ -300,6 +301,26 @@ export function apply(ctx) {
     return () => { offRoster(); offRegistry(); style.remove() }
   }
 
+  // With "Bot color" chats, the chat on screen paints the accent and the user's bubbles
+  // in its Bot's color (chat-color.js).
+  const installChatColor = () => {
+    const style = installStyles('', 'chat-color')
+    let last = ''
+    const render = () => {
+      const snapshot = roster.getSnapshot()
+      const prefs = snapshot.ready ? snapshot.prefs ?? {} : savedPrefs
+      const shown = Object.values(ctx.sessions.list.getSnapshot().byId ?? {}).find(session => (session?.retainedBy?.mainView ?? 0) > 0)?.id
+      const bot = prefs.chatColor === 'bot' && shown !== undefined ? snapshot.byId?.[shown] : undefined
+      const colors = bot === undefined ? undefined : botChatColor(bot, render)
+      const next = colors === undefined ? '' : chatColorCss(colors)
+      if (next !== last) style.textContent = last = next
+    }
+    render()
+    const offRoster = roster.subscribe(render)
+    const offSessions = ctx.sessions.list.subscribe(render)
+    return () => { offRoster(); offSessions(); style.remove() }
+  }
+
   // The chosen theme lives in the team state so every device shares it; the local
   // copy only avoids a flash of the default theme before the first state pull.
   const installTheme = () => {
@@ -328,7 +349,7 @@ export function apply(ctx) {
       releaseTokens = ctx.theme.overrideTokens('ds-bot', shellTokens(themes[id]))
       if (typeof release === 'function') release()
       if (snapshot.ready) {
-        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking })) } catch { /* storage unavailable */ }
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor })) } catch { /* storage unavailable */ }
       }
     }
     render()
@@ -802,6 +823,7 @@ export function apply(ctx) {
     // Strip and panel styles also serve the side-chat tabs, which need no bridge.
     () => installCompiledStyles(BROWSER_CSS, 'browser'),
     () => installTheme(),
+    () => installChatColor(),
     () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
     () => shadow('sidebar.brand.mark', { priority: BOT_PRIORITY }, BrandMark),
     () => shadow('sidebar.brand.name', { priority: BOT_PRIORITY }, BrandName),
