@@ -4229,20 +4229,22 @@ function installTailKeeper() {
     frame = 0;
     last = 0;
   }
+  let rows2 = 0;
   const grew = () => {
     if (!scroller) return;
     const next = scroller.scrollHeight;
     const delta = next - height;
     height = next;
+    const count = flow?.childElementCount ?? 0;
+    const added = count > rows2;
+    rows2 = count;
     if (!atBottom || delta === 0) return;
     const short = gap();
     if (short > 1) {
       ours = Date.now();
       scroller.scrollTop += short;
-      glide(short);
-    } else if (delta > 0) {
-      glide(delta);
     }
+    if (added && delta > 0) glide(Math.max(short, delta));
   };
   const resize = new ResizeObserver(grew);
   let settle = 0;
@@ -4282,6 +4284,7 @@ function installTailKeeper() {
     for (const child of scroller.children) resize.observe(child);
     if (flow) resize.observe(flow);
     height = scroller.scrollHeight;
+    rows2 = flow?.childElementCount ?? 0;
     atBottom = gap() <= NEAR;
   };
   const scan = () => attach(document.querySelector("[data-conversation-scroll]"));

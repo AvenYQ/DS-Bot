@@ -50,23 +50,26 @@ export function installTailKeeper() {
     last = 0
   }
 
+  // Only a new row (the user's message, the typing row, a reply's next bubble) slides up
+  // into place. Text streaming into a bubble that is already there must not: its bottom
+  // would dip by a line and float back on every chunk. There the view sticks to the bottom
+  // in the same frame, before anything is painted.
+  let rows = 0
   const grew = () => {
     if (!scroller) return
     const next = scroller.scrollHeight
     const delta = next - height
     height = next
+    const count = flow?.childElementCount ?? 0
+    const added = count > rows
+    rows = count
     if (!atBottom || delta === 0) return
     const short = gap()
     if (short > 1) {
-      // Not followed: go to the bottom now, and let the transcript ease up to it.
       ours = Date.now()
       scroller.scrollTop += short
-      glide(short)
-    } else if (delta > 0) {
-      // Followed in one step: the transcript moved up by the growth; ease it. (A row that
-      // leaves eases on its own, in the activity row.)
-      glide(delta)
     }
+    if (added && delta > 0) glide(Math.max(short, delta))
   }
   const resize = new ResizeObserver(grew)
 
@@ -108,6 +111,7 @@ export function installTailKeeper() {
     for (const child of scroller.children) resize.observe(child)
     if (flow) resize.observe(flow)
     height = scroller.scrollHeight
+    rows = flow?.childElementCount ?? 0
     atBottom = gap() <= NEAR
   }
   const scan = () => attach(document.querySelector('[data-conversation-scroll]'))
