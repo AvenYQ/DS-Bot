@@ -103,11 +103,23 @@ export function install(rt) {
   // The user's own picture, beside the Bots': a small one inline, a large one (an animated
   // GIF up to 5 MB) as a file. null goes back to the whale.
   async function setYouImage(value) {
-    if (value === null || value === '') { delete state.prefs.you; return }
+    if (value === null || value === '') {
+      if (state.prefs.you?.name) state.prefs.you = { name: state.prefs.you.name }
+      else delete state.prefs.you
+      return
+    }
     if (typeof value !== 'string' || !(AVATAR_LINK.test(value) || /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(value))) throw invalid('Your picture must be a PNG, JPEG, WebP, or GIF image')
     const image = await rt.storeAvatarImage(value)
     if (!AVATAR_LINK.test(image) && image.length > MAX_AVATAR_IMAGE) throw invalid('Your picture is too large')
-    state.prefs.you = { image }
+    state.prefs.you = { ...state.prefs.you, image }
+  }
+
+  // The user's name beside their picture in the sidebar; empty goes back to the default.
+  function setYouName(value) {
+    const name = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, 24) : ''
+    if (name !== '') state.prefs.you = { ...state.prefs.you, name }
+    else if (state.prefs.you?.image) state.prefs.you = { image: state.prefs.you.image }
+    else delete state.prefs.you
   }
 
   function setPrefs(body) {
@@ -202,6 +214,7 @@ export function install(rt) {
         case 'set-prefs':
           await rt.load()
           if (body.youImage !== undefined) await setYouImage(body.youImage)
+          if (body.youName !== undefined) setYouName(body.youName)
           await setPrefs(body)
           return ok(state.prefs)
         case 'exchange': {

@@ -492,6 +492,9 @@ var ZH = {
   "Custom accent": "自定义强调色",
   "Chat color": "聊天配色",
   "Change my picture…": "更换我的头像…",
+  "Change my name…": "修改我的名字…",
+  "Your name, then Enter": "输入名字，回车保存",
+  Me: "我",
   "Use the default picture": "恢复默认头像",
   "Your picture must be a PNG, JPEG, WebP, or GIF image": "头像必须是 PNG、JPEG、WebP 或 GIF 图片",
   "Your picture is too large": "头像图片太大了",
@@ -9555,8 +9558,14 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
     setBusy(false);
   }, [open]);
   const hasPhoto = Boolean(useRoster?.((value) => value.prefs?.you?.image));
+  const myName = useRoster?.((value) => value.prefs?.you?.name) ?? "";
+  const [naming, setNaming] = (0, import_react16.useState)(null);
+  (0, import_react16.useEffect)(() => {
+    if (!open) setNaming(null);
+  }, [open]);
   const groups = [
     [
+      [t("Change my name…"), PencilIcon, () => setNaming(myName), void 0, true],
       [t("Change my picture…"), ImageIcon, () => picker.current?.click()],
       hasPhoto ? [t("Use the default picture"), UndoIcon, () => actions.setPrefs({ youImage: null })] : null
     ].filter(Boolean),
@@ -9577,7 +9586,8 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
     (0, import_react16.createElement)(
       "button",
       { ref: button, type: "button", className: "bt-account", "aria-label": t("Account"), "aria-haspopup": "menu", "aria-expanded": open, onClick: toggle },
-      (0, import_react16.createElement)(YouFace, { useRoster })
+      (0, import_react16.createElement)(YouFace, { useRoster }),
+      (0, import_react16.createElement)("span", { className: "bt-you-name" }, myName || t("Me"))
     ),
     (0, import_react16.createElement)("input", { ref: picker, type: "file", accept: "image/png,image/jpeg,image/webp,image/gif", hidden: true, onChange: (event) => {
       const file = event.target.files?.[0];
@@ -9587,7 +9597,11 @@ function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboardi
     open && box ? (0, import_react_dom3.createPortal)((0, import_react16.createElement)(
       "div",
       { className: "bt-menu bt-menu-up bt-account-menu", role: "menu", "aria-label": t("Account"), style: box },
-      confirm !== null ? (0, import_react16.createElement)(
+      naming !== null ? (0, import_react16.createElement)("form", { className: "bt-menu-field", onSubmit: (event) => {
+        event.preventDefault();
+        setOpen(false);
+        void Promise.resolve(actions.setPrefs({ youName: naming })).catch((error) => actions.reportError(error, "menu"));
+      } }, (0, import_react16.createElement)("input", { autoFocus: true, value: naming, maxLength: 24, placeholder: t("Your name, then Enter"), "aria-label": t("Change my name…"), onChange: (event) => setNaming(event.target.value) })) : confirm !== null ? (0, import_react16.createElement)(
         "div",
         { className: "bt-confirm", role: "alertdialog", "aria-label": accountT("signOut") },
         (0, import_react16.createElement)("p", { className: "bt-confirm-text" }, accountT(confirm === "running" ? "signOutRunningDescription" : confirm === "unknown" ? "signOutUnknownDescription" : "signOutDescription")),
@@ -9674,6 +9688,10 @@ function BrandName() {
 }
 var SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
+.bt-account:has(.bt-you-name){display:inline-flex;align-items:center;gap:10px;width:auto;max-width:200px;padding-right:12px;border-radius:999px}
+.bt-you-name{min-width:0;font-size:14px;font-weight:500;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-rail .bt-you-name,[class*="_collapsed"] .bt-you-name{display:none}
+[class*="_collapsed"] .bt-account,.bt-rail .bt-account{width:36px;padding:0;gap:0}
 .bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;corner-shape:round;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
 .bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}

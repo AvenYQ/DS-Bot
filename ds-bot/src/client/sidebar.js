@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { FishLogo } from './dsh-primitives.js'
 import { isMainOf } from './sources.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
-import { ChevronRightIcon, DotsIcon, ImageIcon, UndoIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
+import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, UndoIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
 import { botState, BotMark, BotAvatar, RoomAvatar } from './mark.js'
 import { reducedMotion } from './activity-row.js'
@@ -623,8 +623,12 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
     setBusy(false)
   }, [open])
   const hasPhoto = Boolean(useRoster?.(value => value.prefs?.you?.image))
+  const myName = useRoster?.(value => value.prefs?.you?.name) ?? ''
+  const [naming, setNaming] = useState(null)
+  useEffect(() => { if (!open) setNaming(null) }, [open])
   const groups = [
     [
+      [t('Change my name…'), PencilIcon, () => setNaming(myName), undefined, true],
       [t('Change my picture…'), ImageIcon, () => picker.current?.click()],
       hasPhoto ? [t('Use the default picture'), UndoIcon, () => actions.setPrefs({ youImage: null })] : null,
     ].filter(Boolean),
@@ -641,14 +645,20 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
   if (signedIn) groups.push([[accountT('signOut'), SignOutIcon, askSignOut, undefined, true]])
   return h(Fragment, null,
     h('button', { ref: button, type: 'button', className: 'bt-account', 'aria-label': t('Account'), 'aria-haspopup': 'menu', 'aria-expanded': open, onClick: toggle },
-      h(YouFace, { useRoster })),
+      h(YouFace, { useRoster }),
+      h('span', { className: 'bt-you-name' }, myName || t('Me'))),
     h('input', { ref: picker, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', hidden: true, onChange: (event) => {
       const file = event.target.files?.[0]
       event.target.value = ''
       if (file) void avatarImage(file).then(image => actions.setPrefs({ youImage: image })).catch(error => actions.reportError(error, 'menu'))
     } }),
     open && box ? createPortal(h('div', { className: 'bt-menu bt-menu-up bt-account-menu', role: 'menu', 'aria-label': t('Account'), style: box },
-      confirm !== null ? h('div', { className: 'bt-confirm', role: 'alertdialog', 'aria-label': accountT('signOut') },
+      naming !== null ? h('form', { className: 'bt-menu-field', onSubmit: (event) => {
+        event.preventDefault()
+        setOpen(false)
+        void Promise.resolve(actions.setPrefs({ youName: naming })).catch(error => actions.reportError(error, 'menu'))
+      } }, h('input', { autoFocus: true, value: naming, maxLength: 24, placeholder: t('Your name, then Enter'), 'aria-label': t('Change my name…'), onChange: event => setNaming(event.target.value) }))
+      : confirm !== null ? h('div', { className: 'bt-confirm', role: 'alertdialog', 'aria-label': accountT('signOut') },
         h('p', { className: 'bt-confirm-text' }, accountT(confirm === 'running' ? 'signOutRunningDescription' : confirm === 'unknown' ? 'signOutUnknownDescription' : 'signOutDescription')),
         signOutError !== '' ? h('p', { className: 'bt-confirm-error', role: 'alert' }, signOutError) : null,
         h('div', { className: 'bt-confirm-row' },
@@ -732,6 +742,10 @@ export function BrandName() {
 // are CSS-module names, so they match on their stems.
 export const SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
+.bt-account:has(.bt-you-name){display:inline-flex;align-items:center;gap:10px;width:auto;max-width:200px;padding-right:12px;border-radius:999px}
+.bt-you-name{min-width:0;font-size:14px;font-weight:500;color:var(--bt-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-rail .bt-you-name,[class*="_collapsed"] .bt-you-name{display:none}
+[class*="_collapsed"] .bt-account,.bt-rail .bt-account{width:36px;padding:0;gap:0}
 .bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;corner-shape:round;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
 .bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
