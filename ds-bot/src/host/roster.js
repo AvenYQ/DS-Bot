@@ -251,6 +251,10 @@ export function install(rt) {
       effort: served ? (bot.effort ?? null) : undefined,
       workDir,
       copyOf: bot.id,
+    }).then(async (copy) => {
+      // The copy sits beside the original in the sidebar.
+      if (bot.section !== undefined && rt.setSection !== undefined) await rt.setSection(copy.id, bot.section)
+      return copy
     })
   }
 

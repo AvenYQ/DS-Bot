@@ -73,6 +73,8 @@ export function install(rt) {
     permissions: rt.permissionCatalog?.() ?? null,
     modelsKey: modelsKey(),
     prefs: state.prefs,
+    // The sidebar's sections, in the user's order (sections.js).
+    sections: rt.sectionsView(),
     // Whether a Desktop window should serve Bot browser reads (see browser.js).
     browser: rt.browserEnabled,
     // False when config.memory turns memory off: no Memory row or panel.
@@ -312,6 +314,26 @@ export function install(rt) {
         case 'set-flags':
           await rt.load()
           return ok(await rt.setFlags(body.id, body))
+        case 'set-section':
+          await rt.load()
+          await rt.setSection(body.id, body.section ?? null)
+          return ok(view())
+        case 'section-create':
+          await rt.load()
+          await rt.createSection(body.name)
+          return ok(view())
+        case 'section-rename':
+          await rt.load()
+          await rt.renameSection(body.name, body.to)
+          return ok(view())
+        case 'section-delete':
+          await rt.load()
+          await rt.deleteSection(body.name)
+          return ok(view())
+        case 'section-arrange':
+          await rt.load()
+          await rt.arrangeSection(body.name, { to: body.to, collapsed: body.collapsed })
+          return ok(view())
         case 'delete-room':
           await rt.load()
           await rt.deleteRoom(body.id)

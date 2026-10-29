@@ -66,6 +66,7 @@ test('apply registers listeners, tools, and effects in a fixed order', (t) => {
     'tool delete_capability',
     'tool attach_capability',
     'tool detach_capability',
+    'tool set_section',
     'effect ds-bot: chat index',
     'tool group_relay',
     'tool read_own_chat',

@@ -971,3 +971,38 @@ test('a group\'s relay limit is a user setting the state view shows, and old lat
     assert.match(result.error.message, /Relay limit must be a whole number from 1 to 200/)
   }
 })
+
+test('Bots and group chats are filed under sidebar sections that keep their order', async (t) => {
+  const { ctx, call, stop, home } = start(undefined, { models: ['deepseek-v4-flash'] })
+  t.after(stop)
+  const chief = (await call('state', {})).value.mainBotId
+  const writer = (await call('create-bot', { name: 'Writer' })).value
+  const room = (await call('create-room', { members: [chief, writer.id], admin: writer.id })).value
+  const roomId = room.id ?? room.room?.id ?? (await call('state', {})).value.rooms[0].id
+  let view = (await call('set-section', { id: writer.id, section: '  内廷  ' })).value
+  assert.deepEqual(view.sections, [{ name: '内廷' }])
+  assert.equal(view.bots.find(bot => bot.id === writer.id).section, '内廷')
+  // A name that differs only in case files under the section that exists.
+  await call('set-section', { id: roomId, section: 'Court' })
+  view = (await call('set-section', { id: chief, section: 'court' })).value
+  assert.deepEqual(view.sections.map(section => section.name), ['内廷', 'Court'])
+  assert.equal(view.bots.find(bot => bot.id === chief).section, 'Court')
+  view = (await call('section-arrange', { name: 'Court', to: 0, collapsed: true })).value
+  assert.deepEqual(view.sections, [{ name: 'Court', collapsed: true }, { name: '内廷' }])
+  view = (await call('section-rename', { name: 'court', to: '外朝' })).value
+  assert.deepEqual(view.sections.map(section => section.name), ['外朝', '内廷'])
+  assert.equal(view.rooms.find(item => item.id === roomId).section, '外朝')
+  assert.equal((await call('section-rename', { name: '外朝', to: '内廷' })).ok, false)
+  // Deleting a section keeps its Bots, out of any section.
+  view = (await call('section-delete', { name: '外朝' })).value
+  assert.deepEqual(view.sections.map(section => section.name), ['内廷'])
+  assert.equal(view.bots.find(bot => bot.id === chief).section, undefined)
+  view = (await call('set-section', { id: writer.id, section: '' })).value
+  assert.equal(view.bots.find(bot => bot.id === writer.id).section, undefined)
+  assert.deepEqual(view.sections, [{ name: '内廷' }], 'an empty section stays until it is deleted')
+  // A Main Bot files for the user; another Bot may not.
+  const tool = (args, id) => ctx.registeredTools.get('set_section').execute(args, { agent: { id } })
+  assert.equal(await tool({ names: 'Writer, Nobody', section: '内廷' }, chief), 'Filed Writer under 内廷. No Bot or group chat named Nobody.')
+  assert.match(await tool({ names: 'Chief', section: 'x' }, writer.id), /^Only a Main Bot/)
+  await until(() => JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).bots[writer.id]?.section === '内廷')
+})
