@@ -624,6 +624,17 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-react-strip button:hover{background:var(--bt-hover);transform:scale(1.15)}
 .bt-react-strip button:active{transform:scale(.92)}
 .bt-reacts{display:flex;gap:4px;margin-top:4px}
+/* 朱批 verdicts: a chip under the Bot's bubble, in the reactions' shape, tinted by tone. */
+.bt-verdict{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:999px;font-size:12px;line-height:1;font-weight:500;color:var(--bt-tone);background:color-mix(in srgb,var(--bt-tone) 10%,transparent)}
+.bt-verdict svg,.bt-verdict-choice svg{flex:none;width:14px;height:14px}
+.bt-verdict[data-fresh]{animation:bt-pop-lift ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+:is(.bt-verdict,.bt-verdict-choice)[data-tone=yes]{--bt-tone:var(--bt-green)}
+:is(.bt-verdict,.bt-verdict-choice)[data-tone=no]{--bt-tone:var(--bt-danger)}
+:is(.bt-verdict,.bt-verdict-choice)[data-tone=noted]{--bt-tone:var(--bt-ink-2)}
+.bt-verdict-strip button{width:auto!important;padding:0 10px!important;border-radius:999px}
+.bt-verdict-choice{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:var(--bt-ink)}
+.bt-verdict-choice svg{color:var(--bt-tone)}
+.bt-verdict-strip input{width:200px;height:28px;margin-left:4px;border:0;border-radius:999px;background:var(--bt-hover);color:var(--bt-ink);font:inherit;font-size:13px;padding:0 12px;outline:none}
 .bt-react{height:22px;min-width:30px;padding:0 6px;border-radius:999px;border:.5px solid var(--bt-line-2);background:var(--bt-main);font-size:13px;line-height:20px;cursor:pointer;animation:bt-react-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing};transition:background-color .12s ease,${spring(SPRING_TAP, 'scale')}}
 .bt-react:hover{background:var(--bt-hover)}
 .bt-react:active{scale:.92}

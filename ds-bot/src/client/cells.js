@@ -10,6 +10,7 @@ import { AnsweredReply, WidgetCell } from './widget-cell.js'
 import { SecretToolCell } from './secret-card.js'
 import { HandoffCall } from './handoff-card.js'
 import { t } from './i18n.js'
+import { SEALS, SEAL_PREFIX, StampIcon, Verdict, VerdictChoice, sealMessage } from './seal.js'
 import { call } from './api.js'
 import { failureLabel } from './diagnostics.js'
 import { turnReasoning, thinkingStep, opensReply } from './turn-reasoning.js'
@@ -56,6 +57,10 @@ export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, 
 function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole }) {
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live })
   const key = msgKey ? `${msgKey}:${index}` : undefined
+  const sealed = picked.find(entry => entry.startsWith(SEAL_PREFIX))?.slice(SEAL_PREFIX.length)
+  const emojis = picked.filter(entry => !entry.startsWith(SEAL_PREFIX))
+  // Only a seal pressed in this window lands with the stamp motion.
+  const [fresh, setFresh] = useState('')
   const body = h(MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels(), variant: 'compact', fileMentions: mentions })
   const row = useRef(null)
   // Touch has no hover: a tap on the bubble opens its tools, a tap elsewhere
@@ -72,13 +77,22 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
       h('div', { className: 'bt-bubble', 'data-folded': folded || undefined },
         control ? h('div', { className: 'bt-fold-body' }, body) : body,
         control),
-      live ? null : h(MessageTools, { text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined, actions, open: toolsOpen })),
-    picked.length ? h('div', { className: 'bt-reacts' }, picked.map(emoji => h('button', {
+      live ? null : h(MessageTools, {
+        text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, actions, open: toolsOpen,
+        react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined,
+        seal: key && sessionId && !sealed ? (kind, reason) => {
+          setFresh(kind)
+          actions.toggleReaction(msgKey, index, `${SEAL_PREFIX}${kind}`)
+          return actions.send(sessionId, sealMessage(kind, text, reason))
+        } : undefined,
+      })),
+    emojis.length || sealed ? h('div', { className: 'bt-reacts' }, sealed ? h(Verdict, { kind: sealed, fresh: fresh === sealed }) : null, emojis.map(emoji => h('button', {
       key: emoji, type: 'button', className: 'bt-react', 'aria-label': t('Remove reaction {emoji}', { emoji }), onClick: () => actions.toggleReaction(msgKey, index, emoji),
     }, emoji))) : null)
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
 // Half the reaction strip: six 32px buttons at 2px gaps plus its own padding and
 // the 8px margin it keeps from the screen edge.
 const STRIP_HALF = (REACTIONS.length * 34 + 10) / 2 + 8
@@ -101,7 +115,7 @@ function useDismiss(open, close, refs) {
 
 // The hover toolbar beside a reply bubble: Add reaction, Reply, More. `open` is
 // the touch fallback: a tap on the bubble toggles it (see Bubble).
-function MessageTools({ text, name, sessionId, react, actions, open: tapped }) {
+function MessageTools({ text, name, sessionId, react, seal, actions, open: tapped }) {
   // The anchor element is kept, not its rect: the visible viewport can move
   // (on-screen keyboard) while the popover is open.
   const [panel, setPanel] = useState(null)
@@ -116,7 +130,7 @@ function MessageTools({ text, name, sessionId, react, actions, open: tapped }) {
     if (!panel) return null
     const rect = panel.node.getBoundingClientRect()
     const below = rect.bottom + 220 < viewBottom()
-    return panel.kind === 'react'
+    return panel.kind === 'react' || panel.kind === 'seal'
       // The strip hangs off its center anchor: clamp the center so the strip
       // itself stays inside the viewport.
       ? { left: Math.min(Math.max(rect.left + rect.width / 2, STRIP_HALF), window.innerWidth - STRIP_HALF), top: rect.top - 6, '--bt-origin': 'bottom center' }
@@ -134,12 +148,31 @@ function MessageTools({ text, name, sessionId, react, actions, open: tapped }) {
   const item = (label, Icon, run) => h('button', { key: label, type: 'button', role: 'menuitem', onClick: () => { close(); run() } }, h(Icon), label)
   return h('div', { ref: tools, className: 'bt-tools', 'data-open': panel !== null || tapped || undefined },
     react ? h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('Add reaction'), title: t('Add reaction'), 'aria-expanded': panel?.kind === 'react', onClick: event => open('react', event) }, h(SmileIcon)) : null,
+    seal ? h('button', { type: 'button', className: 'bt-tool bt-tool-seal', 'aria-label': t('Seal a decision'), title: t('Seal a decision'), 'aria-expanded': panel?.kind === 'seal', onClick: event => open('seal', event) }, h(StampIcon)) : null,
     sessionId ? h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('Reply'), title: t('Reply'), onClick: () => actions.quote(sessionId, text) }, h(ReplyIcon)) : null,
     h('button', { type: 'button', className: 'bt-tool', 'aria-label': t('More message actions'), title: t('More'), 'aria-haspopup': 'menu', 'aria-expanded': panel?.kind === 'more', onClick: event => open('more', event) }, copied ? h(CheckIcon) : h(DotsIcon)),
     panel?.kind === 'react' ? createPortal(h('div', { ref: pop, className: 'bt-react-strip', role: 'menu', 'aria-label': t('Reactions'), style: place },
       REACTIONS.map(emoji => h('button', { key: emoji, type: 'button', role: 'menuitem', 'aria-label': emoji, onClick: () => { close(); react(emoji) } }, emoji))), document.body) : null,
+    panel?.kind === 'seal' ? createPortal(h(SealPicker, { boxRef: pop, place, onSeal: (kind, reason) => { close(); void Promise.resolve(seal(kind, reason)).catch(error => actions.reportError?.(error, 'seal')) } }), document.body) : null,
     panel?.kind === 'more' ? createPortal(h('div', { ref: pop, className: 'bt-menu', role: 'menu', 'aria-label': t('Message actions'), style: place },
       item(t('Copy'), CopyIcon, copy), item(t('Download'), DownloadIcon, download)), document.body) : null)
+}
+
+// The verdicts to choose from, in the reaction strip's shape; 驳回 can carry a reason,
+// written in the same strip before it is sent.
+function SealPicker({ boxRef: ref, place, onSeal }) {
+  const [reason, setReason] = useState(null)
+  const rejection = SEALS.find(entry => entry.reason)
+  if (reason !== null) {
+    return h('form', { ref, className: 'bt-react-strip bt-verdict-strip', style: place, onSubmit: (event) => { event.preventDefault(); onSeal(rejection.kind, reason) } },
+      h('input', { autoFocus: true, value: reason, maxLength: 200, placeholder: t('Reason (optional), then Enter'), 'aria-label': t('Reason for rejecting'), onChange: event => setReason(event.target.value) }),
+      h('button', { type: 'submit', 'aria-label': rejection.kind }, h(VerdictChoice, { seal: rejection })))
+  }
+  return h('div', { ref, className: 'bt-react-strip bt-verdict-strip', role: 'menu', 'aria-label': t('Seal a decision'), style: place },
+    SEALS.map(entry => h('button', {
+      key: entry.kind, type: 'button', role: 'menuitem', 'aria-label': entry.kind,
+      onClick: () => (entry.reason ? setReason('') : onSeal(entry.kind, '')),
+    }, h(VerdictChoice, { seal: entry }))))
 }
 
 // A Turn's settled thinking time, fetched per count of settled steps: while a turn

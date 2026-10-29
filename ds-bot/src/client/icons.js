@@ -101,3 +101,6 @@ export const ChatsIcon = lineIcon(['M3.5 5.5A1.5 1.5 0 0 1 5 4h7a1.5 1.5 0 0 1 1
 export const SETTINGS_ICONS = { general: GearIcon, bots: PeopleIcon, groups: ChatsIcon, usage: GaugeIcon }
 export const ImageIcon = lineIcon(['M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5z', 'M4 13l3.5-3.5L11 13l2-2 3 3', 'M12.5 7.5h.01'])
 export const UndoIcon = lineIcon(['M7 8H12a4 4 0 0 1 0 8H8', 'M9.5 5.5 7 8l2.5 2.5'])
+export const StampIcon = lineIcon(['M8 3.5h4l-.6 5.5H8.6z', 'M4.5 12.5A1.5 1.5 0 0 1 6 11h8a1.5 1.5 0 0 1 1.5 1.5V14h-11z', 'M5 16.5h10'])
+export const XIcon = lineIcon(['M6 6l8 8', 'M14 6l-8 8'])
+export const EyeIcon = lineIcon(['M2.5 10s2.8-5 7.5-5 7.5 5 7.5 5-2.8 5-7.5 5-7.5-5-7.5-5z', 'M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'])
