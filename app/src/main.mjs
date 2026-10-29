@@ -606,7 +606,7 @@ function createWindow() {
     } : {}),
     // macOS: no title bar either. The traffic lights sit in the sidebar's first row, beside
     // its buttons, and the page marks the strip along the top that moves the window.
-    ...(mac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 21 } } : {}),
+    ...(mac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 23 } } : {}),
     webPreferences: {
       preload: join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, webviewTag: true,
       additionalArguments: [`--ds-bot-origin=${origin}`, ...(win32 ? [`--ds-bot-caption=${String(CAPTION_HEIGHT)}`, ...(mica ? ['--ds-bot-mica'] : [])] : []), ...(mac ? ['--ds-bot-mac-frame'] : [])],

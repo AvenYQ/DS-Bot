@@ -111,7 +111,8 @@ function updatesBridge() {
 const MAC_FRAME_CSS = `
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top>.bt-brand{visibility:hidden}
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side-top{-webkit-app-region:drag}
-html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1;margin-left:auto}
+html[data-ds-bot-mac] .bt-side-top>.bt-brand{order:-2}
+html[data-ds-bot-mac] .bt-side-top .bt-side-collapse{order:-1}
 html[data-ds-bot-mac]:not([data-fullscreen]) .bt-side.bt-rail{padding-top:34px}
 .dsb-mac-band{position:fixed;top:0;left:0;right:0;height:44px;pointer-events:none;-webkit-app-region:drag;z-index:0}
 html[data-fullscreen] .dsb-mac-band{display:none}
