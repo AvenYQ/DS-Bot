@@ -4505,84 +4505,6 @@ function installProcessGroups(root = document.body) {
   return () => watch.disconnect();
 }
 
-// src/client/scroll-trace.js
-function installScrollTrace() {
-  let samples = [];
-  let events = [];
-  let frame = 0;
-  let started = 0;
-  let wasRunning = false;
-  let sendTimer = 0;
-  const describe = (node) => node.nodeType === 1 ? `${node.tagName.toLowerCase()}.${String(node.className?.baseVal ?? node.className ?? "").split(" ").slice(0, 2).join(".")}`.slice(0, 60) : "#text";
-  const watch = new MutationObserver((list) => {
-    if (!started) return;
-    const t2 = Math.round(performance.now() - started);
-    for (const m of list) {
-      if (m.type === "childList") {
-        for (const n of m.addedNodes) if (n.nodeType === 1) events.push([t2, "+", describe(n), Math.round(n.getBoundingClientRect?.().height ?? 0)]);
-        for (const n of m.removedNodes) if (n.nodeType === 1) events.push([t2, "-", describe(n)]);
-      } else if (m.type === "attributes") {
-        events.push([t2, "@", describe(m.target), m.attributeName]);
-      }
-    }
-    if (events.length > 6e3) events = events.slice(-6e3);
-  });
-  const sample = (when3) => {
-    const scroller = document.querySelector("[data-conversation-scroll]");
-    if (!scroller) return;
-    const flow = scroller.querySelector("[data-chat-flow]");
-    const bubbles = scroller.querySelectorAll(".bt-bubble");
-    const last = bubbles[bubbles.length - 1];
-    const prev = bubbles[bubbles.length - 2];
-    const typing = document.querySelector(".bt-typing");
-    samples.push([
-      Math.round(performance.now() - started),
-      when3,
-      Math.round(scroller.scrollTop),
-      scroller.scrollHeight,
-      scroller.clientHeight,
-      flow?.style.minHeight ?? "",
-      flow ? getComputedStyle(flow).transform : "",
-      last ? Math.round(last.getBoundingClientRect().bottom * 10) / 10 : null,
-      prev ? Math.round(prev.getBoundingClientRect().top * 10) / 10 : null,
-      typing ? Math.round(typing.getBoundingClientRect().height) : 0
-    ]);
-    if (samples.length > 12e3) samples = samples.slice(-12e3);
-  };
-  const tick = () => {
-    const running2 = document.documentElement.hasAttribute("data-bt-running");
-    if (running2 && !wasRunning) {
-      clearTimeout(sendTimer);
-      samples = [];
-      events = [];
-      started = performance.now();
-      const scroller = document.querySelector("[data-conversation-scroll]");
-      if (scroller) watch.observe(scroller, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-exiting"] });
-    }
-    if (!running2 && wasRunning) {
-      sendTimer = setTimeout(() => {
-        watch.disconnect();
-        const trace = { samples, events, ua: navigator.userAgent };
-        started = 0;
-        call("scroll-trace", { trace }).catch(() => {
-        });
-      }, 2500);
-    }
-    wasRunning = running2;
-    if (started) {
-      sample("raf");
-      setTimeout(() => sample("post"), 0);
-    }
-    frame = requestAnimationFrame(tick);
-  };
-  frame = requestAnimationFrame(tick);
-  return () => {
-    cancelAnimationFrame(frame);
-    clearTimeout(sendTimer);
-    watch.disconnect();
-  };
-}
-
 // src/client/dsh-primitives.js
 var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 
@@ -22316,7 +22238,6 @@ function apply(ctx) {
     () => installChatColor(),
     () => installTailKeeper(),
     () => installProcessGroups(),
-    () => installScrollTrace(),
     () => shadow("sidebar.workspaces", { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
     () => shadow("sidebar.brand.mark", { priority: BOT_PRIORITY }, BrandMark),
     () => shadow("sidebar.brand.name", { priority: BOT_PRIORITY }, BrandName),

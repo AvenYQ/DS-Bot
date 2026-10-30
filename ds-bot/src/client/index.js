@@ -11,7 +11,6 @@ import { lookOf } from './mark.js'
 import { DRAG_SORT_CSS } from './drag-sort.js'
 import { installTailKeeper } from './tail-keeper.js'
 import { installProcessGroups } from './process-groups.js'
-import { installScrollTrace } from './scroll-trace.js'
 import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, BotReturn, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
 import { frameLayout, readSidebar, writeSidebar, toggledPref, DSH_NARROW } from './frame-layout.js'
 import { installFrameWatch } from './frame-watch.js'
@@ -908,7 +907,6 @@ export function apply(ctx) {
     () => installChatColor(),
     () => installTailKeeper(),
     () => installProcessGroups(),
-    () => installScrollTrace(),
     () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
     () => shadow('sidebar.brand.mark', { priority: BOT_PRIORITY }, BrandMark),
     () => shadow('sidebar.brand.name', { priority: BOT_PRIORITY }, BrandName),
