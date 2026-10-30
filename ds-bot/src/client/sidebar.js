@@ -6,7 +6,9 @@ import { useDragSort } from './drag-sort.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
 import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
-import { botState, BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
+import { BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
+import { useBotLiveState } from './live-state.js'
+import { CourtBoardEntry } from './court-board/index.js'
 import { reducedMotion } from './activity-row.js'
 import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
@@ -62,27 +64,15 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   // The chat's copy of the photo is made ahead, so opening the chat shows it at once.
   warmPhoto(bot.avatar?.image)
   const preview = useSessions(list => previewOf(list, part, roster.exchangeTurns[part]))
-  const running = useSessionStatus(map => map.get(part)?.running === true)
-  const active = useSessionRetainInfo(part, info => (info?.retainedBy?.mainView ?? 0) > 0)
-  const unread = useSessionStatus(map => map.get(part)?.completionUnread === true || map.get(part)?.pendingInteraction !== undefined) || (marked && !active)
-  // Finished work not yet seen is sealed 办 instead of the plain dot; a question waiting
-  // for the user keeps the dot.
-  const finished = useSessionStatus(map => map.get(part)?.completionUnread === true && map.get(part)?.pendingInteraction === undefined)
-  const done = finished && !active && !running
+  const live = useBotLiveState({ bot, roster, marked, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork })
+  const { running, active, unread, done, doing, groups, away, waits, approval, alert } = live
   useMarkedUnread(id, active, marked, actions)
   const main = isMainOf(roster, id)
   const tile = isPinned(roster, bot)
-  const approval = useApproval(useWork, entry => entry.botId === id)
-  const alert = roster.questions?.[part] !== undefined || approval
-  const doing = useActivity(map => map[id])
-  // Work in a group runs in a Session of its own, so the Bot's chat stays idle meanwhile.
-  const groups = workKeys(useGroupWork(useWork, rooms => Object.entries(rooms).flatMap(([roomId, entries]) => entries.filter(entry => entry.botId === id).map(entry => ({ id: roomId, ...doingOf(entry) })))))
-  const away = !running && groups.length > 0
-  const state = botState(running || away, doing, alert)
+  const state = live.state
   // A Bot running in its own chat previews what it is doing, like a group's row.
   const runningLine = running && doing ? doingLine(doing, bot) : null
   const awayLine = away ? workLine(roster.roomsById[groups[0].id]?.name ?? t('a group chat'), groups[0], groups.length - 1) : null
-  const waits = workKeys(useWork ? useWork(work => JSON.stringify(work.waiting?.[id] ?? null)) : 'null')
   const waitsFor = state === 'waiting' ? waitingFor(roster, waits) : ''
   if ((bot.hidden || folded) && !active && !main) return null
   const onContextMenu = (event) => {
@@ -521,11 +511,13 @@ export function TeamSidebar(props) {
         groups.tiles.length > 0 ? h('span', { className: 'bt-rail-sep', 'aria-hidden': true }) : null)
   // The foot stands in for the shell's hidden footer: the account avatar, and on
   // the rail the new-chat button above it.
+  const courtEntry = h(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork })
   const foot = wideContent
-    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }))
+    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), courtEntry)
     : h('div', { className: 'bt-leftcol-foot bt-leftcol-foot-rail' },
         h('button', { type: 'button', className: 'bt-round bt-rail-toggle', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: onToggle }, h(SidebarIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
+        courtEntry,
         h(AccountLauncher, { seat: false, actions, useRoster }))
   const content = h('div', { className: wideContent ? 'bt-side' : 'bt-side bt-rail', onKeyDown: typeToSearch },
     top,
