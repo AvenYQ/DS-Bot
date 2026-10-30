@@ -1014,6 +1014,15 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
    without its copy and branch row; a tail with nothing in it takes no room. */
 [data-turn-tail]>:not([data-slot="conversation.chat.turnTail"]){display:none!important}
 [class*="_flowItem"][data-chat-flow-kind="turn-tail"]:not(:has([data-slot="conversation.chat.turnTail"]:not(:empty))){display:none!important}
+/* Rhythm as in Grok Bot: one speaker's bubbles sit close (4px), and every change of speaker
+   gets the same wider breath (14px), the user's turn after a reply as much as the reply after
+   the user. The shell's own margins (6px before the user, 16px before a reply, plus a turn's
+   process row) made it tight one way and loose the other. */
+[data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input]{margin-top:14px!important}
+[data-chat-flow-kind=assistant-step]{margin-top:4px!important}
+:is([data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input])+[data-chat-flow-kind=assistant-step]{margin-top:14px!important}
+[data-chat-flow-kind=turn-process]{margin-top:10px!important}
+[data-chat-flow-kind=turn-process]:has(> [data-slot="conversation.chat.node"]:empty)+[data-chat-flow-kind=assistant-step]{margin-top:14px!important}
 /* Every team Session belongs to a Bot or a group, so a blank one is an empty chat, not
    the shell's new-session hero: no headline, no workspace or mode picker, and the
    composer stays docked at the bottom. */
