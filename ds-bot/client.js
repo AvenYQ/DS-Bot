@@ -3542,7 +3542,12 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 /* The shell's running status only hosts the activity row (.bt-typing). */
 [data-chat-running]{display:block!important;width:100%;min-height:0!important;margin:0!important;padding:0!important}
 [data-chat-running]>span:not([role=status]){display:none!important}
-[data-chat-running]:has(> .bt-typing){margin-top:var(--dsh-chat-flow-gap,12px)!important}
+/* The activity row never moves the transcript: the room it needs (its 36px and the gap above)
+   stays reserved at the transcript's foot whether or not a Bot is working, and the row comes and
+   goes inside it. Taking the room only while it runs pushed the conversation up when a reply
+   began and let it sink back when the reply ended. */
+[data-chat-flow]{position:relative;padding-bottom:calc(36px + var(--dsh-chat-flow-gap,12px))!important;box-sizing:border-box}
+[data-chat-flow] [data-chat-running]{position:absolute!important;left:0;right:0;bottom:0}
 .bt-typing{display:flex;align-items:center;gap:12px;height:36px;min-width:0;padding-inline-start:8px;transform-origin:0 50%;animation:bt-typing-in ${SPRING_TAP.duration}ms ${SPRING_TAP.easing} backwards}
 .bt-typing[data-exiting]{animation:bt-typing-out .14s cubic-bezier(.22,1,.36,1) forwards}
 .bt-typing>.bt-mark,.bt-typing>.bt-cluster{flex-shrink:0}
