@@ -198,5 +198,5 @@ export const LEARNING_CSS = `
 .bt-learning-btn:active:not(:disabled){scale:.96}
 .bt-learning-btn:focus-visible{outline:2px solid var(--bt-accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.bt-learning-btn{transition:background-color .12s ease,opacity .12s ease}.bt-learning-btn:active:not(:disabled){scale:none}}
-.bt-learning-error{font-size:12px;line-height:16px;color:var(--bt-danger)}
+.bt-learning-error{font-size:13px;line-height:18px;color:var(--bt-danger)}
 `

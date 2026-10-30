@@ -13,10 +13,16 @@ import { SPRING_SHAPE, SPRING_TAP, SPRING_STRETCH, SPRING_POP, spring } from './
 // CONVERSATION_CSS re-skins the shell's own conversation DOM and styles what only
 // the conversation renders.
 export const SHELL_CSS = `
-body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;--bt-seal-ink:#2b2d31;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+/* Text as Grok Bot sets it: the conversation one px larger than the shell's setting (15px
+   by default, 24px lines), drawn with macOS's own smoothing instead of the thinner
+   antialiased rendering, so Chinese reads fuller and crisper. The shell's size setting
+   still moves it. The shell's two smallest text sizes (11 and 12px) step up one px too, so
+   no label is left thin and grainy, settings included. */
+html body{--bt-text-size:calc(var(--dsh-content-font-size,14px) + 1px);--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 13px)!important;--dsw-font-markdown-base:var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-markdown-base-strong:600 var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-xxs-12:13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-12-font-size:13px!important;--dsw-font-xxs-12-line-height:19px!important;--dsw-font-xxs-strong-12:500 13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-strong-12-font-size:13px!important;--dsw-font-xxs-strong-12-line-height:19px!important;--dsw-font-xxxs-11:12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-11-font-size:12px!important;--dsw-font-xxxs-11-line-height:16px!important;--dsw-font-xxxs-strong-11:500 12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-strong-11-font-size:12px!important;--dsw-font-xxxs-strong-11-line-height:16px!important;-webkit-font-smoothing:auto!important}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
-body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52}
+body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-seal-ink:#d9d6cf}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join('')}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join('')}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
@@ -144,7 +150,7 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-row:hover{background:var(--bt-hover)}
 .bt-row[aria-current=page]{background:var(--bt-active)}
 .bt-row-body{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:600}
+.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:500}
 .bt-row-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-tag{flex:none;max-width:96px;font-size:12px;line-height:16px;font-weight:400;padding:1px 6px;border-radius:4px;background:var(--bt-tag-bg);color:var(--bt-tag-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-row-preview{font-size:13px;line-height:18px;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -208,7 +214,7 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 /* The width settings: the share of the column a bubble may take, and the flat text. */
 body{--bt-msg-w:.8;--bt-flat-w:1}
 .bt-astack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0}
-.bt-bubble{max-width:min(calc(var(--bt-msg-w) * 100%),calc(100% - 82px));background:var(--bt-bubble);color:var(--bt-ink);border-radius:18px;padding:7px 12px;font-size:var(--dsh-content-font-size,14px);line-height:calc(var(--dsh-content-font-size,14px) + 10px);box-sizing:border-box;overflow-wrap:anywhere;text-wrap:pretty;text-autospace:normal}
+.bt-bubble{max-width:min(calc(var(--bt-msg-w) * 100%),calc(100% - 82px));background:var(--bt-bubble);color:var(--bt-ink);border-radius:18px;padding:7px 12px;font-size:var(--bt-text-size);line-height:calc(var(--bt-text-size) + 9px);box-sizing:border-box;overflow-wrap:anywhere;text-wrap:pretty;text-autospace:normal}
 .bt-msg:not(:first-child)>.bt-msg-line>.bt-bubble{border-start-start-radius:6px}
 .bt-msg:not(:last-child)>.bt-msg-line>.bt-bubble{border-end-start-radius:6px}
 .bt-bubble [class*="_markdown"]>*+*{margin-top:10px}
@@ -438,7 +444,7 @@ html[data-windows-titlebar]:not([data-fullscreen]) :is(.bt-pane,.bt-panel)::befo
 .bt-input:focus{border-color:var(--bt-line-2)}
 .bt-input-area{height:auto;min-height:96px;padding:8px 10px;line-height:18px;resize:vertical}
 .bt-note{font-size:12px;line-height:16px;color:var(--bt-ink-3)}
-.bt-soft-sm{height:28px;padding:0 12px;font-size:12px}
+.bt-soft-sm{height:28px;padding:0 12px;font-size:13px}
 .bt-set-avatar{display:flex;justify-content:center;padding:4px 0}
 .bt-avatar-anchor{position:relative}
 .bt-avatar-trigger{position:relative;width:64px;height:64px;border:0;border-radius:50%;background:none;cursor:pointer;padding:0}
@@ -494,7 +500,7 @@ body[data-ds-dark-theme] .bt-scrim{background:rgba(0,0,0,.5)}
 @keyframes bt-dialog-sink{to{opacity:0;transform:translateY(6px) scale(.975);filter:blur(3px)}}
 @media (prefers-reduced-motion:reduce){.bt-settings,.bt-scrim,.bt-settings-page>*{animation:bt-fade .12s ease-out!important}}
 .bt-settings-nav{position:relative;width:198px;flex:none;padding:16px 8px;border-right:.5px solid var(--bt-line);display:flex;flex-direction:column;gap:2px;background:var(--bt-sidebar);box-sizing:border-box}
-.bt-settings-item{position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;border-radius:8px;background:none;color:var(--bt-ink-2);font:inherit;font-size:13px;line-height:20px;cursor:pointer;text-align:left;transition:background-color .12s ease,color .12s ease}
+.bt-settings-item{position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 86%,transparent);font:inherit;font-size:14px;line-height:20px;cursor:pointer;text-align:left;transition:background-color .12s ease,color .12s ease}
 .bt-settings-item:hover{color:var(--bt-ink);background:var(--bt-hover)}
 .bt-settings-item[aria-current=page]{background:var(--bt-active);color:var(--bt-ink)}
 .bt-settings-nav>.bt-thumb{left:8px;right:8px;border-radius:8px;background:var(--bt-active)}
@@ -505,7 +511,7 @@ body[data-ds-dark-theme] .bt-scrim{background:rgba(0,0,0,.5)}
 .bt-settings-usage[data-off]{position:absolute;top:0;left:198px;width:calc(var(--bt-set-w) - 198px);height:100%;box-sizing:border-box;content-visibility:hidden;pointer-events:none}
 .bt-settings-main{flex:none;display:flex;flex-direction:column;min-width:0;width:calc(var(--bt-set-w) - 198px);height:var(--bt-set-h)}
 .bt-settings-head{display:flex;align-items:center;gap:6px;padding:16px 56px 4px 20px}
-.bt-settings-head h2{margin:0;font-size:15px;line-height:24px;font-weight:600;animation:bt-veil-in .2s ease-out}
+.bt-settings-head h2{margin:0;font-size:16px;line-height:24px;font-weight:600;animation:bt-veil-in .2s ease-out}
 .bt-settings-head>.bt-icon-btn{animation:bt-back-in ${SPRING_TAP.duration}ms ${SPRING_TAP.easing},bt-veil-in .16s ease-out}
 @keyframes bt-back-in{from{translate:6px 0;scale:.8}}
 .bt-settings-scroll{flex:1;overflow-y:auto;padding:12px 20px 24px;display:flex;flex-direction:column;gap:20px;scrollbar-width:thin}
@@ -525,18 +531,18 @@ body[data-ds-dark-theme] .bt-scrim{background:rgba(0,0,0,.5)}
 .bt-set-section h3{font-size:13px;line-height:18px;font-weight:600;margin:0 0 8px;padding:0 4px}
 .bt-set-card{border:1px solid var(--bt-line);border-radius:12px;background:var(--bt-card);display:flex;flex-direction:column}
 .bt-set-card>*+*{border-top:.5px solid var(--bt-line)}
-.bt-set-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:0;background:none;color:var(--bt-ink);font:inherit;font-size:13px;line-height:18px;text-align:left;width:100%;box-sizing:border-box;border-radius:0}
+.bt-set-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:0;background:none;color:var(--bt-ink);font:inherit;font-size:14px;line-height:20px;text-align:left;width:100%;box-sizing:border-box;border-radius:0}
 button.bt-set-row{cursor:pointer}
 button.bt-set-row:hover{background:var(--bt-hover)}
 .bt-set-card>.bt-set-row+.bt-set-row{border-top:.5px solid var(--bt-line)}
 .bt-set-row:first-child{border-top-left-radius:12px;border-top-right-radius:12px}
 .bt-set-row:last-child{border-bottom-left-radius:12px;border-bottom-right-radius:12px}
 .bt-set-copy{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-.bt-set-hint{font-size:12px;line-height:16px;color:color-mix(in srgb,var(--bt-ink-2) 50%,var(--bt-ink-3))}
+.bt-set-hint{font-size:13px;line-height:18px;color:var(--bt-ink-2)}
 .bt-set-control{flex:none;display:flex;align-items:center;gap:6px}
 .bt-set-places .bt-set-control{flex:0 1 auto;max-width:50%;min-width:0}
 .bt-set-places .bt-set-hint{overflow-wrap:anywhere}
-.bt-set-value{font-size:13px;color:var(--bt-ink-2);text-align:right}
+.bt-set-value{font-size:14px;color:var(--bt-ink-2);text-align:right}
 .bt-set-bot{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
 .bt-browser-note{margin:0;padding:10px 12px;color:var(--bt-ink-2);font-size:12px;line-height:17px}
 .bt-browser-grant{display:flex;align-items:center;gap:12px;padding:10px 12px}
@@ -676,12 +682,23 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-stamp[data-len="2"]{width:40px;height:52px}
 .bt-stamp-text{font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:23px;line-height:1;letter-spacing:0}
 .bt-stamp[data-len="2"] .bt-stamp-text{writing-mode:vertical-rl;font-size:17px;letter-spacing:1px}
-.bt-stamp[data-tone=yes],.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-cinnabar)}
-.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 55%,var(--bt-ink-2))}
-body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;opacity:.9}
+/* Three seals, three temperaments. 准: the emperor's own square seal, cut in relief, so the
+   character shows paper-white out of solid cinnabar: the weightiest of the three. 驳回: the
+   same frame pressed in black ink, upright tall and tilted the other way: stern, not angry.
+   已阅: a small oval reading seal in a thin, half-dry line: a nod, nothing more. All three are
+   pressed rather than printed: a fine grain lets the paper show through the ink. */
+.bt-stamp{--bt-stamp:var(--bt-cinnabar);-webkit-mask-image:var(--bt-stamp-grain);mask-image:var(--bt-stamp-grain);-webkit-mask-size:64px 64px;mask-size:64px 64px}
+body{--bt-stamp-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3 2.6'/%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23g)'/%3E%3C/svg%3E")}
+.bt-stamp[data-tone=yes]{width:46px;height:46px;border:0;border-radius:6px;background:var(--bt-stamp);color:var(--bt-bubble);--bt-stamp-rot:-9deg;--bt-stamp-op:.9;--bt-stamp-from:2.6;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op);box-shadow:inset 0 0 0 3px var(--bt-stamp),inset 0 0 0 4.5px var(--bt-bubble)}
+.bt-stamp[data-tone=yes] .bt-stamp-text{font-size:27px}
+.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-seal-ink);width:38px;height:56px;border-radius:4px;--bt-stamp-rot:8deg;--bt-stamp-op:.84;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op)}
+.bt-stamp[data-tone=no] .bt-stamp-text{font-size:17px;letter-spacing:2px}
+.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 82%,var(--bt-ink-2));width:52px;height:32px;right:-26px;bottom:-14px;border-width:1.5px;border-radius:50%;--bt-stamp-rot:-5deg;--bt-stamp-op:.8;--bt-stamp-from:1.6;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op);box-shadow:none}
+.bt-stamp[data-tone=noted] .bt-stamp-text{writing-mode:horizontal-tb;font-size:14px;font-weight:700;letter-spacing:1px}
+body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;--bt-stamp-op:.9;opacity:.9}
 .bt-stamp[data-fresh]{animation:bt-stamp-down .52s cubic-bezier(.3,1.5,.5,1) both}
 .bt-bubble[data-fresh]{animation:bt-stamp-press .3s ease-out .2s both}
-@keyframes bt-stamp-down{0%{scale:2.3;rotate:-2deg;opacity:0;filter:blur(3px)}45%{scale:.9;rotate:-12deg;opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:-11deg;opacity:.86}}
+@keyframes bt-stamp-down{0%{scale:var(--bt-stamp-from,2.3);rotate:calc(var(--bt-stamp-rot,-11deg) + 9deg);opacity:0;filter:blur(3px)}45%{scale:.9;rotate:calc(var(--bt-stamp-rot,-11deg) - 1deg);opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:var(--bt-stamp-rot,-11deg);opacity:var(--bt-stamp-op,.86)}}
 @keyframes bt-stamp-press{0%{translate:0 0}35%{translate:0 2px}100%{translate:0 0}}
 @media (prefers-reduced-motion:reduce){.bt-stamp[data-fresh],.bt-bubble[data-fresh]{animation:none}}
 .bt-react{height:22px;min-width:30px;padding:0 6px;border-radius:999px;border:.5px solid var(--bt-line-2);background:var(--bt-main);font-size:13px;line-height:20px;cursor:pointer;animation:bt-react-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing};transition:background-color .12s ease,${spring(SPRING_TAP, 'scale')}}
@@ -977,6 +994,8 @@ body[data-bt-layout=flat] .bt-think{max-width:calc(var(--bt-flat-w) * 100%)}
    mode folds away in a finished turn stays shown. TurnProcessCell also opens that
    fold; these rules cover the first frame before it does. */
 [data-step-process]>div:first-child{display:none!important}
+/* A turn's process group whose every item draws nothing here takes no room (process-groups.js). */
+[data-step-process][data-bt-empty]{display:none!important}
 [data-step-process]>[data-step-process-body]{display:block!important;content-visibility:visible!important;max-height:none!important;overflow:visible!important;mask-image:none!important;scrollbar-gutter:auto!important}
 :is([data-step-process],[data-turn-process-hidden])[hidden]{content-visibility:visible!important}
 [class*="_flowItem"]:has(> [data-slot="conversation.chat.node"]:empty){display:none!important}
@@ -997,6 +1016,11 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
    without its copy and branch row; a tail with nothing in it takes no room. */
 [data-turn-tail]>:not([data-slot="conversation.chat.turnTail"]){display:none!important}
 [class*="_flowItem"][data-chat-flow-kind="turn-tail"]:not(:has([data-slot="conversation.chat.turnTail"]:not(:empty))){display:none!important}
+/* Rhythm as in Grok Bot (process-groups.js marks the items): one speaker's bubbles 4px apart,
+   every change of speaker 14px, either way round. */
+[data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input],[data-chat-flow] [data-submission-echo]{margin-top:14px!important}
+[data-chat-flow] [data-bt-gap=same]{margin-top:4px!important}
+[data-chat-flow] [data-bt-gap=turn]{margin-top:14px!important}
 /* Every team Session belongs to a Bot or a group, so a blank one is an empty chat, not
    the shell's new-session hero: no headline, no workspace or mode picker, and the
    composer stays docked at the bottom. */
@@ -1009,7 +1033,13 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 /* The shell's running status only hosts the activity row (.bt-typing). */
 [data-chat-running]{display:block!important;width:100%;min-height:0!important;margin:0!important;padding:0!important}
 [data-chat-running]>span:not([role=status]){display:none!important}
-[data-chat-running]:has(> .bt-typing){margin-top:var(--dsh-chat-flow-gap,12px)!important}
+/* As in Grok Bot, the transcript keeps a fixed room at its foot (with the scroller's 16px
+   padding, about 52px under the last message) and the activity row comes and goes inside it,
+   so neither a reply's start nor its end moves the conversation; only the reply's own text
+   does. Taking the room only while the row showed pushed the conversation up when a reply
+   began and let it sink back when it ended. */
+[data-chat-flow]{position:relative;padding-bottom:36px!important;box-sizing:border-box}
+[data-chat-flow] [data-chat-running]{position:absolute!important;left:0;right:0;bottom:-8px}
 .bt-typing{display:flex;align-items:center;gap:12px;height:36px;min-width:0;padding-inline-start:8px;transform-origin:0 50%;animation:bt-typing-in ${SPRING_TAP.duration}ms ${SPRING_TAP.easing} backwards}
 .bt-typing[data-exiting]{animation:bt-typing-out .14s cubic-bezier(.22,1,.36,1) forwards}
 .bt-typing>.bt-mark,.bt-typing>.bt-cluster{flex-shrink:0}
@@ -1111,7 +1141,7 @@ div:has(> nav [class*="_marks"]){display:none!important}
 /* Every user-side bubble (sent, steering mid-turn, not yet admitted, question replies)
    takes its surface and its text from the one --bt-user pair: a skin that repaints
    the host's bubble surface alone would otherwise leave the text unreadable. */
-[class*="_userRow"] [class*="_bubble"],[data-chat-flow-kind=question-reply] [class*="_bubble"],[data-chat-flow-kind=command-input] [class*="_bubble"]{background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:18px!important;padding:7px 12px!important;font-size:var(--dsh-content-font-size,14px)!important;line-height:calc(var(--dsh-content-font-size,14px) + 8px)!important}
+[class*="_userRow"] [class*="_bubble"],[data-chat-flow-kind=question-reply] [class*="_bubble"],[data-chat-flow-kind=command-input] [class*="_bubble"]{background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:18px!important;padding:7px 12px!important;font-size:var(--bt-text-size)!important;line-height:calc(var(--bt-text-size) + 7px)!important}
 [class*="_userRow"] [class*="_bubble"] [class*="_markdown"],[class*="_userRow"] [class*="_bubble"] a{color:inherit}
 /* Sent messages get the hover toolbar below; steering and unsent bubbles keep none. */
 [class*="_userRow"] [class*="_actions"]{display:none!important}
@@ -1161,7 +1191,7 @@ div:has(> nav [class*="_marks"]){display:none!important}
 .bt-open-new .bt-time-sep{height:16px;margin:32px 0 2px}
 .bt-earlier{display:flex;flex-direction:column;gap:6px}
 .bt-earlier-top{display:flex;justify-content:center;align-items:center;height:34px;flex:none}
-.bt-earlier-top .bt-soft{height:28px;font-size:12px;padding:0 12px}
+.bt-earlier-top .bt-soft{height:28px;font-size:13px;padding:0 12px}
 .bt-urow{display:flex;justify-content:flex-end}
 .bt-ububble{max-width:calc(var(--bt-msg-w) * 100%);background:var(--bt-user);color:var(--bt-user-ink);border-radius:18px;padding:7px 12px;font-size:14px;line-height:24px;box-sizing:border-box;overflow-wrap:anywhere;text-wrap:pretty;text-autospace:normal}
 .bt-ububble [class*="_markdown"],.bt-ububble a{color:inherit!important}

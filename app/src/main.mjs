@@ -327,12 +327,14 @@ async function start() {
     assertWindow(event)
     if (updates?.state().phase === 'downloaded') await updates.install()
   })
-  ipcMain.handle(IPC.appUpdateOpen, (event) => {
+  // The sidebar's update button: on macOS the app updates itself where it may, as the prompt's
+  // yes does; elsewhere, or where it may not, the release page opens.
+  ipcMain.handle(IPC.appUpdateOpen, async (event) => {
     assertWindow(event)
     const state = updates?.state()
-    if (state?.phase === 'available' && typeof state.page === 'string' && state.page.startsWith('https://')) {
-      void electronShell.openExternal(state.page)
-    }
+    if (state?.phase !== 'available') return
+    selfUpdate = process.platform === 'darwin' && typeof state.url === 'string' && await canSelfUpdate(process.execPath)
+    await openUpdatePage()
   })
   // The plugin keeps the team workspace; the app remembers it for its own checks.
   ipcMain.on(IPC.teamWorkspace, (event, path) => {
@@ -530,8 +532,9 @@ function startUpdates() {
   const throwaway = Boolean(process.env.DS_BOT_HOME)
   if (!app.isPackaged || (throwaway && feed === undefined)) return undefined
   if (process.platform === 'darwin') {
+    // A yes to the prompt updates in place where the app may replace itself (openUpdatePage).
     return watchReleases({
-      current: app.getVersion(), arch: process.arch, feed, ask: throwaway ? undefined : (version) => downloadPrompt.prompt(version), open: url => electronShell.openExternal(url),
+      current: app.getVersion(), arch: process.arch, feed, ask: throwaway ? undefined : (version) => downloadPrompt.prompt(version), open: () => openUpdatePage(),
     })
   }
   // electron-updater's Linux updater works only from inside an AppImage (APPIMAGE is set there);
@@ -793,19 +796,18 @@ function trayImage() {
 function setMenu() {
   if (process.platform !== 'darwin') { Menu.setApplicationMenu(null); return }
   const t = localeText(SHELL_TEXT)
-  // The application menu of macOS, without its Quit: the tray's Quit is the one ordinary way
-  // out. Only when the tray is not there does the menu carry one, so that the app can still
-  // be ended.
+  // The application menu of macOS, with its Quit and ⌘Q as every Mac app has them (Aven's
+  // build; upstream leaves the Quit to the tray only). Closing the window still keeps the app
+  // in the tray; ⌘Q ends it, as the tray's Quit does.
   const items = [
     { role: 'about' },
     { type: 'separator' },
     { role: 'services' },
     { type: 'separator' },
     { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+    { type: 'separator' },
+    { label: t.quit, accelerator: 'Command+Q', click: () => { shell.quit() } },
   ]
-  if (!shell.hasTray()) {
-    items.push({ type: 'separator' }, { label: t.quit, click: () => { shell.quit() } })
-  }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: app.name, submenu: items },
     { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
