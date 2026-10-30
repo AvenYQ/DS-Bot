@@ -4273,6 +4273,7 @@ function installTailKeeper() {
   let flow = null;
   let atBottom = true;
   let height = 0;
+  let width = 0;
   let userAt = 0;
   let ours = 0;
   let held = 0;
@@ -4337,6 +4338,14 @@ function installTailKeeper() {
     const next = scroller.scrollHeight;
     const delta = next - height;
     height = next;
+    const wide = flow ? flow.clientWidth : 0;
+    if (wide !== width) {
+      width = wide;
+      if (held) letGo();
+      height = scroller.scrollHeight;
+      if (atBottom) toBottom();
+      return;
+    }
     if (!atBottom || delta === 0) return;
     if (delta < 0 && flow && !still()) {
       held = Math.max(held, flow.offsetHeight - delta);
@@ -4402,6 +4411,7 @@ function installTailKeeper() {
       for (const child of flow.children) resize.observe(child);
     }
     height = scroller.scrollHeight;
+    width = flow ? flow.clientWidth : 0;
     atBottom = gap() <= NEAR;
     anchor();
   };
