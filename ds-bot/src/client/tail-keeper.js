@@ -8,6 +8,9 @@
 //   moment shorter), pulls everything down and, when the content comes back, up again.
 //   Here the transcript holds its height for a moment; content that comes back fills it with
 //   no motion at all, and a real loss eases down once instead of jumping.
+//   A transcript that got shorter because it got wider (a side panel closed, the column
+//   folded, the window grew) is no such moment: it is not held, the view just stays at the
+//   bottom.
 // - When the shell's own follow comes to rest a few pixels short (the transcript's bottom
 //   padding), the view finishes the way down.
 // Once the reader scrolls up themselves the view is left where they put it.
@@ -23,6 +26,7 @@ export function installTailKeeper() {
   let flow = null
   let atBottom = true
   let height = 0
+  let width = 0
   let userAt = 0
   let ours = 0
   let held = 0
@@ -92,6 +96,14 @@ export function installTailKeeper() {
     const next = scroller.scrollHeight
     const delta = next - height
     height = next
+    const wide = flow ? flow.clientWidth : 0
+    if (wide !== width) {
+      width = wide
+      if (held) letGo()
+      height = scroller.scrollHeight
+      if (atBottom) toBottom()
+      return
+    }
     if (!atBottom || delta === 0) return
     if (delta < 0 && flow && !still()) {
       // Hold the height it had; the view stays exactly where it was.
@@ -163,6 +175,7 @@ export function installTailKeeper() {
       for (const child of flow.children) resize.observe(child)
     }
     height = scroller.scrollHeight
+    width = flow ? flow.clientWidth : 0
     atBottom = gap() <= NEAR
     anchor()
   }
