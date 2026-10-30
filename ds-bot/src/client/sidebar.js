@@ -1032,7 +1032,7 @@ export const SIDEBAR_CSS = `
 [class*="_collapsed"] .bt-account,.bt-rail .bt-account{width:36px;padding:0;gap:0}
 .bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
-.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
+.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:400;text-align:left;cursor:pointer;transition:color .12s ease}
 .bt-sec-head:hover{color:var(--bt-ink)}
 /* The caret shows on hover, and stays while the section is folded. */
 .bt-sec-caret{order:1;flex:none;display:inline-flex;opacity:0;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .12s ease}

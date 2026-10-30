@@ -2547,10 +2547,15 @@ function useLinger(value, ms) {
 
 // src/client/styles.js
 var SHELL_CSS = `
-body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;--bt-seal-ink:#2b2d31;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+/* Text as Grok Bot sets it: the conversation one px larger than the shell's setting (15px
+   by default, 24px lines), drawn with macOS's own smoothing instead of the thinner
+   antialiased rendering, so Chinese reads fuller and crisper. The shell's size setting
+   still moves it. */
+html body{--bt-text-size:calc(var(--dsh-content-font-size,14px) + 1px);--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 13px)!important;--dsw-font-markdown-base:var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-markdown-base-strong:600 var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;-webkit-font-smoothing:auto!important}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
-body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52}
+body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-seal-ink:#d9d6cf}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join("")}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join("")}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
@@ -2678,7 +2683,7 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-row:hover{background:var(--bt-hover)}
 .bt-row[aria-current=page]{background:var(--bt-active)}
 .bt-row-body{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:600}
+.bt-row-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px;font-weight:500}
 .bt-row-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-tag{flex:none;max-width:96px;font-size:12px;line-height:16px;font-weight:400;padding:1px 6px;border-radius:4px;background:var(--bt-tag-bg);color:var(--bt-tag-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-row-preview{font-size:13px;line-height:18px;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2742,7 +2747,7 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 /* The width settings: the share of the column a bubble may take, and the flat text. */
 body{--bt-msg-w:.8;--bt-flat-w:1}
 .bt-astack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0}
-.bt-bubble{max-width:min(calc(var(--bt-msg-w) * 100%),calc(100% - 82px));background:var(--bt-bubble);color:var(--bt-ink);border-radius:18px;padding:7px 12px;font-size:var(--dsh-content-font-size,14px);line-height:calc(var(--dsh-content-font-size,14px) + 10px);box-sizing:border-box;overflow-wrap:anywhere;text-wrap:pretty;text-autospace:normal}
+.bt-bubble{max-width:min(calc(var(--bt-msg-w) * 100%),calc(100% - 82px));background:var(--bt-bubble);color:var(--bt-ink);border-radius:18px;padding:7px 12px;font-size:var(--bt-text-size);line-height:calc(var(--bt-text-size) + 9px);box-sizing:border-box;overflow-wrap:anywhere;text-wrap:pretty;text-autospace:normal}
 .bt-msg:not(:first-child)>.bt-msg-line>.bt-bubble{border-start-start-radius:6px}
 .bt-msg:not(:last-child)>.bt-msg-line>.bt-bubble{border-end-start-radius:6px}
 .bt-bubble [class*="_markdown"]>*+*{margin-top:10px}
@@ -3210,12 +3215,23 @@ body[data-bt-layout=flat] .bt-tools::after{display:none}
 .bt-stamp[data-len="2"]{width:40px;height:52px}
 .bt-stamp-text{font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:23px;line-height:1;letter-spacing:0}
 .bt-stamp[data-len="2"] .bt-stamp-text{writing-mode:vertical-rl;font-size:17px;letter-spacing:1px}
-.bt-stamp[data-tone=yes],.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-cinnabar)}
-.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 55%,var(--bt-ink-2))}
-body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;opacity:.9}
+/* Three seals, three temperaments. 准: the emperor's own square seal, cut in relief, so the
+   character shows paper-white out of solid cinnabar: the weightiest of the three. 驳回: the
+   same frame pressed in black ink, upright tall and tilted the other way: stern, not angry.
+   已阅: a small oval reading seal in a thin, half-dry line: a nod, nothing more. All three are
+   pressed rather than printed: a fine grain lets the paper show through the ink. */
+.bt-stamp{--bt-stamp:var(--bt-cinnabar);-webkit-mask-image:var(--bt-stamp-grain);mask-image:var(--bt-stamp-grain);-webkit-mask-size:64px 64px;mask-size:64px 64px}
+body{--bt-stamp-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -3 2.6'/%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23g)'/%3E%3C/svg%3E")}
+.bt-stamp[data-tone=yes]{width:46px;height:46px;border:0;border-radius:6px;background:var(--bt-stamp);color:var(--bt-bubble);--bt-stamp-rot:-9deg;--bt-stamp-op:.9;--bt-stamp-from:2.6;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op);box-shadow:inset 0 0 0 3px var(--bt-stamp),inset 0 0 0 4.5px var(--bt-bubble)}
+.bt-stamp[data-tone=yes] .bt-stamp-text{font-size:27px}
+.bt-stamp[data-tone=no]{--bt-stamp:var(--bt-seal-ink);width:38px;height:56px;border-radius:4px;--bt-stamp-rot:8deg;--bt-stamp-op:.84;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op)}
+.bt-stamp[data-tone=no] .bt-stamp-text{font-size:17px;letter-spacing:2px}
+.bt-stamp[data-tone=noted]{--bt-stamp:color-mix(in srgb,var(--bt-cinnabar) 82%,var(--bt-ink-2));width:52px;height:32px;right:-26px;bottom:-14px;border-width:1.5px;border-radius:50%;--bt-stamp-rot:-5deg;--bt-stamp-op:.8;--bt-stamp-from:1.6;rotate:var(--bt-stamp-rot);opacity:var(--bt-stamp-op);box-shadow:none}
+.bt-stamp[data-tone=noted] .bt-stamp-text{writing-mode:horizontal-tb;font-size:14px;font-weight:700;letter-spacing:1px}
+body[data-ds-dark-theme] .bt-stamp{mix-blend-mode:screen;--bt-stamp-op:.9;opacity:.9}
 .bt-stamp[data-fresh]{animation:bt-stamp-down .52s cubic-bezier(.3,1.5,.5,1) both}
 .bt-bubble[data-fresh]{animation:bt-stamp-press .3s ease-out .2s both}
-@keyframes bt-stamp-down{0%{scale:2.3;rotate:-2deg;opacity:0;filter:blur(3px)}45%{scale:.9;rotate:-12deg;opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:-11deg;opacity:.86}}
+@keyframes bt-stamp-down{0%{scale:var(--bt-stamp-from,2.3);rotate:calc(var(--bt-stamp-rot,-11deg) + 9deg);opacity:0;filter:blur(3px)}45%{scale:.9;rotate:calc(var(--bt-stamp-rot,-11deg) - 1deg);opacity:.95;filter:none}70%{scale:1.04}100%{scale:1;rotate:var(--bt-stamp-rot,-11deg);opacity:var(--bt-stamp-op,.86)}}
 @keyframes bt-stamp-press{0%{translate:0 0}35%{translate:0 2px}100%{translate:0 0}}
 @media (prefers-reduced-motion:reduce){.bt-stamp[data-fresh],.bt-bubble[data-fresh]{animation:none}}
 .bt-react{height:22px;min-width:30px;padding:0 6px;border-radius:999px;border:.5px solid var(--bt-line-2);background:var(--bt-main);font-size:13px;line-height:20px;cursor:pointer;animation:bt-react-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing};transition:background-color .12s ease,${spring(SPRING_TAP, "scale")}}
@@ -3650,7 +3666,7 @@ div:has(> nav [class*="_marks"]){display:none!important}
 /* Every user-side bubble (sent, steering mid-turn, not yet admitted, question replies)
    takes its surface and its text from the one --bt-user pair: a skin that repaints
    the host's bubble surface alone would otherwise leave the text unreadable. */
-[class*="_userRow"] [class*="_bubble"],[data-chat-flow-kind=question-reply] [class*="_bubble"],[data-chat-flow-kind=command-input] [class*="_bubble"]{background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:18px!important;padding:7px 12px!important;font-size:var(--dsh-content-font-size,14px)!important;line-height:calc(var(--dsh-content-font-size,14px) + 8px)!important}
+[class*="_userRow"] [class*="_bubble"],[data-chat-flow-kind=question-reply] [class*="_bubble"],[data-chat-flow-kind=command-input] [class*="_bubble"]{background:var(--bt-user)!important;color:var(--bt-user-ink)!important;border-radius:18px!important;padding:7px 12px!important;font-size:var(--bt-text-size)!important;line-height:calc(var(--bt-text-size) + 7px)!important}
 [class*="_userRow"] [class*="_bubble"] [class*="_markdown"],[class*="_userRow"] [class*="_bubble"] a{color:inherit}
 /* Sent messages get the hover toolbar below; steering and unsent bubbles keep none. */
 [class*="_userRow"] [class*="_actions"]{display:none!important}
@@ -11295,7 +11311,7 @@ var SIDEBAR_CSS = `
 [class*="_collapsed"] .bt-account,.bt-rail .bt-account{width:36px;padding:0;gap:0}
 .bt-you-photo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
 .bt-sec{display:flex;align-items:center;gap:2px;margin-top:12px;padding-right:4px;border-radius:8px}
-.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:color .12s ease}
+.bt-sec-head{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:none;color:color-mix(in srgb,var(--bt-ink) 66%,transparent);font:inherit;font-size:13px;font-weight:400;text-align:left;cursor:pointer;transition:color .12s ease}
 .bt-sec-head:hover{color:var(--bt-ink)}
 /* The caret shows on hover, and stays while the section is folded. */
 .bt-sec-caret{order:1;flex:none;display:inline-flex;opacity:0;transform:rotate(90deg);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .12s ease}
@@ -21332,7 +21348,7 @@ function UserMessageCell({ node, sessionId, useRoster, actions, renderMessageIma
 var USER_MESSAGE_CSS = `
 .bt-umsg{display:flex;flex-direction:row-reverse;align-items:center;justify-content:flex-start;gap:4px}
 .bt-ustack{min-width:0;max-width:calc(var(--bt-msg-w) * 100%);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
-.bt-ubody{max-width:100%;box-sizing:border-box;background:var(--bt-user);color:var(--bt-user-ink);border-radius:18px;padding:7px 12px;font-size:var(--dsh-content-font-size,14px);line-height:calc(var(--dsh-content-font-size,14px) + 10px);white-space:pre-wrap;word-break:break-word;text-wrap:pretty;text-autospace:normal}
+.bt-ubody{max-width:100%;box-sizing:border-box;background:var(--bt-user);color:var(--bt-user-ink);border-radius:18px;padding:7px 12px;font-size:var(--bt-text-size,15px);line-height:calc(var(--bt-text-size,15px) + 7px);white-space:pre-wrap;word-break:break-word;text-wrap:pretty;text-autospace:normal}
 .bt-ubody a{color:inherit}
 .bt-umention{display:inline-flex;align-items:center;gap:3px;vertical-align:-3px;max-width:100%;padding:0 1px;border:0;background:none;color:inherit;font:inherit;font-weight:600;line-height:inherit;cursor:pointer;border-radius:6px;white-space:nowrap}
 .bt-umention:hover{text-decoration:underline;text-underline-offset:2px}
