@@ -994,6 +994,8 @@ body[data-bt-layout=flat] .bt-think{max-width:calc(var(--bt-flat-w) * 100%)}
    mode folds away in a finished turn stays shown. TurnProcessCell also opens that
    fold; these rules cover the first frame before it does. */
 [data-step-process]>div:first-child{display:none!important}
+/* A turn's process group whose every item draws nothing here takes no room (process-groups.js). */
+[data-step-process][data-bt-empty]{display:none!important}
 [data-step-process]>[data-step-process-body]{display:block!important;content-visibility:visible!important;max-height:none!important;overflow:visible!important;mask-image:none!important;scrollbar-gutter:auto!important}
 :is([data-step-process],[data-turn-process-hidden])[hidden]{content-visibility:visible!important}
 [class*="_flowItem"]:has(> [data-slot="conversation.chat.node"]:empty){display:none!important}
@@ -1014,15 +1016,11 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
    without its copy and branch row; a tail with nothing in it takes no room. */
 [data-turn-tail]>:not([data-slot="conversation.chat.turnTail"]){display:none!important}
 [class*="_flowItem"][data-chat-flow-kind="turn-tail"]:not(:has([data-slot="conversation.chat.turnTail"]:not(:empty))){display:none!important}
-/* Rhythm as in Grok Bot: one speaker's bubbles sit close (4px), and every change of speaker
-   gets the same wider breath (14px), the user's turn after a reply as much as the reply after
-   the user. The shell's own margins (6px before the user, 16px before a reply, plus a turn's
-   process row) made it tight one way and loose the other. */
-[data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input]{margin-top:14px!important}
-[data-chat-flow-kind=assistant-step]{margin-top:4px!important}
-:is([data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input])+[data-chat-flow-kind=assistant-step]{margin-top:14px!important}
-[data-chat-flow-kind=turn-process]{margin-top:10px!important}
-[data-chat-flow-kind=turn-process]:has(> [data-slot="conversation.chat.node"]:empty)+[data-chat-flow-kind=assistant-step]{margin-top:14px!important}
+/* Rhythm as in Grok Bot (process-groups.js marks the items): one speaker's bubbles 4px apart,
+   every change of speaker 14px, either way round. */
+[data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input],[data-chat-flow] [data-submission-echo]{margin-top:14px!important}
+[data-chat-flow] [data-bt-gap=same]{margin-top:4px!important}
+[data-chat-flow] [data-bt-gap=turn]{margin-top:14px!important}
 /* Every team Session belongs to a Bot or a group, so a blank one is an empty chat, not
    the shell's new-session hero: no headline, no workspace or mode picker, and the
    composer stays docked at the bottom. */
