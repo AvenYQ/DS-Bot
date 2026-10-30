@@ -12449,10 +12449,32 @@ function useEscape(onClose) {
   }, []);
 }
 function usePaneLeft() {
-  const [paneLeft, setPaneLeft] = (0, import_react25.useState)(280);
+  const [paneLeft, setPaneLeft] = (0, import_react25.useState)(0);
   (0, import_react25.useLayoutEffect)(() => {
-    const column = document.querySelector('[class*="_footArea"]')?.parentElement;
-    if (column) setPaneLeft(Math.round(column.getBoundingClientRect().right));
+    const measure = () => {
+      const own2 = document.querySelector(".bt-leftcol");
+      if (own2 === null) {
+        const column = document.querySelector('[class*="_footArea"]')?.parentElement;
+        setPaneLeft(column ? Math.round(column.getBoundingClientRect().right) : 0);
+        return;
+      }
+      const state = own2.getAttribute("data-left");
+      setPaneLeft(state === "hidden" ? 0 : state === "drawer" ? RAIL_WIDTH : Math.round(own2.getBoundingClientRect().right));
+    };
+    measure();
+    const own = document.querySelector(".bt-leftcol");
+    const sized = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    const restated = typeof MutationObserver === "function" ? new MutationObserver(measure) : null;
+    if (own !== null) {
+      sized?.observe(own);
+      restated?.observe(own, { attributes: true, attributeFilter: ["data-left", "style"] });
+    }
+    window.addEventListener("resize", measure);
+    return () => {
+      sized?.disconnect();
+      restated?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
   return paneLeft;
 }
