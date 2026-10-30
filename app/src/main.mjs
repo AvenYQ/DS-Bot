@@ -796,19 +796,18 @@ function trayImage() {
 function setMenu() {
   if (process.platform !== 'darwin') { Menu.setApplicationMenu(null); return }
   const t = localeText(SHELL_TEXT)
-  // The application menu of macOS, without its Quit: the tray's Quit is the one ordinary way
-  // out. Only when the tray is not there does the menu carry one, so that the app can still
-  // be ended.
+  // The application menu of macOS, with its Quit and ⌘Q as every Mac app has them (Aven's
+  // build; upstream leaves the Quit to the tray only). Closing the window still keeps the app
+  // in the tray; ⌘Q ends it, as the tray's Quit does.
   const items = [
     { role: 'about' },
     { type: 'separator' },
     { role: 'services' },
     { type: 'separator' },
     { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+    { type: 'separator' },
+    { label: t.quit, accelerator: 'Command+Q', click: () => { shell.quit() } },
   ]
-  if (!shell.hasTray()) {
-    items.push({ type: 'separator' }, { label: t.quit, click: () => { shell.quit() } })
-  }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: app.name, submenu: items },
     { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
