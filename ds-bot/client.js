@@ -3549,6 +3549,11 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
    without its copy and branch row; a tail with nothing in it takes no room. */
 [data-turn-tail]>:not([data-slot="conversation.chat.turnTail"]){display:none!important}
 [class*="_flowItem"][data-chat-flow-kind="turn-tail"]:not(:has([data-slot="conversation.chat.turnTail"]:not(:empty))){display:none!important}
+/* A delivered file's card is as wide as its name, not the whole column (as in Grok Bot):
+   the description still fills the card and ellipses, but takes no width of its own. */
+[data-presented-files-row]{display:flex!important;flex-wrap:wrap;align-items:stretch;gap:10px}
+[data-presented-files-row]>[data-presented-file]{flex:0 1 auto!important;width:auto!important;min-width:0!important;max-width:100%!important}
+[data-presented-files-row]>[data-presented-file] [data-presented-description]{width:0!important;min-width:100%!important}
 /* Rhythm as in Grok Bot (process-groups.js marks the items): one speaker's bubbles 4px apart,
    every change of speaker 14px, either way round. */
 [data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input],[data-chat-flow] [data-submission-echo]{margin-top:14px!important}
