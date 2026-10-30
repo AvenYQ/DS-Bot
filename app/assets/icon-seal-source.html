@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:transparent}</style></head><body>
+<svg id="icon" width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+   <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="n"/>
+   <feColorMatrix in="n" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -4 3.55" result="a"/>
+   <feComposite in="SourceGraphic" in2="a" operator="in"/>
+  </filter>
+  <filter id="edge"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="9"/><feDisplacementMap in="SourceGraphic" scale="12"/></filter>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+   <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" seed="2" result="n"/>
+   <feColorMatrix in="n" values="0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.28 0 0 0 0.10 0"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".22"/></filter>
+  <linearGradient id="paperFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8f2e6"/><stop offset="1" stop-color="#ede3d0"/></linearGradient>
+  <linearGradient id="redFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d23a2f"/><stop offset="1" stop-color="#a8241d"/></linearGradient>
+  <clipPath id="sqc"><path id="sqp"/></clipPath>
+ </defs>
+ <g filter="url(#shadow)"><path id="sq" fill="url(#paperFill)"/></g>
+ <g clip-path="url(#sqc)"><rect width="1024" height="1024" filter="url(#paper)"/></g>
+ <g transform="rotate(-6 512 512)"><g filter="url(#grain)"><g filter="url(#edge)">
+  <path d="M290 232 H734 Q792 232 792 290 V650 Q792 708 734 708 H420 L312 800 L340 708 H290 Q232 708 232 650 V290 Q232 232 290 232Z" fill="url(#redFill)"/>
+  <path d="M300 300 H724 Q734 300 734 310 V640 Q734 650 724 650 H300 Q290 650 290 640 V310 Q290 300 300 300Z" fill="none" stroke="#f8f2e6" stroke-width="10"/>
+  <path d="M340 500 Q420 512 512 452 Q604 512 684 500" fill="none" stroke="#f8f2e6" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="420" cy="572" r="16" fill="#f8f2e6"/><circle cx="512" cy="572" r="16" fill="#f8f2e6"/><circle cx="604" cy="572" r="16" fill="#f8f2e6"/>
+ </g></g></g>
+</svg>
+<svg id="tray" width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+ <defs><mask id="m"><rect width="64" height="64" fill="#fff"/>
+  <path d="M15 31 Q24 32 32 26 Q40 32 49 31" fill="none" stroke="#000" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="23" cy="40" r="2.8" fill="#000"/><circle cx="32" cy="40" r="2.8" fill="#000"/><circle cx="41" cy="40" r="2.8" fill="#000"/></mask></defs>
+ <path mask="url(#m)" d="M12 8 H52 Q58 8 58 14 V46 Q58 52 52 52 H26 L15 61 L18 52 H12 Q6 52 6 46 V14 Q6 8 12 8Z" fill="#000"/>
+</svg>
+<script>
+const c=512,r=412,n=5,pts=[];for(let i=0;i<=360;i+=2){const t=i*Math.PI/180,ct=Math.cos(t),st=Math.sin(t);pts.push([c+r*Math.sign(ct)*Math.abs(ct)**(2/n),c+r*Math.sign(st)*Math.abs(st)**(2/n)])}
+const d='M'+pts.map(p=>p.map(v=>v.toFixed(1)).join(' ')).join('L')+'Z';document.getElementById('sq').setAttribute('d',d);document.getElementById('sqp').setAttribute('d',d)
+</script></body></html>
