@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { SEALS } from './data.js'
-import { doorSpot, placeYard, yardOf, yardSlots } from './layout.js'
+import { doorSpot, planYards, yardSlots } from './layout.js'
 
 // three r128 exports BufferGeometryUtils as a class and mergeBufferGeometries calls
 // this.mergeBufferAttributes, so the method cannot be called detached from the class.
@@ -466,10 +466,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     roof(g, 8.4, 8.4, 5.75, Y, 3)
   }
   // A wall around every 值房, with the 午门 on the south axis and a moat outside.
-  const buildWalls = () => {
-    if (walls) dropGroup(walls)
-    walls = new THREE.Group()
-    scene.add(walls)
+  const cityBounds = () => {
     let minX = -18, maxX = 18, minZ = -56, maxZ = 41
     for (const b of buildings) {
       minX = Math.min(minX, b.x - b.w / 2 - 4)
@@ -477,8 +474,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       minZ = Math.min(minZ, b.z - b.d / 2 - 5)
       maxZ = Math.max(maxZ, b.z + b.foot / 2 + 6)
     }
+    return { minX, maxX, minZ, maxZ }
+  }
+  const buildWalls = () => {
+    if (walls) dropGroup(walls)
+    walls = new THREE.Group()
+    scene.add(walls)
     const gate = 8
-    const bounds = { minX: minX - 4, maxX: maxX + 4, minZ: minZ - 4, maxZ: maxZ + 4 }
+    const raw = cityBounds()
+    const bounds = { minX: raw.minX - 4, maxX: raw.maxX + 4, minZ: raw.minZ - 4, maxZ: raw.maxZ + 4 }
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1 } = bounds
     wallSeg(walls, x0, z0, x1, z0)
     wallSeg(walls, x0, z1, -gate, z1)
@@ -503,6 +507,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   }
   buildWalls()
 
+  let framed = false
   // Fills the yards with the sections' halls, then draws the wall around the result.
   const layoutSections = people => {
     const sections = []
@@ -512,20 +517,37 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (!entry) { entry = { name, ids: [] }; sections.push(entry) }
       if (person.building !== undefined && !entry.ids.includes(person.building)) entry.ids.push(person.building)
     }
-    sections.forEach((entry, index) => {
-      const yard = yardOf(index)
-      const halls = entry.ids.map(id => BMAP[id]).filter(b => b && !b.palace)
-      const spots = placeYard(halls, index)
+    const hallsOf = entry => entry.ids.map(id => BMAP[id]).filter(b => b && !b.palace)
+    // Halls no section claimed keep company in a final block, away from the yards where
+    // officials stand: otherwise a stray hall crowds another section's doors.
+    const claimed = new Set(sections.flatMap(entry => entry.ids))
+    const spare = buildings.filter(b => !b.palace && !claimed.has(b.id))
+    const blocks = [...sections.map(hallsOf), ...(spare.length ? [spare] : [])]
+    const plan = planYards(blocks)
+    blocks.forEach((halls, index) => {
+      const block = plan[index]
+      const yard = index < sections.length
       halls.forEach((b, i) => {
-        b.x = spots[i].x
-        b.z = spots[i].z
+        b.x = block.halls[i].x
+        b.z = block.halls[i].z
         b.group.position.set(b.x, 0, b.z)
-        b.yard = yard
+        // Only sections are places people stand in; the leftovers are just parked.
+        if (yard) b.yard = block
       })
     })
     // Halls no section claimed keep their own place.
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z)
     buildWalls()
+    // The city only gets this big with yards, so frame all of it the first time.
+    if (!framed) {
+      framed = true
+      const raw = cityBounds()
+      const cx = (raw.minX + raw.maxX) / 2, cz = (raw.minZ + raw.maxZ) / 2
+      const span = Math.max(raw.maxX - raw.minX, raw.maxZ - raw.minZ)
+      controls.target.set(cx, 0, cz)
+      camera.position.set(cx + span * 0.55, span * 0.62, cz + span * 0.62)
+      controls.update()
+    }
   }
 
   // 内廷 gate, on the axis between the 太和殿 square and the inner court.

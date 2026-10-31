@@ -39503,33 +39503,34 @@ var BufferGeometryUtils = class {
 };
 
 // src/client/court-board/layout.js
-var YARDS = [
-  { x: 40, z: -28 },
-  { x: -40, z: -28 },
-  { x: 40, z: 6 },
-  { x: -40, z: 6 },
-  { x: 40, z: 36 },
-  { x: -40, z: 36 },
-  { x: 40, z: -60 },
-  { x: -40, z: -60 },
-  { x: 0, z: -60 }
-];
 var DOOR_GAP = 2.4;
-var yardOf = (index) => {
-  const yard = YARDS[index % YARDS.length];
-  const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0;
-  return { x: yard.x + wrappers * 6, z: yard.z + wrappers * 16 };
-};
-function placeYard(halls, index) {
-  const yard = yardOf(index);
+var COLUMNS = [{ x: 40 }, { x: -40 }];
+var TOP = -14;
+var YARD_GAP = 30;
+var yardSize = (halls) => {
   const widest = Math.max(9, ...halls.map((hall) => hall.w ?? 9));
   const deepest = Math.max(10, ...halls.map((hall) => hall.foot ?? 10));
-  const colGap = widest + 8;
-  const rowGap = deepest + 9;
-  return halls.map((_, i) => ({
-    x: yard.x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
-    z: yard.z - Math.floor(i / 2) * rowGap
-  }));
+  const rows2 = Math.ceil(halls.length / 2);
+  return { colGap: widest + 8, rowGap: deepest + 9, rows: rows2 };
+};
+function planYards(sections) {
+  const cursors = COLUMNS.map(() => TOP);
+  return sections.map((halls, index) => {
+    const column = index % COLUMNS.length;
+    const { colGap, rowGap, rows: rows2 } = yardSize(halls);
+    const height = Math.max(0, (rows2 - 1) * rowGap);
+    const x = COLUMNS[column].x;
+    const z = cursors[column] - height / 2;
+    cursors[column] = z - height / 2 - YARD_GAP;
+    return {
+      x,
+      z,
+      halls: halls.map((_, i) => ({
+        x: x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
+        z: z - Math.floor(i / 2) * rowGap
+      }))
+    };
+  });
 }
 var doorSpot = (hall, offset = 0) => ({
   x: hall.x + offset,
@@ -39965,10 +39966,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     add(g, B(7, 0.3, 7), BAND, 0, 5.6, 0);
     roof(g, 8.4, 8.4, 5.75, Y, 3);
   };
-  const buildWalls = () => {
-    if (walls) dropGroup(walls);
-    walls = new Group();
-    scene.add(walls);
+  const cityBounds = () => {
     let minX = -18, maxX = 18, minZ = -56, maxZ = 41;
     for (const b of buildings) {
       minX = Math.min(minX, b.x - b.w / 2 - 4);
@@ -39976,8 +39974,15 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       minZ = Math.min(minZ, b.z - b.d / 2 - 5);
       maxZ = Math.max(maxZ, b.z + b.foot / 2 + 6);
     }
+    return { minX, maxX, minZ, maxZ };
+  };
+  const buildWalls = () => {
+    if (walls) dropGroup(walls);
+    walls = new Group();
+    scene.add(walls);
     const gate = 8;
-    const bounds = { minX: minX - 4, maxX: maxX + 4, minZ: minZ - 4, maxZ: maxZ + 4 };
+    const raw = cityBounds();
+    const bounds = { minX: raw.minX - 4, maxX: raw.maxX + 4, minZ: raw.minZ - 4, maxZ: raw.maxZ + 4 };
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1 } = bounds;
     wallSeg(walls, x0, z0, x1, z0);
     wallSeg(walls, x0, z1, -gate, z1);
@@ -39999,6 +40004,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     return bounds;
   };
   buildWalls();
+  let framed = false;
   const layoutSections = (people) => {
     const sections = [];
     for (const person2 of people) {
@@ -40010,19 +40016,32 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       }
       if (person2.building !== void 0 && !entry.ids.includes(person2.building)) entry.ids.push(person2.building);
     }
-    sections.forEach((entry, index) => {
-      const yard = yardOf(index);
-      const halls = entry.ids.map((id) => BMAP[id]).filter((b) => b && !b.palace);
-      const spots = placeYard(halls, index);
+    const hallsOf = (entry) => entry.ids.map((id) => BMAP[id]).filter((b) => b && !b.palace);
+    const claimed = new Set(sections.flatMap((entry) => entry.ids));
+    const spare = buildings.filter((b) => !b.palace && !claimed.has(b.id));
+    const blocks = [...sections.map(hallsOf), ...spare.length ? [spare] : []];
+    const plan = planYards(blocks);
+    blocks.forEach((halls, index) => {
+      const block = plan[index];
+      const yard = index < sections.length;
       halls.forEach((b, i) => {
-        b.x = spots[i].x;
-        b.z = spots[i].z;
+        b.x = block.halls[i].x;
+        b.z = block.halls[i].z;
         b.group.position.set(b.x, 0, b.z);
-        b.yard = yard;
+        if (yard) b.yard = block;
       });
     });
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z);
     buildWalls();
+    if (!framed) {
+      framed = true;
+      const raw = cityBounds();
+      const cx = (raw.minX + raw.maxX) / 2, cz = (raw.minZ + raw.maxZ) / 2;
+      const span = Math.max(raw.maxX - raw.minX, raw.maxZ - raw.minZ);
+      controls.target.set(cx, 0, cz);
+      camera.position.set(cx + span * 0.55, span * 0.62, cz + span * 0.62);
+      controls.update();
+    }
   };
   {
     const g = new Group();

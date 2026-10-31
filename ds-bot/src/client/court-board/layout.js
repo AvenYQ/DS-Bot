@@ -2,42 +2,44 @@
 // can be tested on its own: no one's doorway may land inside another hall, and a hall's
 // figure stands in front of that hall, not of the one next door.
 
-// The yards around the palace, in the order sections claim them: east and west of the
-// 太和殿 square first, then the south-east and south-west yards, then the inner court.
-export const YARDS = [
-  { x: 40, z: -28 }, { x: -40, z: -28 },
-  { x: 40, z: 6 }, { x: -40, z: 6 },
-  { x: 40, z: 36 }, { x: -40, z: 36 },
-  { x: 40, z: -60 }, { x: -40, z: -60 },
-  { x: 0, z: -60 },
-]
-
-/** How far the staff of a hall stand in front of its front edge. */
+// Where each section's halls stand. A section gets a block exactly as deep as its own
+// rows need, and blocks are stacked down one of two columns flanking the palace, so a
+// yard can never reach into the next one however many halls a section has.
 export const DOOR_GAP = 2.4
+const COLUMNS = [{ x: 40 }, { x: -40 }]
+const TOP = -14
+// A yard's doors stand one door-gap south of its last row, so blocks must clear that too.
+const YARD_GAP = 30
 
-export const yardOf = index => {
-  const yard = YARDS[index % YARDS.length]
-  const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0
-  return { x: yard.x + wrappers * 6, z: yard.z + wrappers * 16 }
+const yardSize = halls => {
+  const widest = Math.max(9, ...halls.map(hall => hall.w ?? 9))
+  const deepest = Math.max(10, ...halls.map(hall => hall.foot ?? 10))
+  const rows = Math.ceil(halls.length / 2)
+  return { colGap: widest + 8, rowGap: deepest + 9, rows }
 }
 
 /**
- * Where a yard's halls stand: two columns, one row per pair, spaced by the footprints so
- * a hall's front never reaches into the row behind it.
- * @param {Array<{w?:number,d?:number,foot?:number}>} halls
- * @param {number} index which yard this is
- * @returns {{x:number,z:number}[]} one spot per hall, in the order given
+ * One block per section: where its halls stand and where the section gathers.
+ * @param {Array<Array<{w?:number,foot?:number}>>} sections halls of each section, in order
+ * @returns {Array<{x:number, z:number, halls:{x:number,z:number}[]}>}
  */
-export function placeYard(halls, index) {
-  const yard = yardOf(index)
-  const widest = Math.max(9, ...halls.map(hall => hall.w ?? 9))
-  const deepest = Math.max(10, ...halls.map(hall => hall.foot ?? 10))
-  const colGap = widest + 8
-  const rowGap = deepest + 9
-  return halls.map((_, i) => ({
-    x: yard.x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
-    z: yard.z - Math.floor(i / 2) * rowGap,
-  }))
+export function planYards(sections) {
+  const cursors = COLUMNS.map(() => TOP)
+  return sections.map((halls, index) => {
+    const column = index % COLUMNS.length
+    const { colGap, rowGap, rows } = yardSize(halls)
+    const height = Math.max(0, (rows - 1) * rowGap)
+    const x = COLUMNS[column].x
+    const z = cursors[column] - height / 2
+    cursors[column] = z - height / 2 - YARD_GAP
+    return {
+      x, z,
+      halls: halls.map((_, i) => ({
+        x: x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
+        z: z - Math.floor(i / 2) * rowGap,
+      })),
+    }
+  })
 }
 
 /** The spot in front of a hall's door where its official stands. */
