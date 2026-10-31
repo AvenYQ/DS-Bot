@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { avatarPxOf, avatarSizeOf, flatWidthOf, layoutOf, widthOf } from '../src/client/themes.js'
+import { flatWidthOf, layoutOf, widthOf } from '../src/client/themes.js'
 
 const bundle = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
 // The declarations of the rule whose whole selector is `selector`.
@@ -36,19 +36,4 @@ test('a Bot bubble keeps room for the toolbar beside it; flat Bot text takes the
     assert.match(ruleOf(selector), /max-width:calc\(var\(--bt-flat-w\) \* 100%\)/, selector)
   }
   assert.match(ruleOf('body[data-bt-layout=flat] .bt-bubble'), /background:none/)
-})
-
-test('the chat face takes one of three avatar sizes; anything else reads as the middle one', () => {
-  assert.equal(avatarSizeOf(undefined), 'medium')
-  assert.equal(avatarSizeOf({ avatarSize: 'giant' }), 'medium')
-  assert.deepEqual(['small', 'large'].map(avatarSize => avatarSizeOf({ avatarSize })), ['small', 'large'])
-  assert.deepEqual([avatarPxOf({}), avatarPxOf({ avatarSize: 'small' }), avatarPxOf({ avatarSize: 'large' })], [46, 36, 56])
-})
-
-test('the name sits in a chip on the avatar edge, not in a row under it', () => {
-  assert.match(ruleOf('.bt-pill-face'), /width:var\(--bt-avatar-px,46px\)/)
-  assert.match(ruleOf('.bt-pill-face'), /z-index:2/)
-  assert.match(ruleOf('.bt-pill-chip'), /margin-top:calc\(var\(--bt-avatar-px,46px\) \* -\.06\)/)
-  assert.match(ruleOf('.bt-pill-chip'), /justify-content:center/)
-  assert.match(ruleOf('.bt-pill'), /flex-direction:column/)
 })

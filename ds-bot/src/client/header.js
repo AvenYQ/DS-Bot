@@ -6,7 +6,6 @@ import { botState, BotAvatar, RoomAvatar } from './mark.js'
 import { ActivityIndicator } from './activity-row.js'
 import { clockLabel, openingTurn, unseenSince } from './cells.js'
 import { viewBottom } from './motion.js'
-import { avatarPxOf } from './themes.js'
 import { t } from './i18n.js'
 
 // -------------------------------------------------------------------------
@@ -98,23 +97,18 @@ export function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus
     return () => { delete document.body.dataset.btRoom }
   }, [Boolean(room)])
   const memoryNotice = !away && notice && changed !== null && roster.memory !== false
-  // The avatar keeps its own shape; the name sits in a chip on its lower edge.
-  const avatarPx = avatarPxOf(roster.prefs)
   return h('div', { className: 'bt-head' },
     h('button', {
       type: 'button', className: 'bt-pill', 'aria-expanded': away ? undefined : detailsOpen, 'data-memory': memoryNotice ? 'updated' : undefined,
       'aria-label': away ? t('Back to chat') : memoryNotice ? t('Memory updated. Open {name}\'s memory', { name: roster.byId[changed]?.name ?? name }) : t('View conversation details'),
       title: away ? name : undefined,
-      style: { '--bt-avatar-px': `${avatarPx}px` },
       onClick: () => (away ? selectView('chat') : memoryNotice ? actions.openMemory(changed) : actions.toggleDetails(sessionId)),
     },
-    h('span', { className: 'bt-pill-face' },
-      bot ? h(BotAvatar, { bot, size: avatarPx, state: botState(running, doing, roster.questions?.[currentPart(bot)] !== undefined), badge: false })
-        : room ? h(RoomAvatar, { room, roster, size: avatarPx }) : null),
-    h('span', { className: 'bt-pill-chip' },
-      h('span', { className: 'bt-pill-name' }, away ? t('Back to chat') : bot?.name ?? room?.name ?? (title || t('New chat'))),
-      h(MemoryNotice, { shown: memoryNotice }),
-      h('span', { className: 'bt-pill-go', 'aria-hidden': true }, h(GoArrow)))),
+    bot ? h(BotAvatar, { bot, size: 24, state: botState(running, doing, roster.questions?.[currentPart(bot)] !== undefined), badge: false })
+      : room ? h(RoomAvatar, { room, roster, size: 24 }) : null,
+    h('span', { className: 'bt-pill-name' }, away ? t('Back to chat') : bot?.name ?? room?.name ?? (title || t('New chat'))),
+    h(MemoryNotice, { shown: memoryNotice }),
+    h('span', { className: 'bt-pill-go', 'aria-hidden': true }, h(GoArrow))),
     h('span', { className: 'bt-sr', role: 'status' }, memoryNotice ? t('Memory updated') : ''),
     h(NewMessagePills, { key: sessionId, sessionId, useSessions, useUi, useTurnClock }),
     h(ActivityIndicator, { key: `activity:${sessionId}`, sessionId, useRoster, useSessionStatus, useSession, useLive, useWork, actions }))

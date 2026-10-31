@@ -187,18 +187,13 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 .bt-dot-wait{background:var(--bt-star)}
 .bt-side-foot{display:flex;padding-top:8px}
 
-.bt-head{position:relative;display:flex;justify-content:center;align-items:flex-start;height:auto;flex:none;pointer-events:none}
-/* The conversation's face: its avatar, with the name in a chip on the avatar's lower edge.
-   The avatar keeps the shape a Bot already has; only its size follows the preference. */
-.bt-pill{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:0;height:auto;padding:0;border:0;background:transparent;box-shadow:none;color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;max-width:70%;box-sizing:border-box;transition:transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
-.bt-pill:active{transform:scale(.97)}
-.bt-pill-face{position:relative;z-index:2;display:flex;flex:none;align-items:center;justify-content:center;width:var(--bt-avatar-px,46px);height:var(--bt-avatar-px,46px);border-radius:12px;background:var(--bt-card);box-shadow:0 0 0 .5px var(--bt-line-2),0 2px 6px -2px rgba(0,0,0,.14);overflow:hidden;transition:translate .16s ease-out}
-.bt-pill:hover .bt-pill-face{translate:0 -1px}
-.bt-pill-chip{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-width:0;max-width:min(60vw,260px);margin-top:calc(var(--bt-avatar-px,46px) * -.06);padding:4px 12px;border-radius:999px;background:var(--bt-main);box-shadow:0 0 0 .5px var(--bt-line-2),0 2px 6px -2px rgba(0,0,0,.16);transition:background-color .12s ease}
-.bt-pill:hover .bt-pill-chip{background:color-mix(in srgb,var(--bt-main),#777 9%)}
-.bt-pill-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:12px;line-height:17px}
-.bt-pill-mem{position:absolute;left:100%;top:50%;translate:0 -50%;display:inline-flex;width:0;margin-left:0;overflow:hidden;transition:${spring(SPRING_SHAPE, 'width', 'margin-left')}}
-.bt-pill[data-memory=updated] .bt-pill-mem{width:var(--bt-mem-w);margin-left:8px;transition:${spring(SPRING_STRETCH, 'width', 'margin-left')}}
+.bt-head{position:relative;display:flex;justify-content:center;align-items:center;height:40px;flex:none;pointer-events:none}
+.bt-pill{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;height:40px;padding:7.5px 13.5px 7.5px 7.5px;border-radius:999px;background:var(--bt-main);border:.5px solid var(--bt-line-2);box-shadow:0 2px 8px -1px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;max-width:70%;box-sizing:border-box;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-pill:hover{background:color-mix(in srgb,var(--bt-main),#777 9%)}
+.bt-pill:active{transform:scale(.965)}
+.bt-pill-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.bt-pill-mem{flex:none;display:inline-flex;width:0;margin-left:-8px;overflow:hidden;transition:${spring(SPRING_SHAPE, 'width', 'margin-left')}}
+.bt-pill[data-memory=updated] .bt-pill-mem{width:var(--bt-mem-w);margin-left:0;transition:${spring(SPRING_STRETCH, 'width', 'margin-left')}}
 .bt-pill-mem-in{flex:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--bt-ink-2);font-size:13px;font-weight:500;opacity:0;filter:blur(6px);transform:translateX(-8px);transition:opacity .14s ease,filter .18s ease,${spring(SPRING_SHAPE, 'transform')}}
 .bt-pill-mem-in::before{content:"";flex:none;width:1px;height:14px;margin-right:4px;background:var(--bt-line-2)}
 .bt-pill[data-memory=updated] .bt-pill-mem-in{opacity:1;filter:none;transform:none;transition-delay:70ms}
@@ -209,11 +204,11 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 .bt-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.bt-pill-mem,.bt-pill-mem-in{transition:none!important}.bt-pill-mem-in{filter:none;transform:none}.bt-pill[data-memory=updated] .bt-pill-mem-ico{animation:none}}
 .bt-swap{color:var(--bt-ink-3);font-size:12px}
-.bt-pill-go{position:absolute;left:100%;top:50%;translate:0 -50%;display:inline-flex;align-items:center;justify-content:flex-end;width:0;margin-left:0;overflow:hidden;opacity:0;filter:blur(6px);color:var(--bt-ink-2);transition:width ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .18s ease,filter .18s ease}
+.bt-pill-go{flex:none;display:inline-flex;align-items:center;justify-content:flex-end;width:0;margin-left:-8px;overflow:hidden;opacity:0;filter:blur(6px);transform:translateX(-6px);color:var(--bt-ink-2);transition:width ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},opacity .18s ease,filter .18s ease}
 .bt-pill-go svg{flex:none;transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
-.bt-pill:hover .bt-pill-go,.bt-pill:focus-visible .bt-pill-go,.bt-pill[aria-expanded=true] .bt-pill-go{width:18px;margin-left:8px;opacity:1;filter:none;translate:0 -50%}
+.bt-pill:hover .bt-pill-go,.bt-pill:focus-visible .bt-pill-go,.bt-pill[aria-expanded=true] .bt-pill-go{width:18px;margin-left:0;opacity:1;filter:none;transform:none}
 .bt-pill[aria-expanded=true] .bt-pill-go svg{transform:rotate(180deg)}
-.bt-pill[data-memory=updated]:is(:hover,:focus-visible,[aria-expanded=true]) .bt-pill-go{width:0;margin-left:0;opacity:0;filter:blur(6px)}
+.bt-pill[data-memory=updated]:is(:hover,:focus-visible,[aria-expanded=true]) .bt-pill-go{width:0;margin-left:-8px;opacity:0;filter:blur(6px);transform:translateX(-6px)}
 @media (prefers-reduced-motion:reduce){.bt-pill,.bt-pill-go,.bt-pill-go svg{transition:none!important}.bt-pill-go{filter:none}.bt-pill:active{transform:none}}
 
 /* The width settings: the share of the column a bubble may take, and the flat text. */
@@ -1042,8 +1037,6 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 [data-conversation-scroll]{scrollbar-width:none!important;scrollbar-gutter:auto!important}
 [data-conversation-scroll]::-webkit-scrollbar{display:none;width:0;height:0}
 [class*="_scroll"]:has(> [class*="_column"]){padding:calc(60px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))!important}
-/* The largest face reaches lower; the transcript keeps its room. */
-body[data-bt-avatar=large] [class*="_scroll"]:has(> [class*="_column"]){padding-top:calc(84px + env(safe-area-inset-top,0px))!important}
 /* The shell's running status only hosts the activity row (.bt-typing). */
 [data-chat-running]{display:block!important;width:100%;min-height:0!important;margin:0!important;padding:0!important}
 [data-chat-running]>span:not([role=status]){display:none!important}
