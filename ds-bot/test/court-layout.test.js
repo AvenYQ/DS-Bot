@@ -80,7 +80,18 @@ test('a 朝会 row stands in front of its yard and clear of its halls', () => {
   const slots = yardSlots(7, plan[4])
   assert.equal(slots.length, 7)
   for (const slot of slots) {
-    assert.ok(slot.z < plan[4].z - 2)
+    assert.ok(Math.abs(slot.x) < 23)
     assert.ok(!inside(slot, own))
   }
+})
+
+
+test('the nineteen-official layout stays compact and empty sections take no space', () => {
+  const halls = place(SECTIONS)
+  const width = Math.max(...halls.map(h => h.x + h.w / 2)) - Math.min(...halls.map(h => h.x - h.w / 2))
+  const depth = Math.max(...halls.map(h => h.z + h.foot / 2 + DOOR_GAP)) - Math.min(...halls.map(h => h.z - h.foot / 2))
+  assert.ok(width < 150, `city width ${width}`)
+  assert.ok(depth < 115, `city depth ${depth}`)
+  const withEmpty = planYards([[], ...SECTIONS]).slice(1)
+  assert.deepEqual(withEmpty, planYards(SECTIONS))
 })

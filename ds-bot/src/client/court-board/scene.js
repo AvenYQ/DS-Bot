@@ -6,13 +6,9 @@
 // call builds the world, the returned object drives it and tears it down.
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { SEALS } from './data.js'
 import { doorSpot, planYards, yardSlots } from './layout.js'
-
-// three r128 exports BufferGeometryUtils as a class and mergeBufferGeometries calls
-// this.mergeBufferAttributes, so the method cannot be called detached from the class.
-const mergeBufferGeometries = geometries => BufferGeometryUtils.mergeBufferGeometries(geometries)
+import { batchRoot } from './geometry.js'
 
 const Y = '#f2b630'
 const GREEN = '#3f9a6b'
@@ -78,7 +74,7 @@ const sm = (a, b, x) => {
 const cl = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t)
 const clip = (text, n = 9) => text.length > n ? text.slice(0, n) + '…' : text
 
-export function createCourtScene({ container, tags, onSelect, onOpen }) {
+export function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory = options => new THREE.WebGLRenderer(options) }) {
   let dead = false
   let running = false
   let raf = 0
@@ -89,7 +85,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   // the container; that needs a positioned containing block to sit in.
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative'
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+  const renderer = rendererFactory({ antialias: true, alpha: true })
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -162,6 +158,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   scene.add(statics)
   const flats = new THREE.Group()
   scene.add(flats)
+  flats.userData.role = 'courts'
   const pickables = []
 
   const B = (w, h, d) => new THREE.BoxGeometry(w, h, d)
@@ -387,6 +384,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     b.h = b.h || 3
     BMAP[b.id] = b
     b.group = b.type === 'oct' ? octPavilion(b) : b.type === 'tower' ? tower(b) : hall(b)
+    b.group.userData.buildingId = b.id
     b.homeX = b.x
     b.homeZ = b.z
   }
@@ -415,10 +413,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   add(statics, new THREE.SphereGeometry(0.15, 6, 5), '#d2452f', 8.5, ty + 2.05, tz - 0.05)
 
   /* 午门 */
+  let southGate
   {
     const g = new THREE.Group()
     g.position.set(0, 0, 44)
-    statics.add(g)
+    southGate = g
+    scene.add(g)
     add(g, B(26, 7, 6), RED, 0, 3.5, 0)
     add(g, B(26.4, 0.5, 6.4), '#e3a92a', 0, 7.1, 0)
     add(g, B(26.4, 0.8, 6.4), MARBLE, 0, 0.4, 0)
@@ -487,7 +487,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     if (!groundReady) return
     clearFlats()
     // the central courtyard keeps the palace's own size, not the whole city's
-    const palaceX = 18, palaceZ0 = -58, palaceZ1 = 44
+    const palaceX = 18, palaceZ0 = -58, palaceZ1 = Math.max(44, cityBounds().maxZ + 4)
     pave.geometry.dispose()
     pave.geometry = new THREE.PlaneGeometry(palaceX * 2 + 4, palaceZ1 - palaceZ0)
     pave.position.set(0, 0.03, (palaceZ0 + palaceZ1) / 2)
@@ -515,34 +515,36 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     // the palace axis itself
     flat(3.2, palaceZ1 - palaceZ0, 0, (palaceZ0 + palaceZ1) / 2, '#f5efe2', 0.07)
     for (const s of [-1, 1]) flat(3.2, palaceZ1 - palaceZ0, 21 * s, (palaceZ0 + palaceZ1) / 2)
-    flat(28, 18, 0, 52, ROAD)
+    flat(28, 12, 0, palaceZ1 + 7, ROAD)
   }
 
   const buildWalls = () => {
     if (walls) dropGroup(walls)
     walls = new THREE.Group()
     scene.add(walls)
-    const gate = 8
+    const gate = 13
     const raw = cityBounds()
     const bounds = { minX: raw.minX - 4, maxX: raw.maxX + 4, minZ: raw.minZ - 4, maxZ: raw.maxZ + 4 }
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1 } = bounds
+    southGate.position.z = z1
+    walls.userData.bounds = bounds
     wallSeg(walls, x0, z0, x1, z0)
     wallSeg(walls, x0, z1, -gate, z1)
     wallSeg(walls, gate, z1, x1, z1)
     wallSeg(walls, x0, z0, x0, z1)
     wallSeg(walls, x1, z0, x1, z1)
     // 内廷隔墙, leaving the middle gate open
-    wallSeg(walls, x0, -24, -3, -24, 3.4)
-    wallSeg(walls, 3, -24, x1, -24, 3.4)
+    wallSeg(walls, -18, -24, -3, -24, 3.4)
+    wallSeg(walls, 3, -24, 18, -24, 3.4)
     for (const [sx, sz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) cornerTower(walls, sx, sz)
     if (moat) dropGroup(moat)
     moat = new THREE.Group()
     scene.add(moat)
     const w = 6, pad = 9
-    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', 0, -0.12, z0 - pad)
-    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', 0, -0.12, z1 + pad)
-    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x0 - pad, -0.12, 0)
-    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x1 + pad, -0.12, 0)
+    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', (x0 + x1) / 2, -0.12, z0 - pad)
+    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', (x0 + x1) / 2, -0.12, z1 + pad)
+    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x0 - pad, -0.12, (z0 + z1) / 2)
+    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x1 + pad, -0.12, (z0 + z1) / 2)
     // 金水桥 across the south moat
     add(moat, B(9, 0.5, pad * 2 + 2), MARBLE, 0, 0.05, z1 + pad)
     buildGround()
@@ -552,12 +554,17 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   let framed = false
   // Fills the yards with the sections' halls, then draws the wall around the result.
   const layoutSections = people => {
+    for (const b of buildings) b.yard = null
+    const assigned = new Set()
     const sections = []
     for (const person of people) {
       const name = person.section ?? ''
       let entry = sections.find(item => item.name === name)
       if (!entry) { entry = { name, ids: [] }; sections.push(entry) }
-      if (person.building !== undefined && !entry.ids.includes(person.building)) entry.ids.push(person.building)
+      if (person.building !== undefined && !assigned.has(person.building)) {
+        entry.ids.push(person.building)
+        assigned.add(person.building)
+      }
     }
     const hallsOf = entry => entry.ids.map(id => BMAP[id]).filter(b => b && !b.palace)
     // Halls no section claimed keep company in a final block, away from the yards where
@@ -568,28 +575,43 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     const plan = planYards(blocks)
     blocks.forEach((halls, index) => {
       const block = plan[index]
-      const yard = index < sections.length
       halls.forEach((b, i) => {
         b.x = block.halls[i].x
         b.z = block.halls[i].z
         b.group.position.set(b.x, 0, b.z)
         // Only sections are places people stand in; the leftovers are just parked.
-        if (yard) b.yard = block
+        b.yard = block
+        b.group.userData.buildingId = b.id
       })
     })
     // Halls no section claimed keep their own place.
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z)
     groundReady = true
-  buildWalls()
-    // The city only gets this big with yards, so frame all of it the first time.
+    buildWalls()
+    // Fit the rendered city corners, including the south gate towers, in the viewport.
     if (!framed) {
       framed = true
       const raw = cityBounds()
       const cx = (raw.minX + raw.maxX) / 2, cz = (raw.minZ + raw.maxZ) / 2
-      const span = Math.max(raw.maxX - raw.minX, raw.maxZ - raw.minZ)
-      const fit = Math.min(span, 150)
-      controls.target.set(cx, 0, cz)
-      camera.position.set(cx + fit * 0.5, fit * 0.56, cz + fit * 0.58)
+      const target = new THREE.Vector3(cx, 2, cz)
+      const direction = new THREE.Vector3(1, 1.2, 1.3).normalize()
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize()
+      const up = new THREE.Vector3().crossVectors(direction, right).normalize()
+      const tanV = Math.tan(camera.fov * Math.PI / 360), tanH = tanV * camera.aspect
+      let distance = 0
+      for (const x of [raw.minX - 14, raw.maxX + 14]) {
+        for (const z of [raw.minZ - 14, raw.maxZ + 27]) {
+          for (const y of [0, 16]) {
+            const offset = new THREE.Vector3(x, y, z).sub(target)
+            distance = Math.max(distance, offset.dot(direction) + Math.max(Math.abs(offset.dot(right)) / tanH, Math.abs(offset.dot(up)) / tanV))
+          }
+        }
+      }
+      controls.maxDistance = Math.max(240, distance * 1.3)
+      controls.target.copy(target)
+      camera.position.copy(target).addScaledVector(direction, distance * 1.05)
+      scene.fog.near = distance * 1.6
+      scene.fog.far = distance * 3
       controls.update()
     }
   }
@@ -648,6 +670,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   })
   const paveMat = new THREE.MeshToonMaterial({ color: 0xffffff, map: paveT, gradientMap: gm })
   const pave = new THREE.Mesh(new THREE.PlaneGeometry(36, 98), paveMat)
+  pave.userData.role = 'palaceCourt'
   pave.rotation.x = -Math.PI / 2
   pave.position.set(0, 0.03, -7)
   pave.receiveShadow = true
@@ -736,21 +759,11 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     guard++
     const a = rnd() * Math.PI * 2, r = 58 + rnd() * 70
     const x = Math.cos(a) * r, z = Math.sin(a) * r - 4
-    if (Math.abs(x) < 55 && z > -62 && z < 60) continue
+    if (Math.abs(x) < 90 && z > -85 && z < 100) continue
     tree(x, z, 0.9 + rnd() * 0.7)
     placed++
   }
-  for (let z = -50; z <= 40; z += 9) {
-    tree(54 + rnd() * 2, z, 1 + rnd() * 0.4)
-    tree(-54 - rnd() * 2, z, 1 + rnd() * 0.4)
-  }
-  for (let x = -50; x <= 50; x += 8) {
-    if (Math.abs(x) < 17) continue
-    tree(x, -62 - rnd() * 2, 1 + rnd() * 0.4)
-    tree(x, 58 + rnd() * 3, 1 + rnd() * 0.4)
-  }
   for (const [x, z, ci] of [[-12, -49, 3], [12, -49, 4], [-8, -53, 0], [8, -53, 1], [-14, -53, 7], [14, -53, 2], [-12, -30, 3], [12, -30, 4]]) tree(x, z, 0.9, ci)
-  for (const b of buildings.filter(b => Math.abs(b.x) > 15)) tree(b.x + (b.x > 0 ? 1 : -1) * (b.w / 2 + 2.6), b.z - 1.5, 0.8)
   for (let i = 0; i < 6; i++) add(statics, lowIco(0.5 + rnd() * 0.7), '#9a9a8e', -6 + rnd() * 3 - 1.5, 0.4, -50 + rnd() * 3 - 1.5)
   for (let i = 0; i < 6; i++) {
     const x = -34 + (i % 3) * 4, z = -53 + Math.floor(i / 3) * 2.5
@@ -758,39 +771,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     add(statics, B(2.6, 0.4, 1.2), i % 2 ? '#9d7cc9' : '#6fb35f', x, 0.45, z, { cast: false })
   }
 
-  /* ---------------- statics merge ---------------- */
-  const merge = (group, castShadow) => {
-    group.updateMatrixWorld(true)
-    const buckets = new Map()
-    const keep = []
-    const sources = []
-    group.traverse(o => {
-      if (!o.isMesh) return
-      if (o.userData.noMerge) {
-        keep.push(o)
-        return
-      }
-      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()
-      g.applyMatrix4(o.matrixWorld)
-      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k)
-      if (!buckets.has(o.material.uuid)) buckets.set(o.material.uuid, { m: o.material, gs: [] })
-      buckets.get(o.material.uuid).gs.push(g)
-      sources.push(o.geometry)
-    })
-    keep.forEach(o => scene.attach(o))
-    scene.remove(group)
-    for (const { m, gs } of buckets.values()) {
-      const geo = mergeBufferGeometries(gs)
-      const mesh = new THREE.Mesh(geo, m)
-      mesh.castShadow = castShadow
-      mesh.receiveShadow = true
-      scene.add(mesh)
-      for (const g of gs) g.dispose()
-    }
-    for (const g of sources) g.dispose()
+  /* Keep movable buildings out of the world-space static batch. */
+  for (const b of buildings) {
+    scene.attach(b.group)
+    batchRoot(b.group)
   }
-  merge(statics, true)
-  merge(flats, false)
+  batchRoot(statics)
+  // flats is rebuilt on each layout; it must remain attached to the scene.
 
   /* clouds */
   const clouds = []
@@ -893,6 +880,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const makeFig = person => {
     const g = new THREE.Group()
     g.position.copy(person.home)
+    g.userData.botId = person.id
     g.scale.setScalar(1.08)
     scene.add(g)
     const body = new THREE.Group()
@@ -1053,6 +1041,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       name: String(raw.name ?? ''),
       title: String(raw.title ?? ''),
       dept: String(raw.dept ?? ''),
+      section: String(raw.section ?? ''),
       building: String(raw.building ?? ''),
       offset: Number(raw.offset) || 0,
       robe: raw.robe || YAMEN,
@@ -1132,12 +1121,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (p.el) p.el.remove()
       dropGroup(p.g)
       dropGroup(p.desk)
-      dropGroup(p.sign)
+      dropGroup(p.sign?.group)
     }
     cast = []
   }
 
   const setPeople = list => {
+    clearSolemn()
     dropCast()
     const rows = Array.isArray(list) ? list : []
     layoutSections(rows)
@@ -1222,7 +1212,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     g.position.set(b.x, 0, b.z + b.foot / 2 + 2.2)
     add(g, C(0.07, 0.07, 1.5, 5), '#5a4230', -0.5, 0.75, 0)
     add(g, C(0.07, 0.07, 1.5, 5), '#5a4230', 0.5, 0.75, 0)
-    const plank = add(g, B(1.5, 0.5, 0.08), '#f3e7cd', 0, 1.25, 0)
+    const plank = add(g, B(1.5, 0.5, 0.08), ownMaterial('#f3e7cd'), 0, 1.25, 0)
     scene.add(g)
     g.visible = false
     return { group: g, plank }
@@ -1635,6 +1625,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const dispose = () => {
     if (dead) return
     stop()
+    clearSolemn()
     dead = true
     resizeObserver.disconnect()
     canvas.removeEventListener('pointerdown', onDown)

@@ -1,58 +1,51 @@
-// Where a section's halls and its people stand. Kept out of the 3D scene so the placement
-// can be tested on its own: no one's doorway may land inside another hall, and a hall's
-// figure stands in front of that hall, not of the one next door.
-
-// Where each section's halls stand. A section gets a block exactly as deep as its own
-// rows need, and blocks are stacked down one of two columns flanking the palace, so a
-// yard can never reach into the next one however many halls a section has.
+// Each section owns a compact paved yard alongside the palace. Rows advance toward the
+// front (+z); their full footprints and door spaces count toward the next yard's start.
 export const DOOR_GAP = 2.4
-const COLUMNS = [{ x: 40 }, { x: -40 }]
-const TOP = -14
-// A yard's doors stand one door-gap south of its last row, so blocks must clear that too.
-const YARD_GAP = 30
+const PALACE_EDGE = 23
+const NORTH = -54
+const YARD_GAP = 7
+const MAX_COLUMNS = 3
 
-const yardSize = halls => {
-  const widest = Math.max(9, ...halls.map(hall => hall.w ?? 9))
-  const deepest = Math.max(10, ...halls.map(hall => hall.foot ?? 10))
-  const rows = Math.ceil(halls.length / 2)
-  return { colGap: widest + 8, rowGap: deepest + 9, rows }
-}
-
-/**
- * One block per section: where its halls stand and where the section gathers.
- * @param {Array<Array<{w?:number,foot?:number}>>} sections halls of each section, in order
- * @returns {Array<{x:number, z:number, halls:{x:number,z:number}[]}>}
- */
 export function planYards(sections) {
-  const cursors = COLUMNS.map(() => TOP)
-  return sections.map((halls, index) => {
-    const column = index % COLUMNS.length
-    const { colGap, rowGap, rows } = yardSize(halls)
-    const height = Math.max(0, (rows - 1) * rowGap)
-    const x = COLUMNS[column].x
-    const z = cursors[column] - height / 2
-    cursors[column] = z - height / 2 - YARD_GAP
+  const cursors = [NORTH, NORTH]
+  return sections.map(halls => {
+    const side = cursors[0] <= cursors[1] ? 0 : 1
+    const sign = side === 0 ? 1 : -1
+    if (halls.length === 0) return { x: sign * PALACE_EDGE, z: NORTH, halls: [] }
+    const columns = Math.min(MAX_COLUMNS, halls.length)
+    const width = Math.max(9, ...halls.map(hall => hall.w ?? 9))
+    const footprint = Math.max(10, ...halls.map(hall => hall.foot ?? 10))
+    const pitchX = width + 7
+    const pitchZ = footprint + DOOR_GAP + 6
+    const north = cursors[side]
+    const firstZ = north + footprint / 2 + 3
+    const rows = Math.ceil(halls.length / columns)
+    const south = firstZ + (rows - 1) * pitchZ + footprint / 2 + DOOR_GAP + 3
+    const innerX = PALACE_EDGE + width / 2 + 3
+    const spots = halls.map((_, i) => ({
+      x: sign * (innerX + (i % columns) * pitchX),
+      z: firstZ + Math.floor(i / columns) * pitchZ,
+    }))
+    cursors[side] = south + YARD_GAP
     return {
-      x, z,
-      halls: halls.map((_, i) => ({
-        x: x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
-        z: z - Math.floor(i / 2) * rowGap,
-      })),
+      x: sign * (innerX + (columns - 1) * pitchX / 2),
+      z: (north + south) / 2,
+      halls: spots,
+      north,
+      south,
     }
   })
 }
 
-/** The spot in front of a hall's door where its official stands. */
 export const doorSpot = (hall, offset = 0) => ({
   x: hall.x + offset,
   z: hall.z + (hall.foot ?? 10) / 2 + DOOR_GAP,
 })
 
-/** A section's row in front of its yard, for a 朝会. */
+// The assembly lane runs between the section's yard and the palace, clear of all roofs.
 export function yardSlots(count, yard) {
-  const perRow = 4
   return Array.from({ length: count }, (_, i) => ({
-    x: yard.x + (i % perRow - (perRow - 1) / 2) * 2.6,
-    z: yard.z - 4 - Math.floor(i / perRow) * 2.6,
+    x: Math.sign(yard.x) * (PALACE_EDGE - 2),
+    z: (yard.north ?? yard.z) + 4 + i * 2.6,
   }))
 }
