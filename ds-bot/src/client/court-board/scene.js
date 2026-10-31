@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { SEALS } from './data.js'
+import { doorSpot, placeYard, yardOf, yardSlots } from './layout.js'
 
 // three r128 exports BufferGeometryUtils as a class and mergeBufferGeometries calls
 // this.mergeBufferAttributes, so the method cannot be called detached from the class.
@@ -502,15 +503,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   }
   buildWalls()
 
-  // Where a section's yard sits around the palace: east and west of the 太和殿 square first,
-  // then the south-east and south-west yards, then the inner court. Same section, same yard.
-  const YARDS = [
-    { x: 34, z: -14 }, { x: -34, z: -14 },
-    { x: 34, z: 8 }, { x: -34, z: 8 },
-    { x: 34, z: 28 }, { x: -34, z: 28 },
-    { x: 0, z: -48 }, { x: 20, z: -46 }, { x: -20, z: -46 },
-  ]
-
   // Fills the yards with the sections' halls, then draws the wall around the result.
   const layoutSections = people => {
     const sections = []
@@ -521,18 +513,14 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (person.building !== undefined && !entry.ids.includes(person.building)) entry.ids.push(person.building)
     }
     sections.forEach((entry, index) => {
-      const yard = YARDS[index % YARDS.length]
-      const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0
-      const cx = yard.x + wrappers * 4
-      const cz = yard.z + wrappers * 10
+      const yard = yardOf(index)
       const halls = entry.ids.map(id => BMAP[id]).filter(b => b && !b.palace)
+      const spots = placeYard(halls, index)
       halls.forEach((b, i) => {
-        const col = i % 2
-        const row = Math.floor(i / 2)
-        b.x = cx + (col === 0 ? -6.5 : 6.5)
-        b.z = cz - row * 11
+        b.x = spots[i].x
+        b.z = spots[i].z
         b.group.position.set(b.x, 0, b.z)
-        b.yard = { x: cx, z: cz }
+        b.yard = yard
       })
     })
     // Halls no section claimed keep their own place.
@@ -836,7 +824,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const homeOf = (person, index) => {
     const b = BMAP[person.building]
     if (!b) return spareSpot(index)
-    return new THREE.Vector3(b.x + person.offset, 0, b.z + b.foot / 2 + 3.2)
+    const spot = doorSpot(b, person.offset ?? 0)
+    return new THREE.Vector3(spot.x, 0, spot.z)
   }
 
   const ownMaterial = color => {
@@ -1066,14 +1055,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       p.zone = Math.abs(bx) < 15 ? 'C' : (bx > 0 ? 'E' : 'W')
     }
     for (const entry of rows.values()) {
-      entry.list.forEach((p, i) => {
-        const perRow = 4
-        const col = i % perRow
-        const row = Math.floor(i / perRow)
-        const x = entry.x + (col - (perRow - 1) / 2) * 2.6
-        const z = entry.z - 8 - row * 2.6
-        p.slot = new THREE.Vector3(x, 0, z)
-      })
+      const spots = yardSlots(entry.list.length, { x: entry.x, z: entry.z })
+      entry.list.forEach((p, i) => { p.slot = new THREE.Vector3(spots[i].x, 0, spots[i].z) })
     }
   }
 
@@ -1413,8 +1396,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       off.applyAxisAngle(UP, dt * 0.05)
       camera.position.copy(controls.target).add(off)
     }
-    controls.target.x = Math.max(-70, Math.min(70, controls.target.x))
-    controls.target.z = Math.max(-75, Math.min(70, controls.target.z))
+    controls.target.x = Math.max(-95, Math.min(95, controls.target.x))
+    controls.target.z = Math.max(-100, Math.min(95, controls.target.z))
     controls.target.y = Math.max(0, Math.min(12, controls.target.y))
     controls.update()
     halo.material.opacity += ((courtOn ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3)

@@ -39502,6 +39502,47 @@ var BufferGeometryUtils = class {
   }
 };
 
+// src/client/court-board/layout.js
+var YARDS = [
+  { x: 40, z: -28 },
+  { x: -40, z: -28 },
+  { x: 40, z: 6 },
+  { x: -40, z: 6 },
+  { x: 40, z: 36 },
+  { x: -40, z: 36 },
+  { x: 40, z: -60 },
+  { x: -40, z: -60 },
+  { x: 0, z: -60 }
+];
+var DOOR_GAP = 2.4;
+var yardOf = (index) => {
+  const yard = YARDS[index % YARDS.length];
+  const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0;
+  return { x: yard.x + wrappers * 6, z: yard.z + wrappers * 16 };
+};
+function placeYard(halls, index) {
+  const yard = yardOf(index);
+  const widest = Math.max(9, ...halls.map((hall) => hall.w ?? 9));
+  const deepest = Math.max(10, ...halls.map((hall) => hall.foot ?? 10));
+  const colGap = widest + 8;
+  const rowGap = deepest + 9;
+  return halls.map((_, i) => ({
+    x: yard.x + (i % 2 === 0 ? -colGap / 2 : colGap / 2),
+    z: yard.z - Math.floor(i / 2) * rowGap
+  }));
+}
+var doorSpot = (hall, offset = 0) => ({
+  x: hall.x + offset,
+  z: hall.z + (hall.foot ?? 10) / 2 + DOOR_GAP
+});
+function yardSlots(count, yard) {
+  const perRow = 4;
+  return Array.from({ length: count }, (_, i) => ({
+    x: yard.x + (i % perRow - (perRow - 1) / 2) * 2.6,
+    z: yard.z - 4 - Math.floor(i / perRow) * 2.6
+  }));
+}
+
 // src/client/court-board/scene.js
 var mergeBufferGeometries = (geometries) => BufferGeometryUtils.mergeBufferGeometries(geometries);
 var Y = "#f2b630";
@@ -39958,17 +39999,6 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     return bounds;
   };
   buildWalls();
-  const YARDS = [
-    { x: 34, z: -14 },
-    { x: -34, z: -14 },
-    { x: 34, z: 8 },
-    { x: -34, z: 8 },
-    { x: 34, z: 28 },
-    { x: -34, z: 28 },
-    { x: 0, z: -48 },
-    { x: 20, z: -46 },
-    { x: -20, z: -46 }
-  ];
   const layoutSections = (people) => {
     const sections = [];
     for (const person2 of people) {
@@ -39981,18 +40011,14 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (person2.building !== void 0 && !entry.ids.includes(person2.building)) entry.ids.push(person2.building);
     }
     sections.forEach((entry, index) => {
-      const yard = YARDS[index % YARDS.length];
-      const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0;
-      const cx = yard.x + wrappers * 4;
-      const cz = yard.z + wrappers * 10;
+      const yard = yardOf(index);
       const halls = entry.ids.map((id) => BMAP[id]).filter((b) => b && !b.palace);
+      const spots = placeYard(halls, index);
       halls.forEach((b, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        b.x = cx + (col === 0 ? -6.5 : 6.5);
-        b.z = cz - row * 11;
+        b.x = spots[i].x;
+        b.z = spots[i].z;
         b.group.position.set(b.x, 0, b.z);
-        b.yard = { x: cx, z: cz };
+        b.yard = yard;
       });
     });
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z);
@@ -40268,7 +40294,8 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
   const homeOf = (person2, index) => {
     const b = BMAP[person2.building];
     if (!b) return spareSpot(index);
-    return new Vector3(b.x + person2.offset, 0, b.z + b.foot / 2 + 3.2);
+    const spot = doorSpot(b, person2.offset ?? 0);
+    return new Vector3(spot.x, 0, spot.z);
   };
   const ownMaterial = (color) => {
     const m = new MeshToonMaterial({ color, gradientMap: gm });
@@ -40497,13 +40524,9 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       p.zone = Math.abs(bx) < 15 ? "C" : bx > 0 ? "E" : "W";
     }
     for (const entry of rows2.values()) {
+      const spots = yardSlots(entry.list.length, { x: entry.x, z: entry.z });
       entry.list.forEach((p, i) => {
-        const perRow = 4;
-        const col = i % perRow;
-        const row = Math.floor(i / perRow);
-        const x = entry.x + (col - (perRow - 1) / 2) * 2.6;
-        const z = entry.z - 8 - row * 2.6;
-        p.slot = new Vector3(x, 0, z);
+        p.slot = new Vector3(spots[i].x, 0, spots[i].z);
       });
     }
   };
@@ -40834,8 +40857,8 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       off.applyAxisAngle(UP, dt * 0.05);
       camera.position.copy(controls.target).add(off);
     }
-    controls.target.x = Math.max(-70, Math.min(70, controls.target.x));
-    controls.target.z = Math.max(-75, Math.min(70, controls.target.z));
+    controls.target.x = Math.max(-95, Math.min(95, controls.target.x));
+    controls.target.z = Math.max(-100, Math.min(95, controls.target.z));
     controls.target.y = Math.max(0, Math.min(12, controls.target.y));
     controls.update();
     halo.material.opacity += ((courtOn ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3);
