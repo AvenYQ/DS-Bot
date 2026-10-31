@@ -175,6 +175,7 @@ const ZH = {
   'Enter a DeepSeek API key': '填入 DeepSeek API key',
   'Open settings to set up a custom model': '打开设置配置自定义模型',
   'DS Bot': 'DS Bot',
+  'DeepSeek Bot': 'DeepSeek Bot',
 
   // Header
   'Message {name}': '给 {name} 发消息',

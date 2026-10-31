@@ -6,6 +6,7 @@ import { useDragSort } from './drag-sort.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
 import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
 import { MAIN_LOOK } from './characters.js'
+import { SealIcon } from './court-board/icons.js'
 import { BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
 import { useBotLiveState } from './live-state.js'
 import { courtTheme } from './sources.js'
@@ -13,7 +14,7 @@ import { CourtBoardEntry } from './court-board/index.js'
 import { reducedMotion } from './activity-row.js'
 import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
-import { springEasing, SPRING_POP, SPRING_SHAPE, useViewport, viewBottom } from './motion.js'
+import { springEasing, SPRING_POP, SPRING_SHAPE, SPRING_TAP, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
 import { showsDshRow } from './dsh-offer.js'
 import { frameLayout, dragColumn, RAIL_WIDTH, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
@@ -961,21 +962,25 @@ export function FooterAccount(props) {
 export function BotReturn({ wide, useSurface, actions }) {
   const mode = useSurface(value => value.mode)
   if (mode !== 'agent') return null
-  return h('button', { type: 'button', className: 'bt-return', 'aria-label': t('DS Bot'), title: t('DS Bot'), onClick: () => actions.setSurface('bot') },
-    h(BotMark, { look: MAIN_LOOK, size: 20 }),
-    wide ? h('span', { className: 'bt-return-name' }, t('DS Bot')) : null)
+  // The 小朝廷 mark, monochrome: the same outline the court board entry wears, so the
+  // shell's own sidebar carries the team under the one icon.
+  return h('button', { type: 'button', className: 'bt-return', 'aria-label': t('DeepSeek Bot'), title: t('DeepSeek Bot'), onClick: () => actions.setSurface('bot') },
+    h(SealIcon, { size: 22, mono: true, small: true }),
+    wide ? h('span', { className: 'bt-return-name' }, t('DeepSeek Bot')) : null)
 }
 
 // Agent mode has none of the shell-group styles, so the return button carries its own.
 export const RETURN_CSS = `
-.bt-return{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:0 14px;border:0;border-radius:999px;background:none;color:inherit;font:inherit;font-size:14px;line-height:20px;cursor:pointer;transition:background-color .12s ease}
+.bt-return{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;min-width:36px;padding:0 9px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
 .bt-return:hover{background:rgba(127,127,127,.14)}
 .bt-return:active{transform:scale(.96)}
-.bt-return .bt-mark{display:inline-flex;flex:none;line-height:0}
-.bt-return .bt-mark svg{width:100%;height:100%;overflow:visible}
-/* Shell styles carry --bt-ink-deepseek and Agent mode withdraws them; pin it here. */
-.bt-return .bt-mark{--bt-ink-deepseek:#4D6BFE}
 .bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Agent mode has none of the court styles, so the mark's own outline is pinned here. */
+.bt-return .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
+.bt-return .bt-cb-seal-body{fill:none;stroke:currentColor;stroke-width:54;stroke-linejoin:round}
+.bt-return .bt-cb-seal-frame{display:none}
+.bt-return .bt-cb-seal-eave{fill:none;stroke:currentColor;stroke-width:26;stroke-linecap:round}
+.bt-return .bt-cb-seal-dot{fill:currentColor;stroke:none}
 `
 
 export function BrandMark({ size = 24 }) {
