@@ -476,11 +476,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     }
     return { minX, maxX, minZ, maxZ }
   }
+  // The first wall pass happens while the ground is still being built: the flag keeps the
+  // pavement rebuild from touching pieces that are not there yet.
+  let groundReady = false
   const clearFlats = () => {
     for (const mesh of flats.children) mesh.geometry?.dispose()
     flats.clear()
   }
   const buildGround = () => {
+    if (!groundReady) return
     clearFlats()
     // the central courtyard keeps the palace's own size, not the whole city's
     const palaceX = 18, palaceZ0 = -58, palaceZ1 = 44
@@ -544,7 +548,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     buildGround()
     return bounds
   }
-  buildWalls()
 
   let framed = false
   // Fills the yards with the sections' halls, then draws the wall around the result.
@@ -576,7 +579,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     })
     // Halls no section claimed keep their own place.
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z)
-    buildWalls()
+    groundReady = true
+  buildWalls()
     // The city only gets this big with yards, so frame all of it the first time.
     if (!framed) {
       framed = true
@@ -655,6 +659,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     m.receiveShadow = true
     flats.add(m)
   }
+  buildWalls()
 
   /* 金水河 + bridges */
   {

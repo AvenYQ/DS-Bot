@@ -39976,11 +39976,13 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     }
     return { minX, maxX, minZ, maxZ };
   };
+  let groundReady = false;
   const clearFlats = () => {
     for (const mesh of flats.children) mesh.geometry?.dispose();
     flats.clear();
   };
   const buildGround = () => {
+    if (!groundReady) return;
     clearFlats();
     const palaceX = 18, palaceZ0 = -58, palaceZ1 = 44;
     pave.geometry.dispose();
@@ -40037,7 +40039,6 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     buildGround();
     return bounds;
   };
-  buildWalls();
   let framed = false;
   const layoutSections = (people) => {
     const sections = [];
@@ -40066,6 +40067,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       });
     });
     for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z);
+    groundReady = true;
     buildWalls();
     if (!framed) {
       framed = true;
@@ -40137,6 +40139,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     m.receiveShadow = true;
     flats.add(m);
   };
+  buildWalls();
   {
     const f = (x) => 31.5 - x * x / 70;
     const pts = [];
