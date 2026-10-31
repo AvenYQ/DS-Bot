@@ -4094,21 +4094,35 @@ function useDragSort(listRef, { enabled, actions, onLand }) {
       layer.setAttribute("aria-hidden", "true");
       layer.inert = true;
       Object.assign(layer.style, { position: "fixed", left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, overflow: "hidden", pointerEvents: "none", zIndex: "6" });
-      list.append(layer);
-      const finishes = rows2.map(({ el }, index) => {
+      document.body.append(layer);
+      const copies2 = [];
+      rows2.forEach(({ el }, index) => {
         const rect = el.getBoundingClientRect();
         const copy2 = el.cloneNode(true);
         copy2.removeAttribute("data-bot-id");
         copy2.removeAttribute("data-room-id");
         copy2.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
-        Object.assign(copy2.style, { position: "absolute", left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, margin: "0", pointerEvents: "none", transformOrigin: "50% 0" });
-        layer.append(copy2);
-        const distance = Math.max(-80, Math.min(-10, target - rect.top));
-        const animation = copy2.animate([{ opacity: 1, transform: "translateY(0) scale(1)" }, { opacity: 0, transform: `translateY(${distance}px) scale(.92)` }], { duration: 190 + Math.min(index, 3) * 12, easing: "cubic-bezier(.4,0,.6,1)" });
-        return animation.finished.catch(() => {
+        Object.assign(copy2.style, {
+          position: "absolute",
+          left: `${rect.left - box.left}px`,
+          top: `${rect.top - box.top}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+          margin: "0",
+          pointerEvents: "none",
+          transformOrigin: "50% 0",
+          opacity: "1",
+          transform: "translateY(0) scale(1)"
         });
+        layer.append(copy2);
+        copies2.push({ copy: copy2, distance: Math.max(-80, Math.min(-10, target - rect.top)), delay: Math.min(index, 3) * 12 });
       });
-      void Promise.all(finishes).then(() => layer.remove());
+      void layer.offsetWidth;
+      for (const { copy: copy2, distance, delay } of copies2) {
+        copy2.style.transition = `opacity ${190 + delay}ms cubic-bezier(.4,0,.6,1) ${delay}ms, transform ${190 + delay}ms cubic-bezier(.4,0,.6,1) ${delay}ms`;
+        copy2.style.opacity = "0";
+        copy2.style.transform = `translateY(${distance}px) scale(.92)`;
+      }
       return layer;
     }
     function lift() {
@@ -4245,7 +4259,6 @@ function useDragSort(listRef, { enabled, actions, onLand }) {
     function settle(drag, bounce = false) {
       if (drag.finished) return;
       drag.finished = true;
-      drag.preview?.remove();
       for (const animation of drag.animations) animation.cancel();
       for (const [el, style] of drag.styles) {
         if (style.transform) el.style.setProperty("transform", style.transform, style.priority);
@@ -4253,6 +4266,8 @@ function useDragSort(listRef, { enabled, actions, onLand }) {
       }
       drag.el.removeAttribute("data-lifted");
       restoreHidden(drag);
+      const preview = drag.preview;
+      if (preview) setTimeout(() => preview.remove(), 350);
       list.removeAttribute("data-sorting");
       drag.tiles?.removeAttribute("data-drop");
       if (state.current === drag) state.current = null;

@@ -78,20 +78,34 @@ export function useDragSort(listRef, { enabled, actions, onLand }) {
       layer.setAttribute('aria-hidden', 'true')
       layer.inert = true
       Object.assign(layer.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, overflow: 'hidden', pointerEvents: 'none', zIndex: '6' })
-      list.append(layer)
-      const finishes = rows.map(({ el }, index) => {
+      // Outside the list, where a render of the sidebar cannot reconcile it away.
+      document.body.append(layer)
+      const copies = []
+      rows.forEach(({ el }, index) => {
         const rect = el.getBoundingClientRect()
         const copy = el.cloneNode(true)
         copy.removeAttribute('data-bot-id')
         copy.removeAttribute('data-room-id')
         copy.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'))
-        Object.assign(copy.style, { position: 'absolute', left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, margin: '0', pointerEvents: 'none', transformOrigin: '50% 0' })
+        Object.assign(copy.style, {
+          position: 'absolute', left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`,
+          width: `${rect.width}px`, height: `${rect.height}px`, margin: '0', pointerEvents: 'none',
+          transformOrigin: '50% 0', opacity: '1', transform: 'translateY(0) scale(1)',
+        })
         layer.append(copy)
-        const distance = Math.max(-80, Math.min(-10, target - rect.top))
-        const animation = copy.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: `translateY(${distance}px) scale(.92)` }], { duration: 190 + Math.min(index, 3) * 12, easing: 'cubic-bezier(.4,0,.6,1)' })
-        return animation.finished.catch(() => {})
+        copies.push({ copy, distance: Math.max(-80, Math.min(-10, target - rect.top)), delay: Math.min(index, 3) * 12 })
       })
-      void Promise.all(finishes).then(() => layer.remove())
+      // A transition rather than a script animation: the copies rest invisible, so the end
+      // of the fade cannot hand anything back to be painted.
+      void layer.offsetWidth
+      for (const { copy, distance, delay } of copies) {
+        copy.style.transition = `opacity ${190 + delay}ms cubic-bezier(.4,0,.6,1) ${delay}ms, transform ${190 + delay}ms cubic-bezier(.4,0,.6,1) ${delay}ms`
+        copy.style.opacity = '0'
+        copy.style.transform = `translateY(${distance}px) scale(.92)`
+      }
+      // The layer stays until after the drop. Taking a fixed overlay away in the middle of
+      // a drag made the browser present the strip it covered for a frame, which showed the
+      // members once more; once the copies have faded it holds no visible pixels.
       return layer
     }
 
@@ -238,7 +252,6 @@ export function useDragSort(listRef, { enabled, actions, onLand }) {
     function settle(drag, bounce = false) {
       if (drag.finished) return
       drag.finished = true
-      drag.preview?.remove()
       for (const animation of drag.animations) animation.cancel()
       for (const [el, style] of drag.styles) {
         if (style.transform) el.style.setProperty('transform', style.transform, style.priority)
@@ -246,6 +259,11 @@ export function useDragSort(listRef, { enabled, actions, onLand }) {
       }
       drag.el.removeAttribute('data-lifted')
       restoreHidden(drag)
+      // The members are back before the overlay goes. It goes on a later frame: taking a
+      // covering layer away in the same frame as the change under it makes the browser
+      // present the strip it covered for a frame, which reads as a flash.
+      const preview = drag.preview
+      if (preview) setTimeout(() => preview.remove(), 350)
       list.removeAttribute('data-sorting')
       drag.tiles?.removeAttribute('data-drop')
       if (state.current === drag) state.current = null
