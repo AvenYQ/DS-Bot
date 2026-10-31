@@ -9,7 +9,7 @@ const WINDOW_MS = 10_000
  * @param {string} mainBotId the Bot that proclaims
  * @param {{bots?:number,room?:number}} playedAt the newest `at` already staged for each shape
  * @param {number} now the clock the ten-second window is measured against
- * @returns {{kind:'bots',from:string,to:string[],at:number}|{kind:'room',from:string,to:string[],room:string,at:number}|null}
+ * @returns {{kind:'bots',from:string,to:string[],at:number}|{kind:'room',from:string,room:string,at:number}|null}
  */
 export function decreeFor(assignments, mainBotId, playedAt = {}, now = Date.now()) {
   if (!Array.isArray(assignments) || typeof mainBotId !== 'string') return null
@@ -21,7 +21,7 @@ export function decreeFor(assignments, mainBotId, playedAt = {}, now = Date.now(
   // Group work is the bigger ceremony, so it goes before a batch of Bot-to-Bot work.
   const room = fresh.find(entry => typeof entry.room === 'string' && entry.room !== '')
   if (room !== undefined && room.at > (playedAt.room ?? 0)) {
-    return { kind: 'room', from: mainBotId, to: [], room: room.room, at: room.at }
+    return { kind: 'room', from: mainBotId, room: room.room, at: room.at }
   }
 
   const newest = fresh.find(entry => typeof entry.to === 'string' && entry.to !== '')

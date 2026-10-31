@@ -4,6 +4,7 @@ import { build } from 'esbuild'
 import { runInNewContext } from 'node:vm'
 import { OFFICIALS, buildingFor } from '../src/client/court-board/data.js'
 import { castOf, castOrder, courtStateOf, officialFor, sleepsAt } from '../src/client/court-board/state.js'
+import { decreeFor } from '../src/client/court-board/decree.js'
 
 const { outputFiles } = await build({
   entryPoints: ['src/client/live-state.js'], bundle: true, format: 'cjs', platform: 'browser',
@@ -146,23 +147,48 @@ test('the cast dresses a known official from the table and an unknown Bot from i
   assert.equal(bots.length, 3)
 })
 
-test('a decree is staged for several named officials, once, inside ten seconds', async () => {
-  const { decreeFor } = await import('../src/client/court-board/decree.js')
-  const now = 1_000_000
-  const at = now - 2_000
-  const two = [{ from: 'chief', to: 'a', at }, { from: 'chief', to: 'b', at: at + 500 }]
-  assert.deepEqual(decreeFor(two, 'chief', 0, now), { at: at + 500, from: 'chief', to: ['a', 'b'] })
-  // one recipient is a hand-over, not a proclamation
-  assert.equal(decreeFor([two[0]], 'chief', 0, now), null)
-  // already staged
-  assert.equal(decreeFor(two, 'chief', at + 500, now), null)
-  // stale
-  assert.equal(decreeFor(two, 'chief', 0, at + 11_000), null)
-  // someone other than the Main Bot
-  assert.equal(decreeFor(two, 'other', 0, now), null)
-  // a group order outranks the named list
-  const room = [...two, { from: 'chief', room: 'r1', at: at + 600 }]
-  assert.deepEqual(decreeFor(room, 'chief', 0, now), { at: at + 600, from: 'chief', to: [], room: 'r1' })
-  // the same official named twice counts once
-  assert.equal(decreeFor([two[0], { from: 'chief', to: 'a', at: at + 100 }], 'chief', 0, now), null)
+// The court board's 宣旨 trigger, apart from React and the scene.
+const NOW = 1_800_000_000_000
+const given = (over = {}) => ({ from: 'main', at: NOW - 1_000, ...over })
+
+test('two different officials inside ten seconds get one decree', () => {
+  const batch = [given({ to: 'a', at: NOW - 500 }), given({ to: 'b', at: NOW - 4_000 })]
+  assert.deepEqual(decreeFor(batch, 'main', {}, NOW), { kind: 'bots', from: 'main', to: ['a', 'b'], at: NOW - 500 })
+})
+
+test('one recipient is a hand-over, not a decree', () => {
+  const one = [given({ to: 'a' }), given({ to: 'a', at: NOW - 2_000 })]
+  assert.equal(decreeFor(one, 'main', {}, NOW), null)
+})
+
+test('assignments older than ten seconds are stale', () => {
+  assert.equal(decreeFor([given({ to: 'a', at: NOW - 11_000 }), given({ to: 'b', at: NOW - 12_000 })], 'main', {}, NOW), null)
+  // An old hand-over does not count towards a current batch.
+  assert.equal(decreeFor([given({ to: 'a' }), given({ to: 'b', at: NOW - 11_000 })], 'main', {}, NOW), null)
+})
+
+test('the same batch does not replay', () => {
+  const batch = [given({ to: 'a' }), given({ to: 'b', at: NOW - 2_000 })]
+  const first = decreeFor(batch, 'main', {}, NOW)
+  assert.equal(first.kind, 'bots')
+  assert.equal(decreeFor(batch, 'main', { [first.kind]: first.at }, NOW), null)
+})
+
+test('a group order plays the bigger decree, once', () => {
+  const order = [given({ room: 'r1', at: NOW - 2_000 })]
+  const first = decreeFor(order, 'main', {}, NOW)
+  assert.deepEqual(first, { kind: 'room', from: 'main', room: 'r1', at: NOW - 2_000 })
+  assert.equal(decreeFor(order, 'main', { room: first.at }, NOW), null)
+})
+
+test('a group order outranks a batch, and the batch still plays once afterwards', () => {
+  const both = [given({ room: 'r1', at: NOW - 1_000 }), given({ to: 'a', at: NOW - 2_000 }), given({ to: 'b', at: NOW - 2_500 })]
+  const room = decreeFor(both, 'main', {}, NOW)
+  assert.equal(room.kind, 'room')
+  assert.deepEqual(decreeFor(both, 'main', { room: room.at }, NOW), { kind: 'bots', from: 'main', to: ['a', 'b'], at: NOW - 2_000 })
+})
+
+test('work from another Bot is ignored', () => {
+  const other = [{ from: 'deputy', to: 'a', at: NOW - 1_000 }, { from: 'deputy', to: 'b', at: NOW - 2_000 }]
+  assert.equal(decreeFor(other, 'main', {}, NOW), null)
 })

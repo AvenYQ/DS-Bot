@@ -236,7 +236,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     if (next === null) return undefined
     playedDecree.current = { ...playedDecree.current, [next.kind]: next.at }
     decreeUntil.current = now + CEREMONY_MS
-    scene.current.decree({ from: next.from, to: next.to, ...(next.room === undefined ? {} : { room: next.room }) })
+    scene.current.decree(next.kind === 'room'
+      ? { from: next.from, room: next.room }
+      : { from: next.from, to: next.to })
     return undefined
   }, [assignments, state.open, roster.mainBotId, decreeWake])
 

@@ -10425,21 +10425,23 @@ function castOf({ roster, live, hour, phrase, words }) {
 
 // src/client/court-board/decree.js
 var WINDOW_MS = 1e4;
-function decreeFor(assignments, mainBotId, playedAt = 0, now2 = Date.now()) {
-  if (!Array.isArray(assignments) || mainBotId === void 0) return null;
-  let newest = 0;
-  for (const entry of assignments) {
-    if (!entry || entry.from !== mainBotId) continue;
-    if (typeof entry.at !== "number" || now2 - entry.at > WINDOW_MS) continue;
-    if (entry.at > newest) newest = entry.at;
+function decreeFor(assignments, mainBotId, playedAt = {}, now2 = Date.now()) {
+  if (!Array.isArray(assignments) || typeof mainBotId !== "string") return null;
+  const fresh = assignments.filter((entry) => entry !== null && typeof entry === "object" && entry.from === mainBotId && typeof entry.at === "number" && now2 - entry.at <= WINDOW_MS).sort((one, other) => other.at - one.at);
+  const room2 = fresh.find((entry) => typeof entry.room === "string" && entry.room !== "");
+  if (room2 !== void 0 && room2.at > (playedAt.room ?? 0)) {
+    return { kind: "room", from: mainBotId, room: room2.room, at: room2.at };
   }
-  if (newest === 0 || newest <= playedAt) return null;
-  const fresh = assignments.filter((entry) => entry && entry.from === mainBotId && typeof entry.at === "number" && newest - entry.at <= WINDOW_MS && now2 - entry.at <= WINDOW_MS);
-  const room2 = fresh.find((entry) => entry.room !== void 0);
-  if (room2 !== void 0) return { at: newest, from: mainBotId, to: [], room: room2.room };
-  const to = [...new Set(fresh.map((entry) => entry.to).filter((id) => typeof id === "string" && id !== ""))];
+  const newest = fresh.find((entry) => typeof entry.to === "string" && entry.to !== "");
+  if (newest === void 0 || newest.at <= (playedAt.bots ?? 0)) return null;
+  const to = [];
+  for (const entry of fresh) {
+    if (typeof entry.to !== "string" || entry.to === "") continue;
+    if (newest.at - entry.at > WINDOW_MS) continue;
+    if (!to.includes(entry.to)) to.push(entry.to);
+  }
   if (to.length < 2) return null;
-  return { at: newest, from: mainBotId, to };
+  return { kind: "bots", from: mainBotId, to, at: newest.at };
 }
 
 // node_modules/three/build/three.module.js
@@ -41067,6 +41069,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
 // src/client/court-board/index.js
 var import_react23 = require("react");
 var import_react_dom2 = require("react-dom");
+var CEREMONY_MS = 6e3;
 var board = { open: false, selected: null };
 var listeners2 = /* @__PURE__ */ new Set();
 var subscribe = (listener) => {
@@ -41153,7 +41156,9 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const scene = (0, import_react23.useRef)(null);
   const hour = useHour();
   const [broken, setBroken] = (0, import_react23.useState)(false);
-  const playedDecree = (0, import_react23.useRef)(0);
+  const playedDecree = (0, import_react23.useRef)({});
+  const decreeUntil = (0, import_react23.useRef)(0);
+  const [decreeWake, setDecreeWake] = (0, import_react23.useState)(0);
   const [rosterOpen, setRosterOpen] = (0, import_react23.useState)(false);
   const selected = state.selected;
   const themed = courtTheme(roster);
@@ -41267,12 +41272,19 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   }, []);
   const assignments = work?.assignments ?? [];
   (0, import_react23.useEffect)(() => {
-    if (!state.open || scene.current === null) return;
-    const next = decreeFor(assignments, roster.mainBotId, playedDecree.current);
-    if (next === null) return;
-    playedDecree.current = next.at;
-    scene.current.decree({ from: next.from, to: next.to, ...next.room !== void 0 ? { room: next.room } : {} });
-  }, [assignments, state.open, roster.mainBotId]);
+    if (!state.open || scene.current === null) return void 0;
+    const now2 = Date.now();
+    if (now2 < decreeUntil.current) {
+      const timer = setTimeout(() => setDecreeWake((wake) => wake + 1), decreeUntil.current - now2);
+      return () => clearTimeout(timer);
+    }
+    const next = decreeFor(assignments, roster.mainBotId, playedDecree.current, now2);
+    if (next === null) return void 0;
+    playedDecree.current = { ...playedDecree.current, [next.kind]: next.at };
+    decreeUntil.current = now2 + CEREMONY_MS;
+    scene.current.decree(next.kind === "room" ? { from: next.from, room: next.room } : { from: next.from, to: next.to });
+    return void 0;
+  }, [assignments, state.open, roster.mainBotId, decreeWake]);
   (0, import_react23.useEffect)(() => {
     if (!state.open) return void 0;
     const onKey = (event) => {
