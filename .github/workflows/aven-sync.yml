@@ -162,6 +162,11 @@ jobs:
         run: |
           zip="app/dist-pack/DeepSeek-Bot-$VERSION-mac-arm64.zip"
           test -f "$zip"
-          gh release create "v$VERSION" "$zip" --repo "$GITHUB_REPOSITORY" --target "${{ needs.sync.outputs.sha }}" \
+          # The DSH plugin installs from this release too, and updates itself from the
+          # newest tag here, so the package rides along with the app.
+          (cd ds-bot && npm pack --pack-destination "$RUNNER_TEMP" >/dev/null)
+          tgz="$RUNNER_TEMP/ds-bot-$VERSION.tgz"
+          test -f "$tgz"
+          gh release create "v$VERSION" "$zip" "$tgz" --repo "$GITHUB_REPOSITORY" --target "${{ needs.sync.outputs.sha }}" \
             --title "DeepSeek Bot $VERSION" \
             --notes "Upstream $(echo "$VERSION" | sed 's/-aven\..*//') with Aven's changes (sidebar sections, 5 MB animated avatars, Bot-color chats, Grok-style sidebar and title bar). Download the zip, unzip it, and drag DeepSeek Bot into Applications."
