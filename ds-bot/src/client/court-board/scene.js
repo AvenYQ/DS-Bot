@@ -6,12 +6,9 @@
 // call builds the world, the returned object drives it and tears it down.
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { SEALS } from './data.js'
-
-// three r128 exports BufferGeometryUtils as a class and mergeBufferGeometries calls
-// this.mergeBufferAttributes, so the method cannot be called detached from the class.
-const mergeBufferGeometries = geometries => BufferGeometryUtils.mergeBufferGeometries(geometries)
+import { doorSpot, planYards, yardSlots } from './layout.js'
+import { batchRoot } from './geometry.js'
 
 const Y = '#f2b630'
 const GREEN = '#3f9a6b'
@@ -77,7 +74,7 @@ const sm = (a, b, x) => {
 const cl = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t)
 const clip = (text, n = 9) => text.length > n ? text.slice(0, n) + '…' : text
 
-export function createCourtScene({ container, tags, onSelect, onOpen }) {
+export function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory = options => new THREE.WebGLRenderer(options) }) {
   let dead = false
   let running = false
   let raf = 0
@@ -88,7 +85,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   // the container; that needs a positioned containing block to sit in.
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative'
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+  const renderer = rendererFactory({ antialias: true, alpha: true })
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -161,6 +158,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   scene.add(statics)
   const flats = new THREE.Group()
   scene.add(flats)
+  flats.userData.role = 'courts'
   const pickables = []
 
   const B = (w, h, d) => new THREE.BoxGeometry(w, h, d)
@@ -385,9 +383,10 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     b.d = b.d || 6
     b.h = b.h || 3
     BMAP[b.id] = b
-    if (b.type === 'oct') octPavilion(b)
-    else if (b.type === 'tower') tower(b)
-    else hall(b)
+    b.group = b.type === 'oct' ? octPavilion(b) : b.type === 'tower' ? tower(b) : hall(b)
+    b.group.userData.buildingId = b.id
+    b.homeX = b.x
+    b.homeZ = b.z
   }
 
   /* throne on 太和殿 terrace */
@@ -414,10 +413,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   add(statics, new THREE.SphereGeometry(0.15, 6, 5), '#d2452f', 8.5, ty + 2.05, tz - 0.05)
 
   /* 午门 */
+  let southGate
   {
     const g = new THREE.Group()
     g.position.set(0, 0, 44)
-    statics.add(g)
+    southGate = g
+    scene.add(g)
     add(g, B(26, 7, 6), RED, 0, 3.5, 0)
     add(g, B(26.4, 0.5, 6.4), '#e3a92a', 0, 7.1, 0)
     add(g, B(26.4, 0.8, 6.4), MARBLE, 0, 0.4, 0)
@@ -445,28 +446,180 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     plaque(top, '午门', 0, 4.6, 2.12, 2.6)
   }
 
-  /* palace walls, gates, corner towers */
-  const wallSeg = (x0, z0, x1, z1) => {
+  /* palace walls, gates, corner towers: rebuilt around whatever stands inside */
+  let walls = null
+  let moat = null
+  const wallSeg = (parent, x0, z0, x1, z1, h = 4) => {
     const len = Math.hypot(x1 - x0, z1 - z0), hz = Math.abs(z1 - z0) > Math.abs(x1 - x0)
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2
-    add(statics, hz ? B(1.2, 4, len) : B(len, 4, 1.2), RED, cx, 2, cz)
-    add(statics, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), '#e3a92a', cx, 4.25, cz)
-    add(statics, hz ? B(1.5, 0.4, len) : B(len, 0.4, 1.5), MARBLE, cx, 0.2, cz)
+    add(parent, hz ? B(1.2, h, len) : B(len, h, 1.2), RED, cx, h / 2, cz)
+    add(parent, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), '#e3a92a', cx, h + 0.25, cz)
+    add(parent, hz ? B(1.5, 0.4, len) : B(len, 0.4, 1.5), MARBLE, cx, 0.2, cz)
   }
-  wallSeg(-18, -56, 18, -56)
-  for (const s of [-1, 1]) {
-    wallSeg(18 * s, -56, 18 * s, -8)
-    wallSeg(18 * s, -4, 18 * s, 20)
-    wallSeg(18 * s, 24, 18 * s, 41)
-    wallSeg(13 * s, 41.4, 18 * s, 41.4)
-  }
-  wallSeg(-18, -24, -3, -24)
-  wallSeg(3, -24, 18, -24)
-
-  const gate = (x, z, ry) => {
+  const cornerTower = (parent, x, z) => {
     const g = new THREE.Group()
     g.position.set(x, 0, z)
-    g.rotation.y = ry
+    parent.add(g)
+    add(g, B(6, 5, 6), RED, 0, 2.5, 0)
+    add(g, B(6.4, 0.5, 6.4), '#e3a92a', 0, 5.25, 0)
+    add(g, B(7, 0.3, 7), BAND, 0, 5.6, 0)
+    roof(g, 8.4, 8.4, 5.75, Y, 3)
+  }
+  // A wall around every 值房, with the 午门 on the south axis and a moat outside.
+  const cityBounds = () => {
+    let minX = -18, maxX = 18, minZ = -56, maxZ = 41
+    for (const b of buildings) {
+      minX = Math.min(minX, b.x - b.w / 2 - 4)
+      maxX = Math.max(maxX, b.x + b.w / 2 + 4)
+      minZ = Math.min(minZ, b.z - b.d / 2 - 5)
+      maxZ = Math.max(maxZ, b.z + b.foot / 2 + 6)
+    }
+    return { minX, maxX, minZ, maxZ }
+  }
+  // The first wall pass happens while the ground is still being built: the flag keeps the
+  // pavement rebuild from touching pieces that are not there yet.
+  let groundReady = false
+  const clearFlats = () => {
+    for (const mesh of flats.children) mesh.geometry?.dispose()
+    flats.clear()
+  }
+  const buildGround = () => {
+    if (!groundReady) return
+    clearFlats()
+    // the central courtyard keeps the palace's own size, not the whole city's
+    const palaceX = 18, palaceZ0 = -58, palaceZ1 = Math.max(44, cityBounds().maxZ + 4)
+    pave.geometry.dispose()
+    pave.geometry = new THREE.PlaneGeometry(palaceX * 2 + 4, palaceZ1 - palaceZ0)
+    pave.position.set(0, 0.03, (palaceZ0 + palaceZ1) / 2)
+    paveT.repeat.set((palaceX * 2 + 4) / 4, (palaceZ1 - palaceZ0) / 4)
+    // each yard gets its own paved court, so halls never stand out on grass
+    const byYard = new Map()
+    for (const b of buildings) {
+      if (!b.yard) continue
+      const key = `${b.yard.x}:${b.yard.z}`
+      const entry = byYard.get(key) ?? { x: b.yard.x, z: b.yard.z, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
+      entry.minX = Math.min(entry.minX, b.x - b.w / 2 - 3)
+      entry.maxX = Math.max(entry.maxX, b.x + b.w / 2 + 3)
+      entry.minZ = Math.min(entry.minZ, b.z - b.d / 2 - 3)
+      entry.maxZ = Math.max(entry.maxZ, b.z + b.foot / 2 + 5)
+      byYard.set(key, entry)
+    }
+    for (const entry of byYard.values()) {
+      const w = entry.maxX - entry.minX, d = entry.maxZ - entry.minZ
+      flat(w, d, (entry.minX + entry.maxX) / 2, (entry.minZ + entry.maxZ) / 2, ROAD, 0.04)
+      // a path from the yard out to the palace axis
+      const sign = Math.sign(entry.x) || 1
+      const mouth = Math.abs(entry.x) - 21
+      if (mouth > 1) flat(mouth, 3.2, sign * (21 + mouth / 2), (entry.minZ + entry.maxZ) / 2)
+    }
+    // the palace axis itself
+    flat(3.2, palaceZ1 - palaceZ0, 0, (palaceZ0 + palaceZ1) / 2, '#f5efe2', 0.07)
+    for (const s of [-1, 1]) flat(3.2, palaceZ1 - palaceZ0, 21 * s, (palaceZ0 + palaceZ1) / 2)
+    flat(28, 12, 0, palaceZ1 + 7, ROAD)
+  }
+
+  const buildWalls = () => {
+    if (walls) dropGroup(walls)
+    walls = new THREE.Group()
+    scene.add(walls)
+    const gate = 13
+    const raw = cityBounds()
+    const bounds = { minX: raw.minX - 4, maxX: raw.maxX + 4, minZ: raw.minZ - 4, maxZ: raw.maxZ + 4 }
+    const { minX: x0, maxX: x1, minZ: z0, maxZ: z1 } = bounds
+    southGate.position.z = z1
+    walls.userData.bounds = bounds
+    wallSeg(walls, x0, z0, x1, z0)
+    wallSeg(walls, x0, z1, -gate, z1)
+    wallSeg(walls, gate, z1, x1, z1)
+    wallSeg(walls, x0, z0, x0, z1)
+    wallSeg(walls, x1, z0, x1, z1)
+    // 内廷隔墙, leaving the middle gate open
+    wallSeg(walls, -18, -24, -3, -24, 3.4)
+    wallSeg(walls, 3, -24, 18, -24, 3.4)
+    for (const [sx, sz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) cornerTower(walls, sx, sz)
+    if (moat) dropGroup(moat)
+    moat = new THREE.Group()
+    scene.add(moat)
+    const w = 6, pad = 9
+    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', (x0 + x1) / 2, -0.12, z0 - pad)
+    add(moat, B(x1 - x0 + pad * 2, 0.3, w), '#2f6f86', (x0 + x1) / 2, -0.12, z1 + pad)
+    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x0 - pad, -0.12, (z0 + z1) / 2)
+    add(moat, B(w, 0.3, z1 - z0 + pad * 2), '#2f6f86', x1 + pad, -0.12, (z0 + z1) / 2)
+    // 金水桥 across the south moat
+    add(moat, B(9, 0.5, pad * 2 + 2), MARBLE, 0, 0.05, z1 + pad)
+    buildGround()
+    return bounds
+  }
+
+  let framed = false
+  // Fills the yards with the sections' halls, then draws the wall around the result.
+  const layoutSections = people => {
+    for (const b of buildings) b.yard = null
+    const assigned = new Set()
+    const sections = []
+    for (const person of people) {
+      const name = person.section ?? ''
+      let entry = sections.find(item => item.name === name)
+      if (!entry) { entry = { name, ids: [] }; sections.push(entry) }
+      if (person.building !== undefined && !assigned.has(person.building)) {
+        entry.ids.push(person.building)
+        assigned.add(person.building)
+      }
+    }
+    const hallsOf = entry => entry.ids.map(id => BMAP[id]).filter(b => b && !b.palace)
+    // Halls no section claimed keep company in a final block, away from the yards where
+    // officials stand: otherwise a stray hall crowds another section's doors.
+    const claimed = new Set(sections.flatMap(entry => entry.ids))
+    const spare = buildings.filter(b => !b.palace && !claimed.has(b.id))
+    const blocks = [...sections.map(hallsOf), ...(spare.length ? [spare] : [])]
+    const plan = planYards(blocks)
+    blocks.forEach((halls, index) => {
+      const block = plan[index]
+      halls.forEach((b, i) => {
+        b.x = block.halls[i].x
+        b.z = block.halls[i].z
+        b.group.position.set(b.x, 0, b.z)
+        // Only sections are places people stand in; the leftovers are just parked.
+        b.yard = block
+        b.group.userData.buildingId = b.id
+      })
+    })
+    // Halls no section claimed keep their own place.
+    for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z)
+    groundReady = true
+    buildWalls()
+    // Fit the rendered city corners, including the south gate towers, in the viewport.
+    if (!framed) {
+      framed = true
+      const raw = cityBounds()
+      const cx = (raw.minX + raw.maxX) / 2, cz = (raw.minZ + raw.maxZ) / 2
+      const target = new THREE.Vector3(cx, 2, cz)
+      const direction = new THREE.Vector3(1, 1.2, 1.3).normalize()
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize()
+      const up = new THREE.Vector3().crossVectors(direction, right).normalize()
+      const tanV = Math.tan(camera.fov * Math.PI / 360), tanH = tanV * camera.aspect
+      let distance = 0
+      for (const x of [raw.minX - 14, raw.maxX + 14]) {
+        for (const z of [raw.minZ - 14, raw.maxZ + 27]) {
+          for (const y of [0, 16]) {
+            const offset = new THREE.Vector3(x, y, z).sub(target)
+            distance = Math.max(distance, offset.dot(direction) + Math.max(Math.abs(offset.dot(right)) / tanH, Math.abs(offset.dot(up)) / tanV))
+          }
+        }
+      }
+      controls.maxDistance = Math.max(240, distance * 1.3)
+      controls.target.copy(target)
+      camera.position.copy(target).addScaledVector(direction, distance * 1.05)
+      scene.fog.near = distance * 1.6
+      scene.fog.far = distance * 3
+      controls.update()
+    }
+  }
+
+  // 内廷 gate, on the axis between the 太和殿 square and the inner court.
+  {
+    const g = new THREE.Group()
+    g.position.set(0, 0, -24)
     statics.add(g)
     add(g, B(1.4, 4.8, 1.8), RED, -2.6, 2.4, 0)
     add(g, B(1.4, 4.8, 1.8), RED, 2.6, 2.4, 0)
@@ -474,23 +627,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     add(g, B(6.8, 0.35, 2.4), BAND, 0, 4.95, 0)
     roof(g, 8, 3.6, 5.1, Y, 2)
   }
-  gate(0, -24, 0)
-  for (const s of [-1, 1]) {
-    gate(18 * s, -6, Math.PI / 2)
-    gate(18 * s, 22, Math.PI / 2)
-  }
-
-  const cornerTower = (x, z) => {
-    const g = new THREE.Group()
-    g.position.set(x, 4.5, z)
-    statics.add(g)
-    add(g, B(3.4, 0.4, 3.4), MARBLE, 0, 0.2, 0)
-    add(g, B(2.6, 1.8, 2.6), RED, 0, 1.3, 0)
-    add(g, B(3.2, 0.35, 3.2), BAND, 0, 2.35, 0)
-    roof(g, 4.6, 4.6, 2.5, Y, 2.6)
-  }
-  cornerTower(-18, -56)
-  cornerTower(18, -56)
 
   /* 御花园 */
   octPavilion({ x: 0, z: -50, roof: '#3a8f95' }, 0.55)
@@ -532,8 +668,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       c.stroke()
     }
   })
-  paveT.repeat.set(36 / 4, 98 / 4)
-  const pave = new THREE.Mesh(new THREE.PlaneGeometry(36, 98), new THREE.MeshToonMaterial({ color: 0xffffff, map: paveT, gradientMap: gm }))
+  const paveMat = new THREE.MeshToonMaterial({ color: 0xffffff, map: paveT, gradientMap: gm })
+  const pave = new THREE.Mesh(new THREE.PlaneGeometry(36, 98), paveMat)
+  pave.userData.role = 'palaceCourt'
   pave.rotation.x = -Math.PI / 2
   pave.position.set(0, 0.03, -7)
   pave.receiveShadow = true
@@ -545,17 +682,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     m.receiveShadow = true
     flats.add(m)
   }
-  flat(3.2, 46, 0, 19, '#f5efe2', 0.07)
-  flat(28, 18, 0, 52, ROAD)
-  for (const s of [-1, 1]) {
-    flat(3.2, 100, 21 * s, -8)
-    for (const b of buildings.filter(b => b.x * s > 15)) flat(b.w + 6, b.foot + 9, b.x, b.z + 3)
-    for (const z of [-6, 22]) flat(6, 3.2, 18 * s, z)
-  }
-  for (const b of buildings.filter(b => Math.abs(b.x) > 15)) {
-    const hz = b.z + b.foot / 2 + 3.2 + 3
-    flat(Math.abs(b.x) - 19 + 5, 3, (Math.abs(b.x) - 19 + 5) / 2 * Math.sign(b.x) + 19 * Math.sign(b.x), hz)
-  }
+  buildWalls()
 
   /* 金水河 + bridges */
   {
@@ -632,21 +759,11 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     guard++
     const a = rnd() * Math.PI * 2, r = 58 + rnd() * 70
     const x = Math.cos(a) * r, z = Math.sin(a) * r - 4
-    if (Math.abs(x) < 55 && z > -62 && z < 60) continue
+    if (Math.abs(x) < 90 && z > -85 && z < 100) continue
     tree(x, z, 0.9 + rnd() * 0.7)
     placed++
   }
-  for (let z = -50; z <= 40; z += 9) {
-    tree(54 + rnd() * 2, z, 1 + rnd() * 0.4)
-    tree(-54 - rnd() * 2, z, 1 + rnd() * 0.4)
-  }
-  for (let x = -50; x <= 50; x += 8) {
-    if (Math.abs(x) < 17) continue
-    tree(x, -62 - rnd() * 2, 1 + rnd() * 0.4)
-    tree(x, 58 + rnd() * 3, 1 + rnd() * 0.4)
-  }
   for (const [x, z, ci] of [[-12, -49, 3], [12, -49, 4], [-8, -53, 0], [8, -53, 1], [-14, -53, 7], [14, -53, 2], [-12, -30, 3], [12, -30, 4]]) tree(x, z, 0.9, ci)
-  for (const b of buildings.filter(b => Math.abs(b.x) > 15)) tree(b.x + (b.x > 0 ? 1 : -1) * (b.w / 2 + 2.6), b.z - 1.5, 0.8)
   for (let i = 0; i < 6; i++) add(statics, lowIco(0.5 + rnd() * 0.7), '#9a9a8e', -6 + rnd() * 3 - 1.5, 0.4, -50 + rnd() * 3 - 1.5)
   for (let i = 0; i < 6; i++) {
     const x = -34 + (i % 3) * 4, z = -53 + Math.floor(i / 3) * 2.5
@@ -654,39 +771,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     add(statics, B(2.6, 0.4, 1.2), i % 2 ? '#9d7cc9' : '#6fb35f', x, 0.45, z, { cast: false })
   }
 
-  /* ---------------- statics merge ---------------- */
-  const merge = (group, castShadow) => {
-    group.updateMatrixWorld(true)
-    const buckets = new Map()
-    const keep = []
-    const sources = []
-    group.traverse(o => {
-      if (!o.isMesh) return
-      if (o.userData.noMerge) {
-        keep.push(o)
-        return
-      }
-      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()
-      g.applyMatrix4(o.matrixWorld)
-      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k)
-      if (!buckets.has(o.material.uuid)) buckets.set(o.material.uuid, { m: o.material, gs: [] })
-      buckets.get(o.material.uuid).gs.push(g)
-      sources.push(o.geometry)
-    })
-    keep.forEach(o => scene.attach(o))
-    scene.remove(group)
-    for (const { m, gs } of buckets.values()) {
-      const geo = mergeBufferGeometries(gs)
-      const mesh = new THREE.Mesh(geo, m)
-      mesh.castShadow = castShadow
-      mesh.receiveShadow = true
-      scene.add(mesh)
-      for (const g of gs) g.dispose()
-    }
-    for (const g of sources) g.dispose()
+  /* Keep movable buildings out of the world-space static batch. */
+  for (const b of buildings) {
+    scene.attach(b.group)
+    batchRoot(b.group)
   }
-  merge(statics, true)
-  merge(flats, false)
+  batchRoot(statics)
+  // flats is rebuilt on each layout; it must remain attached to the scene.
 
   /* clouds */
   const clouds = []
@@ -768,6 +859,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   let minutes = 12 * 60
   const tmp = new THREE.Vector3()
   const clock = new THREE.Clock()
+  const UP = new THREE.Vector3(0, 1, 0)
   const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
   // 编外: no bureau, so a free spot on the 午门 plaza, spread out.
@@ -775,7 +867,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const homeOf = (person, index) => {
     const b = BMAP[person.building]
     if (!b) return spareSpot(index)
-    return new THREE.Vector3(b.x + person.offset, 0, b.z + b.foot / 2 + 3.2)
+    const spot = doorSpot(b, person.offset ?? 0)
+    return new THREE.Vector3(spot.x, 0, spot.z)
   }
 
   const ownMaterial = color => {
@@ -787,6 +880,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const makeFig = person => {
     const g = new THREE.Group()
     g.position.copy(person.home)
+    g.userData.botId = person.id
     g.scale.setScalar(1.08)
     scene.add(g)
     const body = new THREE.Group()
@@ -947,6 +1041,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       name: String(raw.name ?? ''),
       title: String(raw.title ?? ''),
       dept: String(raw.dept ?? ''),
+      section: String(raw.section ?? ''),
       building: String(raw.building ?? ''),
       offset: Number(raw.offset) || 0,
       robe: raw.robe || YAMEN,
@@ -984,15 +1079,29 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     return p
   }
 
+  // A section stands in its own rows, in front of its yard, so a group reads as a group.
   const assignSlots = () => {
-    const next = { E: 0, W: 0 }
+    const rows = new Map()
+    const centre = { x: 0, z: 6 }
     for (const p of cast) {
-      const side = p.side === 'W' ? 'W' : 'E'
-      const index = next[side]++
-      const sign = side === 'E' ? 1 : -1
-      p.slot = new THREE.Vector3(sign * (4.6 + (index % 2) * 3.6), 0, 4.2 + Math.floor(index / 2) * 3.4)
+      const key = p.section ?? ''
       const b = BMAP[p.building]
-      p.zone = !b || Math.abs(b.x) < 15 ? 'C' : (b.x > 0 ? 'E' : 'W')
+      let entry = rows.get(key)
+      if (!entry) {
+        const yard = b?.yard
+        entry = { list: [], x: yard ? yard.x : 0, z: yard ? yard.z : -6 }
+        rows.set(key, entry)
+      }
+      const target = b?.yard ?? centre
+      entry.list.push(p)
+      entry.x = target.x
+      entry.z = Math.min(entry.z, target.z)
+      const bx = b?.x ?? target.x
+      p.zone = Math.abs(bx) < 15 ? 'C' : (bx > 0 ? 'E' : 'W')
+    }
+    for (const entry of rows.values()) {
+      const spots = yardSlots(entry.list.length, { x: entry.x, z: entry.z })
+      entry.list.forEach((p, i) => { p.slot = new THREE.Vector3(spots[i].x, 0, spots[i].z) })
     }
   }
 
@@ -1012,13 +1121,16 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (p.el) p.el.remove()
       dropGroup(p.g)
       dropGroup(p.desk)
+      dropGroup(p.sign?.group)
     }
     cast = []
   }
 
   const setPeople = list => {
+    clearSolemn()
     dropCast()
     const rows = Array.isArray(list) ? list : []
+    layoutSections(rows)
     cast = rows.map((raw, index) => {
       const p = normalize(raw, index)
       makeDesk(p)
@@ -1047,6 +1159,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
 
   const select = id => {
     const p = person(id)
+    if (p) p.bowAt = tick
     selectedId = p ? p.id : null
     for (const other of cast) markTag(other, other === p)
     if (!p) marker.visible = false
@@ -1075,10 +1188,128 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     glide(tgt, tgt.clone().add(dir.multiplyScalar(narrow ? 34 : 28)))
   }
 
+  let lastTouch = performance.now()
   const onControlsStart = () => {
     fly = null
+    lastTouch = performance.now()
   }
   controls.addEventListener('start', onControlsStart)
+
+  /* ---------------- 宣旨 ---------------- */
+  // The 太和殿 square: the Main Bot proclaims here and the named officials gather.
+  const plaza = new THREE.Vector3(0, 0, 8)
+  const plazaHalo = new THREE.Mesh(
+    new THREE.RingGeometry(3.2, 4.6, 56),
+    new THREE.MeshBasicMaterial({ color: 0xffd56a, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+  )
+  plazaHalo.rotation.x = -Math.PI / 2
+  plazaHalo.position.set(plaza.x, 0.06, plaza.z)
+  scene.add(plazaHalo)
+  let solemn = null
+  const SIGN_INK = { done: '#c62f2f', pending: '#d99a2b', question: '#4a6f92' }
+  const makeSign = b => {
+    const g = new THREE.Group()
+    g.position.set(b.x, 0, b.z + b.foot / 2 + 2.2)
+    add(g, C(0.07, 0.07, 1.5, 5), '#5a4230', -0.5, 0.75, 0)
+    add(g, C(0.07, 0.07, 1.5, 5), '#5a4230', 0.5, 0.75, 0)
+    const plank = add(g, B(1.5, 0.5, 0.08), ownMaterial('#f3e7cd'), 0, 1.25, 0)
+    scene.add(g)
+    g.visible = false
+    return { group: g, plank }
+  }
+  // Only the three waiting states hang a plank, and the colour says which.
+  const latestSign = (p, kind) => {
+    const b = BMAP[p.building]
+    const wants = kind === 'done' || kind === 'pending' || kind === 'question'
+    if (!b || !wants) { if (p.sign) p.sign.group.visible = false; return }
+    p.sign ??= makeSign(b)
+    p.sign.group.visible = true
+    p.sign.plank.material.color.set(SIGN_INK[kind])
+  }
+  const clearSolemn = () => {
+    if (!solemn) return
+    for (const timer of solemn.timers) clearTimeout(timer)
+    solemn = null
+    plazaHalo.material.opacity = 0
+  }
+  const makeScroll = host => {
+    const g = new THREE.Group()
+    g.position.set(0.34, 1.32, 0.2)
+    g.rotation.z = -0.5
+    add(g, C(0.05, 0.05, 0.34, 6), '#7a5a3a', 0, 0, 0)
+    add(g, B(0.36, 0.001, 0.06), '#f3e7cd', 0, 0.02, 0.02)
+    g.visible = false
+    host.g.add(g)
+    return g
+  }
+  const sparkle = (host, crowd) => {
+    const from = host.g.position.clone().add(new THREE.Vector3(0, 1.4, 0))
+    for (const target of crowd) {
+      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffd56a }))
+      spark.position.copy(from)
+      scene.add(spark)
+      const to = target.g.position.clone().add(new THREE.Vector3(0, 1.2, 0))
+      const started = performance.now()
+      const step = () => {
+        const k = Math.min(1, (performance.now() - started) / 700)
+        spark.position.lerpVectors(from, to, k)
+        spark.position.y += Math.sin(k * Math.PI) * 0.8
+        if (k < 1 && running) requestAnimationFrame(step)
+        else { scene.remove(spark); spark.geometry.dispose(); spark.material.dispose() }
+      }
+      requestAnimationFrame(step)
+    }
+  }
+  const decree = ({ from, to, room } = {}) => {
+    const host = person(from)
+    if (!host || solemn) return
+    const invited = Array.isArray(to) ? cast.filter(p => to.includes(p.id)) : []
+    const crowd = room !== undefined ? cast.filter(p => p !== host) : invited
+    if (room === undefined && invited.length < 2) return
+    const timers = []
+    solemn = { timers, phase: 'gather' }
+    const later = (ms, fn) => timers.push(setTimeout(() => { if (solemn) fn() }, reduce ? Math.min(ms, 900) : ms))
+    host.path = [plaza.clone()]
+    host.mode = 'decree-host'
+    crowd.forEach((p, i) => {
+      const perRow = 4
+      const col = i % perRow, row = Math.floor(i / perRow)
+      p.path = [new THREE.Vector3(plaza.x + (col - (perRow - 1) / 2) * 2.5, 0, plaza.z + 4.5 + row * 2.4)]
+      p.mode = 'decree-guest'
+      p.delay = reduce ? 0 : 0.1 * i
+    })
+    for (const p of cast) {
+      if (p === host || crowd.includes(p)) continue
+      p.path = []
+      p.watch = plaza.clone()
+    }
+    later(1700, () => {
+      solemn.phase = 'proclaim'
+      plazaHalo.material.opacity = 0.85
+      host.scroll ??= makeScroll(host)
+      host.scroll.visible = true
+      host.armR.position.y = 1.45
+      host.g.rotation.y = Math.PI
+    })
+    later(2900, () => {
+      solemn.phase = 'bow'
+      for (const p of crowd) p.bowAt = tick
+      host.bowAt = tick + 0.2
+      if (!reduce) sparkle(host, crowd)
+    })
+    later(4200, () => {
+      solemn.phase = 'disperse'
+      if (host.scroll) host.scroll.visible = false
+      plazaHalo.material.opacity = 0
+      host.path = [host.home.clone()]
+      host.mode = 'toHome'
+      for (const p of crowd) { p.path = [p.home.clone()]; p.mode = 'toHome' }
+    })
+    later(6000, () => {
+      for (const p of cast) { p.watch = null; if (p.mode === 'decree-host' || p.mode === 'decree-guest') p.mode = 'home' }
+      clearSolemn()
+    })
+  }
 
   const V = (x, z) => new THREE.Vector3(x, 0, z)
   const route = p => {
@@ -1205,9 +1436,14 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       controls.target.lerpVectors(fly.ft, fly.tt, e)
       camera.position.lerpVectors(fly.fc, fly.tc, e)
       if (k >= 1) fly = null
+    } else if (!solemn && !reduce && performance.now() - lastTouch > 20000) {
+      // Left alone, the camera drifts slowly around the court; any touch takes it back.
+      const off = camera.position.clone().sub(controls.target)
+      off.applyAxisAngle(UP, dt * 0.05)
+      camera.position.copy(controls.target).add(off)
     }
-    controls.target.x = Math.max(-70, Math.min(70, controls.target.x))
-    controls.target.z = Math.max(-75, Math.min(70, controls.target.z))
+    controls.target.x = Math.max(-95, Math.min(95, controls.target.x))
+    controls.target.z = Math.max(-100, Math.min(95, controls.target.z))
     controls.target.y = Math.max(0, Math.min(12, controls.target.y))
     controls.update()
     halo.material.opacity += ((courtOn ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3)
@@ -1229,6 +1465,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
         }
       } else if (p.mode === 'home') {
         if (kind === 'idle') {
+          if (p.lifeAt === undefined) p.lifeAt = tick + 5 + rnd() * 9
+          if (tick > p.lifeAt && !solemn) {
+            p.life = ['tea', 'stretch', 'doze'][Math.floor(rnd() * 3)]
+            p.lifeUntil = tick + 2.2
+            p.lifeAt = tick + 9 + rnd() * 12
+          }
           p.wt -= dt
           if (!p.wander || p.wt <= 0) {
             const a = rnd() * Math.PI * 2, r = 0.8 + rnd() * 1.6
@@ -1259,9 +1501,16 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       }
       if (!moving) {
         let face = null
-        if (p.mode === 'court') face = Math.PI
+        if (p.watch) face = Math.atan2(p.watch.x - p.g.position.x, p.watch.z - p.g.position.z)
+        else if (p.mode === 'court') face = Math.PI
         else if (kind === 'work' || kind === 'alert' || kind === 'error' || kind === 'sleep' || kind === 'waiting' || kind === 'done' || kind === 'pending' || kind === 'question') face = 0
         if (face !== null) p.rot = angLerp(p.rot, face, Math.min(1, dt * 5))
+      }
+      // A picked official bows once; the crowd bows when the decree reaches them.
+      if (p.bowAt !== undefined) {
+        const k = (tick - p.bowAt) / 0.8
+        if (k >= 1) { p.bowAt = undefined; p.body.rotation.x = 0 }
+        else if (k > 0) p.body.rotation.x = reduce ? 0 : Math.sin(k * Math.PI) * 0.42
       }
       p.g.rotation.y = p.rot
       const t2 = tick + p.phase, run = moving && spd > 3
@@ -1285,6 +1534,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
         hz = Math.sin(t2 * 1.1) * 0.07
       }
       if (kind !== 'sleep') p.body.scale.y = 1
+      // The small life between errands: tea, a stretch, a doze at the desk.
+      if (p.life && tick < p.lifeUntil && !moving) {
+        const step = (p.lifeUntil - tick) / 2.2
+        if (p.life === 'tea') { arz = 0.5; hx = 0.12 }
+        else if (p.life === 'stretch') { hz = Math.sin(step * Math.PI * 2) * 0.18; arz = 0.4 }
+        else if (p.life === 'doze') { hx = 0.34; hz = 0.12 }
+      } else if (p.life && tick >= p.lifeUntil) p.life = undefined
       p.body.position.y = by
       p.body.rotation.z = rz
       p.head.rotation.x += (hx - p.head.rotation.x) * Math.min(1, dt * 6)
@@ -1304,6 +1560,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
         : kind === 'work' ? 0.85
           : kind === 'court' || kind === 'walk' || kind === 'back' ? 0.6 : 0.35
       p.ring.scale.setScalar(loud ? 1 + Math.sin(tick * 6) * 0.12 : 1)
+      latestSign(p, kind)
       const sealMap = sealTextures[p.live.kind]
       p.seal.visible = Boolean(sealMap)
       if (sealMap && p.seal.material.map !== sealMap) {
@@ -1368,6 +1625,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const dispose = () => {
     if (dead) return
     stop()
+    clearSolemn()
     dead = true
     resizeObserver.disconnect()
     canvas.removeEventListener('pointerdown', onDown)
@@ -1410,6 +1668,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     flyTo,
     start,
     stop,
+    decree,
     resize,
     dispose,
     isRunning: () => running,

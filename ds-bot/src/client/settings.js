@@ -89,8 +89,8 @@ function GeneralPage({ roster, actions, run }) {
   }
   return [
     h(SetSection, { key: 'look', title: t('Appearance') },
-      h(SetRow, { label: t('Theme'), hint: t('Colors for the whole team, on every device.') },
-        h('select', { className: 'bt-select', 'aria-label': t('Theme'), value: current, onChange: event => run(actions.setPrefs({ theme: event.target.value })) },
+      h(SetRow, { label: t('Colors'), hint: t('Colors for the whole team, on every device.') },
+        h('select', { className: 'bt-select', 'aria-label': t('Colors'), value: current, onChange: event => run(actions.setPrefs({ theme: event.target.value })) },
           Object.entries(themes).map(([id, theme]) => h('option', { key: id, value: id }, t(theme.label))))),
       h(SetRow, { label: t('Accent'), hint: t('Unread marks, badges, and the brand mark.') },
         h('div', { className: 'bt-swatches' },
@@ -105,8 +105,8 @@ function GeneralPage({ roster, actions, run }) {
         h('select', { className: 'bt-select', 'aria-label': t('Chat color'), value: prefs.chatColor === 'bot' ? 'bot' : 'theme', onChange: event => run(actions.setPrefs({ chatColor: event.target.value === 'bot' ? 'bot' : null })) },
           h('option', { value: 'bot' }, t('Bot color')),
           h('option', { value: 'theme' }, t('Theme color')))),
-      h(SetRow, { label: t('Court phrasing'), hint: t('What a Bot is doing reads like a court errand: 拟写文书, 打探消息.') },
-        h(Switch, { label: t('Court phrasing'), on: prefs.court !== false, onChange: court => run(actions.setPrefs({ court })) })),
+      h(SetRow, { label: t('Theme'), hint: t('The 小朝廷 look: the seals on officials, the stamp on a reply, catchphrases, the 值房图 and court wording. Off leaves a plain Bot team.') },
+        h(Switch, { label: t('Theme'), on: prefs.court !== false, onChange: court => run(actions.setPrefs({ court })) })),
       h(SetRow, { label: t('Message layout') }, h(Choice, { label: t('Message layout'), value: layoutOf(prefs), options: LAYOUTS, pick: id => run(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === 'flat' ? h(SetRow, { label: t('Text width') }, h(WidthSlider, { label: t('Text width'), value: flatWidthOf(prefs), save: flatWidth => run(actions.setPrefs({ flatWidth })) })) : null,

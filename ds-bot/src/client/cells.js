@@ -16,7 +16,7 @@ import { failureLabel } from './diagnostics.js'
 import { turnReasoning, thinkingStep, opensReply } from './turn-reasoning.js'
 import { FOLD_AT, FOLD_HUGE, stripLongNote, useFold } from './fold.js'
 import { noHover, useViewport, viewBottom } from './motion.js'
-import { heldCardKey } from './sources.js'
+import { courtTheme, heldCardKey } from './sources.js'
 import { BtwCardView } from './btw.js'
 import { partIndexOf, withBtwRows } from './btw-model.js'
 import { layoutOf, thinkingShown } from './themes.js'
@@ -56,6 +56,8 @@ export function Bubbles({ texts, roster, selfId, actions, streaming, sessionId, 
 }
 
 function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole, stamp }) {
+  // 朱批 belongs to the 小朝廷 theme: without it the reply is only words.
+  const sealed = courtTheme(roster) ? stamp : null
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live })
   const key = msgKey ? `${msgKey}:${index}` : undefined
   const body = h(MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels(), variant: 'compact', fileMentions: mentions })
@@ -71,10 +73,10 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
   return h('div', { ref: row, className: 'bt-msg', onClick: tapTools },
     h('div', { className: 'bt-msg-line' },
       lead,
-      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined, 'data-stamped': stamp ? '' : undefined, 'data-fresh': stamp?.fresh || undefined },
+      h('div', { className: 'bt-bubble', 'data-folded': folded || undefined, 'data-stamped': sealed ? '' : undefined, 'data-fresh': sealed?.fresh || undefined },
         control ? h('div', { className: 'bt-fold-body' }, body) : body,
         control,
-        stamp ? h(Stamp, stamp) : null),
+        sealed ? h(Stamp, sealed) : null),
       live ? null : h(MessageTools, {
         text: folded ? text : shown, name: roster.byId[selfId]?.name ?? t('Bot'), sessionId, actions, open: toolsOpen,
         react: key ? emoji => actions.toggleReaction(msgKey, index, emoji) : undefined,

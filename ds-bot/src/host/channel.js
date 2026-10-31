@@ -90,10 +90,11 @@ export function install(rt) {
   // per Bot or group chat, its latest memory change; `memoryReviews`: memory reviews waiting or
   // running; `work`: per Bot, the turn it runs and its tool; per group, the members whose
   // turn there runs; the approvals waiting; per Bot, who it waits for to hand back work;
-  // and per Session, when its running turn began.
+  // per Session, when its running turn began; and the work just given, newest first, for
+  // the court board (handoffs.js).
   const live = () => ({
     activity: rt.activityView(),
-    work: { bots: rt.workView(), rooms: rt.roomWorkView(), approvals: rt.approvalsView(), waiting: rt.waitingView?.() ?? {}, turns: rt.turnsView?.() ?? {}, steered: rt.steeredView?.() ?? {} },
+    work: { bots: rt.workView(), rooms: rt.roomWorkView(), approvals: rt.approvalsView(), waiting: rt.waitingView?.() ?? {}, turns: rt.turnsView?.() ?? {}, steered: rt.steeredView?.() ?? {}, assignments: rt.assignmentsView?.() ?? [] },
     memoryNews: rt.memoryNews(),
     memoryReviews: rt.memoryReviews(),
     learning: rt.learningView(),
@@ -139,7 +140,7 @@ export function install(rt) {
     if (body.court !== undefined) {
       if (body.court === false) state.prefs.court = false
       else if (body.court === true || body.court === null) delete state.prefs.court
-      else throw invalid('Court phrasing must be on or off')
+      else throw invalid('Theme must be on or off')
     }
     if (body.chatColor !== undefined) {
       if (body.chatColor === 'bot') state.prefs.chatColor = 'bot'

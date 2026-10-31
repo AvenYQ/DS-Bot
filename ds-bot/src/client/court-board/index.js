@@ -13,7 +13,12 @@ import { liveStateOf, groupsOf, useDoneHold } from '../live-state.js'
 import { SealIcon } from './icons.js'
 import { castOf } from './state.js'
 import { SEALS } from './data.js'
+import { courtTheme } from '../sources.js'
+import { decreeFor } from './decree.js'
 import { createCourtScene } from './scene.js'
+
+// scene.js ends a 宣旨 ceremony after six seconds and ignores one that starts before it.
+const CEREMONY_MS = 6000
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
 // React sees a new snapshot.
@@ -53,6 +58,8 @@ function useWorkingCount(useRoster, useSessionStatus, useWork) {
  * just the mark. It stays out of the account avatar's way either way.
  */
 export function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useWork }) {
+  const roster = useRoster(value => value)
+  const themed = courtTheme(roster)
   const count = useWorkingCount(useRoster, useSessionStatus, useWork)
   const [hover, setHover] = useState(false)
   const label = t('小朝廷值房')
@@ -62,6 +69,7 @@ export function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useW
       onClick: openCourtBoard,
     }, h(SealIcon, { size: 20, mono: true, small: true }))
   }
+  if (!themed) return null
   return h('div', {
     className: 'bt-cb-entry', 'data-open': hover ? 'true' : 'false',
     onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false),
@@ -93,8 +101,14 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const scene = useRef(null)
   const hour = useHour()
   const [broken, setBroken] = useState(false)
+  const playedDecree = useRef({})
+  const decreeUntil = useRef(0)
+  const [decreeWake, setDecreeWake] = useState(0)
   const [rosterOpen, setRosterOpen] = useState(false)
   const selected = state.selected
+  // Nothing of the board outlives the theme: no scene, no card, no roster.
+  const themed = courtTheme(roster)
+  useEffect(() => { if (!themed && state.open) closeCourtBoard() }, [themed, state.open])
 
   // The cast, in sidebar order, from the same derivation the sidebar's rows use.
   const liveStates = useMemo(() => {
@@ -207,6 +221,27 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
 
   useEffect(() => () => { scene.current?.dispose(); scene.current = null }, [])
 
+  // A 宣旨 while the board is open: the Main Bot takes the square when it handed work to
+  // several officials at once, or gave it to a group. One ceremony at a time: a batch that
+  // arrives during one waits for it to end, then plays.
+  const assignments = work?.assignments ?? []
+  useEffect(() => {
+    if (!state.open || scene.current === null) return undefined
+    const now = Date.now()
+    if (now < decreeUntil.current) {
+      const timer = setTimeout(() => setDecreeWake(wake => wake + 1), decreeUntil.current - now)
+      return () => clearTimeout(timer)
+    }
+    const next = decreeFor(assignments, roster.mainBotId, playedDecree.current, now)
+    if (next === null) return undefined
+    playedDecree.current = { ...playedDecree.current, [next.kind]: next.at }
+    decreeUntil.current = now + CEREMONY_MS
+    scene.current.decree(next.kind === 'room'
+      ? { from: next.from, room: next.room }
+      : { from: next.from, to: next.to })
+    return undefined
+  }, [assignments, state.open, roster.mainBotId, decreeWake])
+
   useEffect(() => {
     if (!state.open) return undefined
     const onKey = (event) => { if (event.key === 'Escape') { event.preventDefault(); closeCourtBoard() } }
@@ -216,7 +251,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
 
   const cardId = useExitValue(state.open ? selected : null)
   const rosterVisible = useExitValue(state.open && rosterOpen ? 'open' : null)
-  if (!state.open) return null
+  // After every hook: turning the theme off unmounts the board without changing the hook order.
+  if (!themed || !state.open) return null
   const card = cardId === null ? null : cast.bots.find(item => item.bot.id === cardId) ?? null
   const clock = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`
   return createPortal(h('div', { className: 'bt-cb-pane', style: { left: paneLeft } },

@@ -4,6 +4,7 @@ import { build } from 'esbuild'
 import { runInNewContext } from 'node:vm'
 import { OFFICIALS, buildingFor } from '../src/client/court-board/data.js'
 import { castOf, castOrder, courtStateOf, officialFor, sleepsAt } from '../src/client/court-board/state.js'
+import { decreeFor } from '../src/client/court-board/decree.js'
 
 const { outputFiles } = await build({
   entryPoints: ['src/client/live-state.js'], bundle: true, format: 'cjs', platform: 'browser',
@@ -17,6 +18,15 @@ runInNewContext(outputFiles[0].text, {
 const { liveStateOf, createDoneHold } = bundled.exports
 
 const bot = (over = {}) => ({ id: 'b1', name: '首辅·张居正', section: '内阁', avatar: { color: '#123456' }, ...over })
+
+test('the court theme is on unless the team turned it off', async () => {
+  const { courtTheme } = await import('../src/client/sources.js')
+  assert.equal(courtTheme(undefined), true)
+  assert.equal(courtTheme({}), true)
+  assert.equal(courtTheme({ prefs: {} }), true)
+  assert.equal(courtTheme({ prefs: { court: true } }), true)
+  assert.equal(courtTheme({ prefs: { court: false } }), false)
+})
 
 test('a Bot is matched to the official whose name it carries', () => {
   assert.equal(officialFor(bot()).id, 'zjz')
@@ -135,4 +145,50 @@ test('the cast dresses a known official from the table and an unknown Bot from i
   const worded = people.find(person => person.id === 'n2')
   assert.equal(worded.building, 'gongbu')
   assert.equal(bots.length, 3)
+})
+
+// The court board's 宣旨 trigger, apart from React and the scene.
+const NOW = 1_800_000_000_000
+const given = (over = {}) => ({ from: 'main', at: NOW - 1_000, ...over })
+
+test('two different officials inside ten seconds get one decree', () => {
+  const batch = [given({ to: 'a', at: NOW - 500 }), given({ to: 'b', at: NOW - 4_000 })]
+  assert.deepEqual(decreeFor(batch, 'main', {}, NOW), { kind: 'bots', from: 'main', to: ['a', 'b'], at: NOW - 500 })
+})
+
+test('one recipient is a hand-over, not a decree', () => {
+  const one = [given({ to: 'a' }), given({ to: 'a', at: NOW - 2_000 })]
+  assert.equal(decreeFor(one, 'main', {}, NOW), null)
+})
+
+test('assignments older than ten seconds are stale', () => {
+  assert.equal(decreeFor([given({ to: 'a', at: NOW - 11_000 }), given({ to: 'b', at: NOW - 12_000 })], 'main', {}, NOW), null)
+  // An old hand-over does not count towards a current batch.
+  assert.equal(decreeFor([given({ to: 'a' }), given({ to: 'b', at: NOW - 11_000 })], 'main', {}, NOW), null)
+})
+
+test('the same batch does not replay', () => {
+  const batch = [given({ to: 'a' }), given({ to: 'b', at: NOW - 2_000 })]
+  const first = decreeFor(batch, 'main', {}, NOW)
+  assert.equal(first.kind, 'bots')
+  assert.equal(decreeFor(batch, 'main', { [first.kind]: first.at }, NOW), null)
+})
+
+test('a group order plays the bigger decree, once', () => {
+  const order = [given({ room: 'r1', at: NOW - 2_000 })]
+  const first = decreeFor(order, 'main', {}, NOW)
+  assert.deepEqual(first, { kind: 'room', from: 'main', room: 'r1', at: NOW - 2_000 })
+  assert.equal(decreeFor(order, 'main', { room: first.at }, NOW), null)
+})
+
+test('a group order outranks a batch, and the batch still plays once afterwards', () => {
+  const both = [given({ room: 'r1', at: NOW - 1_000 }), given({ to: 'a', at: NOW - 2_000 }), given({ to: 'b', at: NOW - 2_500 })]
+  const room = decreeFor(both, 'main', {}, NOW)
+  assert.equal(room.kind, 'room')
+  assert.deepEqual(decreeFor(both, 'main', { room: room.at }, NOW), { kind: 'bots', from: 'main', to: ['a', 'b'], at: NOW - 2_000 })
+})
+
+test('work from another Bot is ignored', () => {
+  const other = [{ from: 'deputy', to: 'a', at: NOW - 1_000 }, { from: 'deputy', to: 'b', at: NOW - 2_000 }]
+  assert.equal(decreeFor(other, 'main', {}, NOW), null)
 })

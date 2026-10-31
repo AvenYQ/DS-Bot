@@ -1,3 +1,4 @@
+import { createElement as h, useEffect } from 'react'
 import { call } from './api.js'
 import { isHex, inkText, paintCss } from './inks.js'
 import { DEFAULT_MASK, SHAPES, markupCache, maskOf } from './characters.js'
@@ -11,7 +12,7 @@ import { lookOf } from './mark.js'
 import { DRAG_SORT_CSS } from './drag-sort.js'
 import { installTailKeeper } from './tail-keeper.js'
 import { installProcessGroups } from './process-groups.js'
-import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, BotReturn, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
+import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
 import { frameLayout, readSidebar, writeSidebar, toggledPref, DSH_NARROW } from './frame-layout.js'
 import { installFrameWatch } from './frame-watch.js'
 import { HeaderPill } from './header.js'
@@ -38,6 +39,7 @@ import { GROUP_SETTINGS_CSS } from './group-settings.js'
 import { FOLDER_CSS } from './folder-menu.js'
 import { USAGE_CSS } from './usage-page.js'
 import { CourtBoardLayer } from './court-board/index.js'
+import { SealIcon } from './court-board/icons.js'
 import { COURT_BOARD_CSS } from './court-board/styles.js'
 import { SCHEDULE_CSS } from './schedules.js'
 import { STORAGE, migrateStorage } from './storage.js'
@@ -354,6 +356,7 @@ export function apply(ctx) {
       const width = widthOf(prefs)
       const flatWidth = flatWidthOf(prefs)
       document.body.dataset.btMotion = motion
+      document.body.dataset.btCourt = prefs.court === false ? 'off' : 'on'
       document.body.dataset.btLayout = layout
       document.body.style.setProperty('--bt-msg-w', String(width / 100))
       document.body.style.setProperty('--bt-flat-w', String(flatWidth / 100))
@@ -979,7 +982,21 @@ export function apply(ctx) {
   ]
   // The return button belongs to neither group: it renders only in Agent mode.
   ctx.effect(() => installCompiledStyles(RETURN_CSS, 'return'), 'ds-bot: return styles')
-  shadow('sidebar.footer.action', { id: 'bot-return', order: -300, inject: face }, BotReturn)
+  // A row in the shell's own panel list, the way 歸藏设计 takes one: a glyph here and a
+  // `main` panel under the same id, so the row opens the team. Both go through
+  // ctx.slots.inject without an effect wrapper, which is what the list listens for.
+  const CourtPanelIcon = (owner = {}) => h('span', { className: 'bt-panel-icon' }, h(SealIcon, { size: owner.size ?? 16, mono: true, small: true }))
+  const CourtPanelEntry = () => {
+    useEffect(() => {
+      actions.setSurface('bot')
+      try { ctx.get('layout')?.selectPanel?.(null) } catch (error) { quietly('panel')(error) }
+    }, [])
+    return null
+  }
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: 'deepseek-bot', order: 6, label: () => 'DeepSeek Bot',
+  }, CourtPanelIcon))
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'deepseek-bot' }, CourtPanelEntry))
 
   // The main view decides `plain`: a DSH Agent Session keeps the Bot shell but
   // withdraws the conversation replacements, so the native dsh page shows. A jump

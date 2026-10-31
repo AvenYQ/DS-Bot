@@ -21,6 +21,9 @@ export const EMPTY_ROSTER = { revision: -1, mainBotId: null, mainBotIds: [], bot
 export const isMainOf = (roster, id) => id !== undefined && (roster.mainBotIds ?? []).includes(id)
 // Pinned Bots sit as tiles at the top of the sidebar, side by side. The first Main Bot is
 // pinned until the user unpins it; any other Bot or group chat once the user pins it.
+// The 小朝廷 theme: officials' seals, reply stamps, catchphrases, court wording and the
+// 值房图. Off is a plain Bot team; a team that never chose keeps it on.
+export const courtTheme = roster => (roster?.prefs?.court) !== false
 export const isPinned = (roster, entry) => entry !== undefined && (entry.id === roster.mainBotId ? entry.pinned !== false : entry.pinned === true)
 
 // A Bot's chat is a chain of Sessions ("parts"): the Bot id is its first part's id

@@ -2,6 +2,7 @@ import { createElement as h, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom'
 import { BotMark, RoomAvatar } from './mark.js'
 import { Elapsed, Shimmer, PHRASES, phrasePool } from './cells.js'
+import { courtTheme } from './sources.js'
 import { noteClientError } from './diagnostics.js'
 import { reducedMotion } from './motion.js'
 import { t } from './i18n.js'
@@ -130,6 +131,7 @@ export function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useL
   const relaying = tools.some(entry => entry.relay)
   const visible = moveAt !== 0 || rowVisible({ running, streaming, tools, relaying, bot, room })
   const tool = tools.at(-1)
+  const themedBot = courtTheme(roster) ? bot : undefined
   const inputRef = useRef(0)
   // A steer keeps the run going, so nothing else resets the row: fresh input is
   // the newest activity, and the phrase and the clock restart from the send.
@@ -138,9 +140,9 @@ export function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useL
   const want = !visible ? null
     : moveAt !== 0 ? { key: 'move', label: t('Switching working folder'), state: 'thinking' }
       : inputAt > (tool?.at ?? 0)
-        ? { key: `input:${inputAt}`, pool: phrasePool(bot, PHRASES.thinking), state: 'thinking' }
-        : tool ? { key: tool.label ? `tool:${tool.label}` : 'working', label: tool.label, pool: phrasePool(bot, PHRASES.working), state: tool.state ?? 'working' }
-          : { key: 'thinking', pool: phrasePool(bot, PHRASES.thinking), state: 'thinking' }
+        ? { key: `input:${inputAt}`, pool: phrasePool(themedBot, PHRASES.thinking), state: 'thinking' }
+        : tool ? { key: tool.label ? `tool:${tool.label}` : 'working', label: tool.label, pool: phrasePool(themedBot, PHRASES.working), state: tool.state ?? 'working' }
+          : { key: 'thinking', pool: phrasePool(themedBot, PHRASES.thinking), state: 'thinking' }
   const [shown, setShown] = useState(null)
   const wantKey = want?.key ?? null
   const markState = useRef('thinking')

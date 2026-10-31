@@ -11,6 +11,9 @@ import { join } from 'node:path'
 import { TEXT_KEPT } from './constants.js'
 import { headOf } from './text.js'
 
+const ASSIGNMENT_LIMIT = 40
+const ASSIGNMENT_KEPT_MS = 60_000
+
 const minutes = since => {
   const count = Math.floor((Date.now() - since) / 60_000)
   return count < 1 ? 'for less than a minute' : `for ${count} min`
@@ -208,6 +211,20 @@ export function install(rt) {
     return view
   }
 
+  // The work Bots were just given, newest first, for the client's court board: only the
+  // last minute and at most 40, so it stays cheap to send on every poll. An order to a
+  // group has `room` in place of `to`, and a Bot never assigns work to itself.
+  function assignmentsView(now = Date.now()) {
+    const given = []
+    for (const work of Object.values(works())) {
+      const { from, to, room, at } = work
+      if (from === undefined || from === to || typeof at !== 'number' || now - at > ASSIGNMENT_KEPT_MS) continue
+      if (to === undefined && room === undefined) continue
+      given.push(room === undefined ? { from, to, at } : { from, room, at })
+    }
+    return given.sort((one, other) => other.at - one.at).slice(0, ASSIGNMENT_LIMIT)
+  }
+
   // A deleted Bot answers no more work and waits for none.
   function forgetBot(botId) {
     const waiting = Object.entries(works()).filter(([, work]) => work.to === botId).map(([id]) => askedBy(id))
@@ -262,5 +279,5 @@ export function install(rt) {
     return lines.join('; ')
   }
 
-  Object.assign(rt, { workOf, openWork, closeWork, dropWork, takenWork: taken, ownsWork: owns, waitsWork: waits, holdWork: hold, workAsker: askedBy, answerText, upstreamOf, sameWork, forgetBotWork: forgetBot, statusOf, waitingView })
+  Object.assign(rt, { workOf, openWork, closeWork, dropWork, takenWork: taken, ownsWork: owns, waitsWork: waits, holdWork: hold, workAsker: askedBy, answerText, upstreamOf, sameWork, forgetBotWork: forgetBot, statusOf, waitingView, assignmentsView })
 }
