@@ -47,6 +47,8 @@ test('the chat face takes one of three avatar sizes; anything else reads as the 
 
 test('the name sits in a chip on the avatar edge, not in a row under it', () => {
   assert.match(ruleOf('.bt-pill-face'), /width:var\(--bt-avatar-px,46px\)/)
-  assert.match(ruleOf('.bt-pill-chip'), /margin-top:calc\(var\(--bt-avatar-px,46px\) \* -\.09\)/)
+  assert.match(ruleOf('.bt-pill-face'), /z-index:2/)
+  assert.match(ruleOf('.bt-pill-chip'), /margin-top:calc\(var\(--bt-avatar-px,46px\) \* -\.06\)/)
+  assert.match(ruleOf('.bt-pill-chip'), /justify-content:center/)
   assert.match(ruleOf('.bt-pill'), /flex-direction:column/)
 })
