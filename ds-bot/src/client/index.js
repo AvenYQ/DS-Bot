@@ -4,7 +4,7 @@ import { DEFAULT_MASK, SHAPES, markupCache, maskOf } from './characters.js'
 import { createSource, EMPTY_ROSTER, indexRoster, isAgentSession } from './sources.js'
 import { teamActions } from './team-actions.js'
 import { botChatColor, chatColorCss } from './chat-color.js'
-import { themeCss, shellTokens, registry, registerShape, registerTheme, allThemes, layoutOf, widthOf, flatWidthOf } from './themes.js'
+import { themeCss, shellTokens, registry, registerShape, registerTheme, allThemes, avatarPxOf, avatarSizeOf, layoutOf, widthOf, flatWidthOf } from './themes.js'
 import { MENTION_ORIGIN, currentPart } from './text.js'
 import { SHELL_CSS, CONVERSATION_CSS, installStyles, installCompiledStyles } from './styles.js'
 import { lookOf } from './mark.js'
@@ -356,6 +356,8 @@ export function apply(ctx) {
       document.body.dataset.btMotion = motion
       document.body.dataset.btCourt = prefs.court === false ? 'off' : 'on'
       document.body.dataset.btLayout = layout
+      document.body.dataset.btAvatar = avatarSizeOf(prefs)
+      document.body.style.setProperty('--bt-avatar-px', `${avatarPxOf(prefs)}px`)
       document.body.style.setProperty('--bt-msg-w', String(width / 100))
       document.body.style.setProperty('--bt-flat-w', String(flatWidth / 100))
       const next = `${id}|${accent ?? ''}|${motion}|${layout}|${width}|${flatWidth}|${registry.getSnapshot()}`
@@ -366,7 +368,7 @@ export function apply(ctx) {
       releaseTokens = ctx.theme.overrideTokens('ds-bot', shellTokens(themes[id]))
       if (typeof release === 'function') release()
       if (snapshot.ready) {
-        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court })) } catch { /* storage unavailable */ }
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court, avatarSize: prefs.avatarSize })) } catch { /* storage unavailable */ }
       }
     }
     render()
@@ -380,6 +382,8 @@ export function apply(ctx) {
       } finally {
         delete document.body.dataset.btMotion
         delete document.body.dataset.btLayout
+        delete document.body.dataset.btAvatar
+        document.body.style.removeProperty('--bt-avatar-px')
         document.body.style.removeProperty('--bt-msg-w')
         document.body.style.removeProperty('--bt-flat-w')
         style.remove()

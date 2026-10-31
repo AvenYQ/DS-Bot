@@ -127,3 +127,9 @@ export const layoutOf = prefs => (prefs?.layout === 'flat' ? 'flat' : 'bubble')
 export const thinkingShown = prefs => prefs?.thinking === true
 export const widthOf = prefs => percent(prefs?.width, 80)
 export const flatWidthOf = prefs => percent(prefs?.flatWidth, 100)
+
+// The avatar over a conversation, with its name in a chip tucked under it. Three sizes;
+// medium is the size Muse shows a sender at.
+export const AVATAR_SIZES = { small: 36, medium: 46, large: 56 }
+export const avatarSizeOf = prefs => (prefs?.avatarSize === 'small' || prefs?.avatarSize === 'large' ? prefs.avatarSize : 'medium')
+export const avatarPxOf = prefs => AVATAR_SIZES[avatarSizeOf(prefs)]

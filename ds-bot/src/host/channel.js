@@ -157,6 +157,11 @@ export function install(rt) {
       else if (body.layout === 'flat') state.prefs.layout = body.layout
       else throw invalid('Layout must be bubble or flat')
     }
+    if (body.avatarSize !== undefined) {
+      if (body.avatarSize === null || body.avatarSize === 'medium') delete state.prefs.avatarSize
+      else if (body.avatarSize === 'small' || body.avatarSize === 'large') state.prefs.avatarSize = body.avatarSize
+      else throw invalid('Chat avatar must be small, medium or large')
+    }
     if (body.width !== undefined) {
       if (body.width === null || body.width === 80) delete state.prefs.width
       else if (Number.isInteger(body.width) && body.width >= 50 && body.width <= 100) state.prefs.width = body.width

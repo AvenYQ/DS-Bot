@@ -525,6 +525,11 @@ var ZH = {
   "Message layout": "消息布局",
   Bubble: "气泡",
   Flat: "平铺",
+  "Chat avatar": "聊天头像",
+  "The avatar over a conversation, with its name in a chip under it.": "对话顶部的头像，名字压在下沿的小胶囊里。",
+  Small: "小",
+  Medium: "中",
+  Large: "大",
   "Bubble width": "气泡宽度",
   "Text width": "正文宽度",
   "Show thinking": "显示思考过程",
@@ -1978,6 +1983,9 @@ var layoutOf = (prefs) => prefs?.layout === "flat" ? "flat" : "bubble";
 var thinkingShown = (prefs) => prefs?.thinking === true;
 var widthOf = (prefs) => percent(prefs?.width, 80);
 var flatWidthOf = (prefs) => percent(prefs?.flatWidth, 100);
+var AVATAR_SIZES = { small: 36, medium: 46, large: 56 };
+var avatarSizeOf = (prefs) => prefs?.avatarSize === "small" || prefs?.avatarSize === "large" ? prefs.avatarSize : "medium";
+var avatarPxOf = (prefs) => AVATAR_SIZES[avatarSizeOf(prefs)];
 
 // src/client/chat-color.js
 var hex = (rgb) => `#${rgb.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
@@ -2724,11 +2732,16 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 .bt-dot-wait{background:var(--bt-star)}
 .bt-side-foot{display:flex;padding-top:8px}
 
-.bt-head{position:relative;display:flex;justify-content:center;align-items:center;height:40px;flex:none;pointer-events:none}
-.bt-pill{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;height:40px;padding:7.5px 13.5px 7.5px 7.5px;border-radius:999px;background:var(--bt-main);border:.5px solid var(--bt-line-2);box-shadow:0 2px 8px -1px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;max-width:70%;box-sizing:border-box;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
-.bt-pill:hover{background:color-mix(in srgb,var(--bt-main),#777 9%)}
-.bt-pill:active{transform:scale(.965)}
-.bt-pill-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.bt-head{position:relative;display:flex;justify-content:center;align-items:flex-start;height:auto;flex:none;pointer-events:none}
+/* The conversation's face: its avatar, with the name in a chip on the avatar's lower edge.
+   The avatar keeps the shape a Bot already has; only its size follows the preference. */
+.bt-pill{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:0;height:auto;padding:0;border:0;background:transparent;box-shadow:none;color:var(--bt-ink);font-family:inherit;font-size:14px;line-height:20px;cursor:pointer;max-width:70%;box-sizing:border-box;transition:transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-pill:active{transform:scale(.97)}
+.bt-pill-face{display:flex;flex:none;align-items:center;justify-content:center;width:var(--bt-avatar-px,46px);height:var(--bt-avatar-px,46px);transition:translate .16s ease-out}
+.bt-pill:hover .bt-pill-face{translate:0 -1px}
+.bt-pill-chip{display:flex;align-items:center;gap:6px;min-width:0;max-width:min(60vw,260px);margin-top:calc(var(--bt-avatar-px,46px) * -.09);padding:1px 10px;border-radius:999px;background:var(--bt-main);box-shadow:0 0 0 .5px var(--bt-line-2),0 2px 6px -2px rgba(0,0,0,.16);z-index:1;transition:background-color .12s ease}
+.bt-pill:hover .bt-pill-chip{background:color-mix(in srgb,var(--bt-main),#777 9%)}
+.bt-pill-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:12px;line-height:17px}
 .bt-pill-mem{flex:none;display:inline-flex;width:0;margin-left:-8px;overflow:hidden;transition:${spring(SPRING_SHAPE, "width", "margin-left")}}
 .bt-pill[data-memory=updated] .bt-pill-mem{width:var(--bt-mem-w);margin-left:0;transition:${spring(SPRING_STRETCH, "width", "margin-left")}}
 .bt-pill-mem-in{flex:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--bt-ink-2);font-size:13px;font-weight:500;opacity:0;filter:blur(6px);transform:translateX(-8px);transition:opacity .14s ease,filter .18s ease,${spring(SPRING_SHAPE, "transform")}}
@@ -3573,6 +3586,8 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 [data-conversation-scroll]{scrollbar-width:none!important;scrollbar-gutter:auto!important}
 [data-conversation-scroll]::-webkit-scrollbar{display:none;width:0;height:0}
 [class*="_scroll"]:has(> [class*="_column"]){padding:calc(60px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))!important}
+/* The largest face reaches lower; the transcript keeps its room. */
+body[data-bt-avatar=large] [class*="_scroll"]:has(> [class*="_column"]){padding-top:calc(84px + env(safe-area-inset-top,0px))!important}
 /* The shell's running status only hosts the activity row (.bt-typing). */
 [data-chat-running]{display:block!important;width:100%;min-height:0!important;margin:0!important;padding:0!important}
 [data-chat-running]>span:not([role=status]){display:none!important}
@@ -43389,6 +43404,7 @@ function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useSe
     };
   }, [Boolean(room2)]);
   const memoryNotice = !away && notice && changed !== null && roster.memory !== false;
+  const avatarPx = avatarPxOf(roster.prefs);
   return (0, import_react27.createElement)(
     "div",
     { className: "bt-head" },
@@ -43401,12 +43417,21 @@ function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useSe
         "data-memory": memoryNotice ? "updated" : void 0,
         "aria-label": away ? t("Back to chat") : memoryNotice ? t("Memory updated. Open {name}'s memory", { name: roster.byId[changed]?.name ?? name }) : t("View conversation details"),
         title: away ? name : void 0,
+        style: { "--bt-avatar-px": `${avatarPx}px` },
         onClick: () => away ? selectView("chat") : memoryNotice ? actions.openMemory(changed) : actions.toggleDetails(sessionId)
       },
-      bot ? (0, import_react27.createElement)(BotAvatar, { bot, size: 24, state: botState(running2, doing, roster.questions?.[currentPart(bot)] !== void 0), badge: false }) : room2 ? (0, import_react27.createElement)(RoomAvatar, { room: room2, roster, size: 24 }) : null,
-      (0, import_react27.createElement)("span", { className: "bt-pill-name" }, away ? t("Back to chat") : bot?.name ?? room2?.name ?? (title || t("New chat"))),
-      (0, import_react27.createElement)(MemoryNotice, { shown: memoryNotice }),
-      (0, import_react27.createElement)("span", { className: "bt-pill-go", "aria-hidden": true }, (0, import_react27.createElement)(GoArrow))
+      (0, import_react27.createElement)(
+        "span",
+        { className: "bt-pill-face" },
+        bot ? (0, import_react27.createElement)(BotAvatar, { bot, size: avatarPx, state: botState(running2, doing, roster.questions?.[currentPart(bot)] !== void 0), badge: false }) : room2 ? (0, import_react27.createElement)(RoomAvatar, { room: room2, roster, size: avatarPx }) : null
+      ),
+      (0, import_react27.createElement)(
+        "span",
+        { className: "bt-pill-chip" },
+        (0, import_react27.createElement)("span", { className: "bt-pill-name" }, away ? t("Back to chat") : bot?.name ?? room2?.name ?? (title || t("New chat"))),
+        (0, import_react27.createElement)(MemoryNotice, { shown: memoryNotice }),
+        (0, import_react27.createElement)("span", { className: "bt-pill-go", "aria-hidden": true }, (0, import_react27.createElement)(GoArrow))
+      )
     ),
     (0, import_react27.createElement)("span", { className: "bt-sr", role: "status" }, memoryNotice ? t("Memory updated") : ""),
     (0, import_react27.createElement)(NewMessagePills, { key: sessionId, sessionId, useSessions, useUi, useTurnClock }),
@@ -49181,6 +49206,7 @@ function SetRow({ label, hint, children, className = "" }) {
   );
 }
 var LAYOUTS = [["bubble", "Bubble"], ["flat", "Flat"]];
+var AVATARS = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]];
 function Choice({ label, value, options, pick: pick2 }) {
   return (0, import_react49.createElement)(Segmented, { label, value, className: "bt-look-seg" }, options.map(([id, text]) => (0, import_react49.createElement)("button", {
     key: id,
@@ -49291,6 +49317,11 @@ function GeneralPage({ roster, actions, run: run2 }) {
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
       layoutOf(prefs) === "flat" ? (0, import_react49.createElement)(SetRow, { label: t("Text width") }, (0, import_react49.createElement)(WidthSlider, { label: t("Text width"), value: flatWidthOf(prefs), save: (flatWidth) => run2(actions.setPrefs({ flatWidth })) })) : null,
       (0, import_react49.createElement)(SetRow, { label: t("Bubble width") }, (0, import_react49.createElement)(WidthSlider, { label: t("Bubble width"), value: widthOf(prefs), save: (width) => run2(actions.setPrefs({ width })) })),
+      (0, import_react49.createElement)(
+        SetRow,
+        { label: t("Chat avatar"), hint: t("The avatar over a conversation, with its name in a chip under it.") },
+        (0, import_react49.createElement)(Choice, { label: t("Chat avatar"), value: avatarSizeOf(prefs), options: AVATARS, pick: (id) => run2(actions.setPrefs({ avatarSize: id })) })
+      ),
       (0, import_react49.createElement)(SetRow, { label: t("Show thinking") }, (0, import_react49.createElement)(Switch, { label: t("Show thinking"), on: thinkingShown(prefs), onChange: (thinking) => run2(actions.setPrefs({ thinking })) }))
     ),
     actions.setSurface ? (0, import_react49.createElement)(
@@ -53397,6 +53428,8 @@ function apply(ctx) {
       document.body.dataset.btMotion = motion;
       document.body.dataset.btCourt = prefs.court === false ? "off" : "on";
       document.body.dataset.btLayout = layout;
+      document.body.dataset.btAvatar = avatarSizeOf(prefs);
+      document.body.style.setProperty("--bt-avatar-px", `${avatarPxOf(prefs)}px`);
       document.body.style.setProperty("--bt-msg-w", String(width / 100));
       document.body.style.setProperty("--bt-flat-w", String(flatWidth / 100));
       const next = `${id}|${accent ?? ""}|${motion}|${layout}|${width}|${flatWidth}|${registry.getSnapshot()}`;
@@ -53408,7 +53441,7 @@ function apply(ctx) {
       if (typeof release === "function") release();
       if (snapshot2.ready) {
         try {
-          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court }));
+          localStorage.setItem(PREFS_KEY, JSON.stringify({ theme: prefs.theme, accent: prefs.accent, motion: prefs.motion, layout: prefs.layout, width: prefs.width, flatWidth: prefs.flatWidth, thinking: prefs.thinking, chatColor: prefs.chatColor, court: prefs.court, avatarSize: prefs.avatarSize }));
         } catch {
         }
       }
@@ -53424,6 +53457,8 @@ function apply(ctx) {
       } finally {
         delete document.body.dataset.btMotion;
         delete document.body.dataset.btLayout;
+        delete document.body.dataset.btAvatar;
+        document.body.style.removeProperty("--bt-avatar-px");
         document.body.style.removeProperty("--bt-msg-w");
         document.body.style.removeProperty("--bt-flat-w");
         style.remove();
