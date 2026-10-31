@@ -58,7 +58,7 @@ test('sidebar Bot rows and cards show the same accessible seal', () => {
   viewport.innerWidth = 1280
   const bot = { id: 'writer', name: 'Writer', createdAt: 1 }
   const roster = { bots: [bot], rooms: [], agents: [], byId: { writer: bot }, ready: true, exchangeTurns: {}, questions: { writer: {} } }
-  const render = (wide, tile, approval) => {
+  const render = (wide, tile, approval, court = true) => {
     const rows = []
     const walk = node => {
       if (Array.isArray(node)) return node.forEach(walk)
@@ -68,7 +68,7 @@ test('sidebar Bot rows and cards show the same accessible seal', () => {
     }
     walk(TeamSidebar({
       useSidebarPref: pick => pick(wide ? 'open' : 'rail'),
-      actions: {}, useRoster: pick => pick({ ...roster, mainBotId: tile ? 'writer' : undefined }),
+      actions: {}, useRoster: pick => pick({ ...roster, prefs: court ? {} : { court: false }, mainBotId: tile ? 'writer' : undefined }),
       useUi: pick => pick({ unread: {} }), useRegistry: pick => pick({}),
       useSessions: pick => pick({ ids: [], byId: {} }), useUpdate: () => ({}),
       useSessionStatus: pick => pick(new Map()), useSessionRetainInfo: () => null,
@@ -89,13 +89,18 @@ test('sidebar Bot rows and cards show the same accessible seal', () => {
   }
   for (const [wide, tile] of [[true, false], [false, false], [true, true]]) {
     for (const approval of [false, true]) {
-      const nodes = render(wide, tile, approval)
-      const seal = nodes.filter(node => node.props?.className === 'bt-done')
-      assert.equal(seal.length, 1)
-      assert.equal(seal[0].props['data-kind'], approval ? 'approval' : 'question')
-      assert.equal(seal[0].props['aria-hidden'], true)
-      assert.equal(nodes.find(node => node.type?.name === 'BotAvatar').props.alertBadge, false)
-      assert.match(nodes.find(node => node.props?.['aria-label']?.includes('Writer')).props['aria-label'], approval ? /approval/ : /answer/)
+      for (const court of [true, false]) {
+        const nodes = render(wide, tile, approval, court)
+        const seal = nodes.filter(node => node.props?.className === 'bt-done')
+        assert.equal(seal.length, 1)
+        assert.equal(seal[0].props['data-kind'], approval ? 'approval' : 'question')
+        assert.equal(seal[0].props['aria-hidden'], true)
+        // The theme decides the shape, not whether the state is told.
+        assert.equal(seal[0].props['data-dot'], court ? undefined : '')
+        assert.equal(seal[0].props.children?.[0] ?? null, court ? (approval ? '批' : '询') : null)
+        assert.equal(nodes.find(node => node.type?.name === 'BotAvatar').props.alertBadge, false)
+        assert.match(nodes.find(node => node.props?.['aria-label']?.includes('Writer')).props['aria-label'], approval ? /approval/ : /answer/)
+      }
     }
   }
 })

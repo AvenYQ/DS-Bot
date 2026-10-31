@@ -13,6 +13,7 @@ import { liveStateOf, groupsOf, useDoneHold } from '../live-state.js'
 import { SealIcon } from './icons.js'
 import { castOf } from './state.js'
 import { SEALS } from './data.js'
+import { courtTheme } from '../sources.js'
 import { createCourtScene } from './scene.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
@@ -53,6 +54,8 @@ function useWorkingCount(useRoster, useSessionStatus, useWork) {
  * just the mark. It stays out of the account avatar's way either way.
  */
 export function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useWork }) {
+  const roster = useRoster(value => value)
+  const themed = courtTheme(roster)
   const count = useWorkingCount(useRoster, useSessionStatus, useWork)
   const [hover, setHover] = useState(false)
   const label = t('小朝廷值房')
@@ -62,6 +65,7 @@ export function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useW
       onClick: openCourtBoard,
     }, h(SealIcon, { size: 20, mono: true, small: true }))
   }
+  if (!themed) return null
   return h('div', {
     className: 'bt-cb-entry', 'data-open': hover ? 'true' : 'false',
     onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false),
@@ -95,6 +99,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const [broken, setBroken] = useState(false)
   const [rosterOpen, setRosterOpen] = useState(false)
   const selected = state.selected
+  // Nothing of the board outlives the theme: no scene, no card, no roster.
+  const themed = courtTheme(roster)
+  useEffect(() => { if (!themed && state.open) closeCourtBoard() }, [themed, state.open])
 
   // The cast, in sidebar order, from the same derivation the sidebar's rows use.
   const liveStates = useMemo(() => {
@@ -216,7 +223,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
 
   const cardId = useExitValue(state.open ? selected : null)
   const rosterVisible = useExitValue(state.open && rosterOpen ? 'open' : null)
-  if (!state.open) return null
+  // After every hook: turning the theme off unmounts the board without changing the hook order.
+  if (!themed || !state.open) return null
   const card = cardId === null ? null : cast.bots.find(item => item.bot.id === cardId) ?? null
   const clock = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`
   return createPortal(h('div', { className: 'bt-cb-pane', style: { left: paneLeft } },

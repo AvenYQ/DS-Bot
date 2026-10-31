@@ -139,7 +139,7 @@ export function install(rt) {
     if (body.court !== undefined) {
       if (body.court === false) state.prefs.court = false
       else if (body.court === true || body.court === null) delete state.prefs.court
-      else throw invalid('Court phrasing must be on or off')
+      else throw invalid('Theme must be on or off')
     }
     if (body.chatColor !== undefined) {
       if (body.chatColor === 'bot') state.prefs.chatColor = 'bot'

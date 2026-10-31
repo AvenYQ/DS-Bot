@@ -8,11 +8,12 @@ import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon
 import { MAIN_LOOK } from './characters.js'
 import { BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
 import { useBotLiveState } from './live-state.js'
+import { courtTheme } from './sources.js'
 import { CourtBoardEntry } from './court-board/index.js'
 import { reducedMotion } from './activity-row.js'
 import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
-import { springEasing, SPRING_SHAPE, useViewport, viewBottom } from './motion.js'
+import { springEasing, SPRING_POP, SPRING_SHAPE, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
 import { showsDshRow } from './dsh-offer.js'
 import { frameLayout, dragColumn, RAIL_WIDTH, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
@@ -29,7 +30,11 @@ function useMarkedUnread(id, active, marked, actions) {
 }
 
 const PinMark = () => h('span', { className: 'bt-pin', 'aria-hidden': true }, h(PinMarkIcon))
-const Seal = ({ kind }) => kind ? h('span', { key: kind, className: 'bt-done', 'data-kind': kind, 'aria-hidden': true }, { done: '办', approval: '批', question: '询' }[kind]) : null
+// The seal says what waits, in a seal's shape under the 小朝廷 theme and as a plain mark
+// without it: the three colours still tell finished, approval and question apart.
+const Seal = ({ kind, court = true }) => kind ? h('span', {
+  key: kind, className: 'bt-done', 'data-kind': kind, 'data-dot': court ? undefined : '', 'aria-hidden': true,
+}, court ? { done: '办', approval: '批', question: '询' }[kind] : null) : null
 
 // The rail shows a row's name only on hover; the wide list does so when the name is
 // cut, which only the laid-out row can tell, so it is measured as the pointer enters.
@@ -69,6 +74,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const { running, active, unread, doing, groups, away, waits, approval, question, seal } = live
   useMarkedUnread(id, active, marked, actions)
   const main = isMainOf(roster, id)
+  const court = courtTheme(roster)
   const tile = isPinned(roster, bot)
   const state = live.state
   // A Bot running in its own chat previews what it is doing, like a group's row.
@@ -87,7 +93,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
       type: 'button', className: 'bt-tile', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
       'data-bot-id': id, title: preview || bot.name, onClick: () => actions.openSession(id), onContextMenu,
     },
-    h('span', { className: 'bt-tile-avatar' }, h(BotAvatar, { bot, size: 60, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal })),
+    h('span', { className: 'bt-tile-avatar' }, h(BotAvatar, { bot, size: 60, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal, court })),
     h('span', { className: 'bt-tile-name' }, bot.name),
     bot.role ? h('span', { className: 'bt-chip' }, bot.role) : null))
   }
@@ -95,12 +101,12 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
     'data-bot-id': id, title: wide ? undefined : bot.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id), onContextMenu,
   },
-  wide ? h('span', { className: 'bt-row-avatar' }, h(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal }))
+  wide ? h('span', { className: 'bt-row-avatar' }, h(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal, court }))
     : h(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
   pinned && !wide ? h(PinMark) : null,
   // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
   !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
-  !wide ? h(Seal, { kind: seal }) : null,
+  !wide ? h(Seal, { kind: seal, court }) : null,
   wide ? h('span', { className: 'bt-row-body' },
     h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, bot.name), pinned ? h(PinMark) : null),
     runningLine ? h('span', { className: 'bt-row-preview' }, runningLine)
@@ -511,7 +517,10 @@ export function TeamSidebar(props) {
         groups.tiles.length > 0 ? h('span', { className: 'bt-rail-sep', 'aria-hidden': true }) : null)
   // The foot stands in for the shell's hidden footer: the account avatar, and on
   // the rail the new-chat button above it.
-  const courtEntry = h(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork })
+  // With the theme off there is no 值房图, so its entry goes too.
+  const courtEntry = courtTheme(roster)
+    ? h(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork })
+    : null
   const foot = wideContent
     ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), courtEntry)
     : h('div', { className: 'bt-leftcol-foot bt-leftcol-foot-rail' },
@@ -988,7 +997,14 @@ export const SIDEBAR_CSS = `
 .bt-busy i:nth-child(2){animation-delay:.15s}
 .bt-busy i:nth-child(3){animation-delay:.3s}
 @keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
-.bt-done{--bt-seal-color:var(--bt-cinnabar);flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-seal-color);border-radius:4px;color:var(--bt-seal-color);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;pointer-events:none;animation:bt-seal-arrive .32s ease-out both}
+.bt-done{--bt-seal-color:var(--bt-cinnabar);flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-seal-color);border-radius:4px;color:var(--bt-seal-color);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;pointer-events:none;animation:bt-seal-arrive ${SPRING_POP.duration}ms ${SPRING_POP.easing} both}
+/* Without the theme the state is a plain mark: same corner, same colour, no seal.
+   Each rule repeats the shape because the placement rules below come later and are
+   as specific as a bare [data-dot] one would be. */
+.bt-rail .bt-done[data-dot],.bt-tile-avatar .bt-done[data-dot],.bt-row-avatar .bt-done[data-dot]{border:0;border-radius:50%;margin:0;background:var(--bt-seal-color);box-shadow:0 0 0 1.5px var(--bt-sidebar);rotate:0deg;animation:none;font-size:0}
+.bt-rail .bt-done[data-dot]{left:calc(50% - 24px);bottom:2px;width:10px;height:10px}
+.bt-tile-avatar .bt-done[data-dot]{left:-2px;right:auto;bottom:0;width:10px;height:10px}
+.bt-row-avatar .bt-done[data-dot]{left:-1px;right:auto;bottom:1px;width:8px;height:8px}
 .bt-done[data-kind=approval]{--bt-seal-color:var(--bt-seal-approval)}
 .bt-done[data-kind=question]{--bt-seal-color:var(--bt-seal-question)}
 @keyframes bt-seal-arrive{0%{opacity:0;scale:1.22;translate:0 -2px}65%{opacity:1;scale:.96;translate:0 0}100%{opacity:1;scale:1;translate:0 0}}

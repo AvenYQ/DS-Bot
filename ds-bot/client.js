@@ -498,16 +498,16 @@ var ZH = {
   "Group chats": "群聊",
   Secrets: "密钥",
   Appearance: "外观",
-  Theme: "主题",
+  Colors: "配色",
   "Colors for the whole team, on every device.": "整个团队的配色，所有设备同步。",
   Accent: "强调色",
   "Unread marks, badges, and the brand mark.": "未读标记、徽标和品牌标志。",
   "Theme accent": "主题强调色",
   "Custom accent": "自定义强调色",
   "Chat color": "聊天配色",
-  "Court phrasing": "朝堂用语",
-  "What a Bot is doing reads like a court errand: 拟写文书, 打探消息.": "Bot 干活时的状态换成朝堂说法，比如「拟写文书」「打探消息」。",
-  "Court phrasing must be on or off": "朝堂用语只能打开或关闭",
+  "Theme": "主题",
+  "The 小朝廷 look: the seals on officials, the stamp on a reply, catchphrases, the 值房图 and court wording. Off leaves a plain Bot team.": "小朝廷外观：大臣印章、回复朱批、口头禅、值房图和朝堂用语。关闭后是普通的 Bot 团队。",
+  "Theme must be on or off": "主题只能打开或关闭",
   Approved: "已准",
   Rejected: "已驳回",
   Noted: "已阅",
@@ -1604,6 +1604,7 @@ function createSource(initial) {
 }
 var EMPTY_ROSTER = { revision: -1, mainBotId: null, mainBotIds: [], bots: [], rooms: [], agents: [], exchangeTurns: {}, questions: {}, btwCards: {}, sideChats: {}, learning: {}, secrets: [], capabilities: [], capabilityStatuses: {}, secretRequests: {}, models: [], defaultModel: null, modelsKey: null, prefs: {}, byId: {}, roomsById: {}, agentsById: {}, agentOf: {}, sections: [], ready: false };
 var isMainOf = (roster, id) => id !== void 0 && (roster.mainBotIds ?? []).includes(id);
+var courtTheme = (roster) => roster?.prefs?.court !== false;
 var isPinned = (roster, entry) => entry !== void 0 && (entry.id === roster.mainBotId ? entry.pinned !== false : entry.pinned === true);
 function indexRoster(value) {
   const byId = {};
@@ -8850,6 +8851,7 @@ function Bubbles({ texts: texts2, roster, selfId, actions, streaming, sessionId,
   );
 }
 function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, mentions, fold, picked, live, lead, whole, stamp }) {
+  const sealed = courtTheme(roster) ? stamp : null;
   const { shown, folded, control } = useFold(text, { limit: fold, whole, live });
   const key = msgKey ? `${msgKey}:${index}` : void 0;
   const body = (0, import_react20.createElement)(import_dsh_client_ui_primitives.MarkdownText, { text: linkMentions(shown, roster.bots, selfId), streaming: live, labels: mdLabels3(), variant: "compact", fileMentions: mentions });
@@ -8869,10 +8871,10 @@ function Bubble({ text, index, roster, selfId, actions, sessionId, msgKey, menti
       lead,
       (0, import_react20.createElement)(
         "div",
-        { className: "bt-bubble", "data-folded": folded || void 0, "data-stamped": stamp ? "" : void 0, "data-fresh": stamp?.fresh || void 0 },
+        { className: "bt-bubble", "data-folded": folded || void 0, "data-stamped": sealed ? "" : void 0, "data-fresh": sealed?.fresh || void 0 },
         control ? (0, import_react20.createElement)("div", { className: "bt-fold-body" }, body) : body,
         control,
-        stamp ? (0, import_react20.createElement)(Stamp, stamp) : null
+        sealed ? (0, import_react20.createElement)(Stamp, sealed) : null
       ),
       live ? null : (0, import_react20.createElement)(MessageTools, {
         text: folded ? text : shown,
@@ -40832,6 +40834,8 @@ function useWorkingCount(useRoster, useSessionStatus, useWork) {
   return count;
 }
 function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useWork }) {
+  const roster = useRoster((value) => value);
+  const themed = courtTheme(roster);
   const count = useWorkingCount(useRoster, useSessionStatus, useWork);
   const [hover, setHover] = (0, import_react23.useState)(false);
   const label = t("小朝廷值房");
@@ -40844,6 +40848,7 @@ function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useWork }) 
       onClick: openCourtBoard
     }, (0, import_react23.createElement)(SealIcon, { size: 20, mono: true, small: true }));
   }
+  if (!themed) return null;
   return (0, import_react23.createElement)(
     "div",
     {
@@ -40886,6 +40891,10 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const [broken, setBroken] = (0, import_react23.useState)(false);
   const [rosterOpen, setRosterOpen] = (0, import_react23.useState)(false);
   const selected = state.selected;
+  const themed = courtTheme(roster);
+  (0, import_react23.useEffect)(() => {
+    if (!themed && state.open) closeCourtBoard();
+  }, [themed, state.open]);
   const liveStates = (0, import_react23.useMemo)(() => {
     const live = [];
     for (const bot of roster.bots ?? []) {
@@ -41004,7 +41013,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   }, [state.open]);
   const cardId = useExitValue(state.open ? selected : null);
   const rosterVisible = useExitValue(state.open && rosterOpen ? "open" : null);
-  if (!state.open) return null;
+  if (!themed || !state.open) return null;
   const card = cardId === null ? null : cast.bots.find((item) => item.bot.id === cardId) ?? null;
   const clock4 = `${String(Math.floor(hour)).padStart(2, "0")}:${String(Math.floor(hour % 1 * 60)).padStart(2, "0")}`;
   return (0, import_react_dom2.createPortal)((0, import_react23.createElement)(
@@ -41289,10 +41298,11 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, us
   const relaying = tools.some((entry) => entry.relay);
   const visible = moveAt !== 0 || rowVisible({ running: running2, streaming, tools, relaying, bot, room: room2 });
   const tool = tools.at(-1);
+  const themedBot = courtTheme(roster) ? bot : void 0;
   const inputRef = (0, import_react24.useRef)(0);
   const inputAt = Math.max(inputRef.current, pendingInput);
   inputRef.current = inputAt;
-  const want = !visible ? null : moveAt !== 0 ? { key: "move", label: t("Switching working folder"), state: "thinking" } : inputAt > (tool?.at ?? 0) ? { key: `input:${inputAt}`, pool: phrasePool(bot, PHRASES.thinking), state: "thinking" } : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: phrasePool(bot, PHRASES.working), state: tool.state ?? "working" } : { key: "thinking", pool: phrasePool(bot, PHRASES.thinking), state: "thinking" };
+  const want = !visible ? null : moveAt !== 0 ? { key: "move", label: t("Switching working folder"), state: "thinking" } : inputAt > (tool?.at ?? 0) ? { key: `input:${inputAt}`, pool: phrasePool(themedBot, PHRASES.thinking), state: "thinking" } : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: phrasePool(themedBot, PHRASES.working), state: tool.state ?? "working" } : { key: "thinking", pool: phrasePool(themedBot, PHRASES.thinking), state: "thinking" };
   const [shown, setShown] = (0, import_react24.useState)(null);
   const wantKey = want?.key ?? null;
   const markState = (0, import_react24.useRef)("thinking");
@@ -41686,7 +41696,13 @@ function useMarkedUnread(id, active, marked, actions) {
   }, [active, marked]);
 }
 var PinMark = () => (0, import_react26.createElement)("span", { className: "bt-pin", "aria-hidden": true }, (0, import_react26.createElement)(PinMarkIcon));
-var Seal = ({ kind }) => kind ? (0, import_react26.createElement)("span", { key: kind, className: "bt-done", "data-kind": kind, "aria-hidden": true }, { done: "办", approval: "批", question: "询" }[kind]) : null;
+var Seal = ({ kind, court: court2 = true }) => kind ? (0, import_react26.createElement)("span", {
+  key: kind,
+  className: "bt-done",
+  "data-kind": kind,
+  "data-dot": court2 ? void 0 : "",
+  "aria-hidden": true
+}, court2 ? { done: "办", approval: "批", question: "询" }[kind] : null) : null;
 var nameIfCut = (event) => {
   const row = event.currentTarget;
   const name = row.querySelector(".bt-row-title");
@@ -41712,6 +41728,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   const { running: running2, active, unread, doing, groups, away, waits, approval, question, seal } = live;
   useMarkedUnread(id, active, marked, actions);
   const main = isMainOf(roster, id);
+  const court2 = courtTheme(roster);
   const tile = isPinned(roster, bot);
   const state = live.state;
   const runningLine = running2 && doing ? doingLine(doing, bot) : null;
@@ -41737,7 +41754,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
         onClick: () => actions.openSession(id),
         onContextMenu
       },
-      (0, import_react26.createElement)("span", { className: "bt-tile-avatar" }, (0, import_react26.createElement)(BotAvatar, { bot, size: 60, state, main, shared: true, alertBadge: false }), (0, import_react26.createElement)(Seal, { kind: seal })),
+      (0, import_react26.createElement)("span", { className: "bt-tile-avatar" }, (0, import_react26.createElement)(BotAvatar, { bot, size: 60, state, main, shared: true, alertBadge: false }), (0, import_react26.createElement)(Seal, { kind: seal, court: court2 })),
       (0, import_react26.createElement)("span", { className: "bt-tile-name" }, bot.name),
       bot.role ? (0, import_react26.createElement)("span", { className: "bt-chip" }, bot.role) : null
     ));
@@ -41755,11 +41772,11 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
       onClick: () => actions.openSession(id),
       onContextMenu
     },
-    wide ? (0, import_react26.createElement)("span", { className: "bt-row-avatar" }, (0, import_react26.createElement)(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), (0, import_react26.createElement)(Seal, { kind: seal })) : (0, import_react26.createElement)(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
+    wide ? (0, import_react26.createElement)("span", { className: "bt-row-avatar" }, (0, import_react26.createElement)(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), (0, import_react26.createElement)(Seal, { kind: seal, court: court2 })) : (0, import_react26.createElement)(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
     pinned && !wide ? (0, import_react26.createElement)(PinMark) : null,
     // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
     !wide && (running2 || away) ? (0, import_react26.createElement)("span", { className: "bt-busy", "aria-hidden": true }, (0, import_react26.createElement)("i"), (0, import_react26.createElement)("i"), (0, import_react26.createElement)("i")) : null,
-    !wide ? (0, import_react26.createElement)(Seal, { kind: seal }) : null,
+    !wide ? (0, import_react26.createElement)(Seal, { kind: seal, court: court2 }) : null,
     wide ? (0, import_react26.createElement)(
       "span",
       { className: "bt-row-body" },
@@ -42216,7 +42233,7 @@ function TeamSidebar(props) {
     groups.tiles.map((entry) => rowOf(entry)),
     groups.tiles.length > 0 ? (0, import_react26.createElement)("span", { className: "bt-rail-sep", "aria-hidden": true }) : null
   );
-  const courtEntry = (0, import_react26.createElement)(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork });
+  const courtEntry = courtTheme(roster) ? (0, import_react26.createElement)(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork }) : null;
   const foot = wideContent ? (0, import_react26.createElement)("div", { className: "bt-leftcol-foot" }, (0, import_react26.createElement)(AccountLauncher, { seat: false, actions, useRoster }), courtEntry) : (0, import_react26.createElement)(
     "div",
     { className: "bt-leftcol-foot bt-leftcol-foot-rail" },
@@ -42763,7 +42780,14 @@ var SIDEBAR_CSS = `
 .bt-busy i:nth-child(2){animation-delay:.15s}
 .bt-busy i:nth-child(3){animation-delay:.3s}
 @keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
-.bt-done{--bt-seal-color:var(--bt-cinnabar);flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-seal-color);border-radius:4px;color:var(--bt-seal-color);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;pointer-events:none;animation:bt-seal-arrive .32s ease-out both}
+.bt-done{--bt-seal-color:var(--bt-cinnabar);flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-seal-color);border-radius:4px;color:var(--bt-seal-color);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;pointer-events:none;animation:bt-seal-arrive ${SPRING_POP.duration}ms ${SPRING_POP.easing} both}
+/* Without the theme the state is a plain mark: same corner, same colour, no seal.
+   Each rule repeats the shape because the placement rules below come later and are
+   as specific as a bare [data-dot] one would be. */
+.bt-rail .bt-done[data-dot],.bt-tile-avatar .bt-done[data-dot],.bt-row-avatar .bt-done[data-dot]{border:0;border-radius:50%;margin:0;background:var(--bt-seal-color);box-shadow:0 0 0 1.5px var(--bt-sidebar);rotate:0deg;animation:none;font-size:0}
+.bt-rail .bt-done[data-dot]{left:calc(50% - 24px);bottom:2px;width:10px;height:10px}
+.bt-tile-avatar .bt-done[data-dot]{left:-2px;right:auto;bottom:0;width:10px;height:10px}
+.bt-row-avatar .bt-done[data-dot]{left:-1px;right:auto;bottom:1px;width:8px;height:8px}
 .bt-done[data-kind=approval]{--bt-seal-color:var(--bt-seal-approval)}
 .bt-done[data-kind=question]{--bt-seal-color:var(--bt-seal-question)}
 @keyframes bt-seal-arrive{0%{opacity:0;scale:1.22;translate:0 -2px}65%{opacity:1;scale:.96;translate:0 0}100%{opacity:1;scale:1;translate:0 0}}
@@ -48827,10 +48851,10 @@ function GeneralPage({ roster, actions, run: run2 }) {
       { key: "look", title: t("Appearance") },
       (0, import_react49.createElement)(
         SetRow,
-        { label: t("Theme"), hint: t("Colors for the whole team, on every device.") },
+        { label: t("Colors"), hint: t("Colors for the whole team, on every device.") },
         (0, import_react49.createElement)(
           "select",
-          { className: "bt-select", "aria-label": t("Theme"), value: current, onChange: (event) => run2(actions.setPrefs({ theme: event.target.value })) },
+          { className: "bt-select", "aria-label": t("Colors"), value: current, onChange: (event) => run2(actions.setPrefs({ theme: event.target.value })) },
           Object.entries(themes).map(([id, theme]) => (0, import_react49.createElement)("option", { key: id, value: id }, t(theme.label)))
         )
       ),
@@ -48870,8 +48894,8 @@ function GeneralPage({ roster, actions, run: run2 }) {
       ),
       (0, import_react49.createElement)(
         SetRow,
-        { label: t("Court phrasing"), hint: t("What a Bot is doing reads like a court errand: 拟写文书, 打探消息.") },
-        (0, import_react49.createElement)(Switch, { label: t("Court phrasing"), on: prefs.court !== false, onChange: (court2) => run2(actions.setPrefs({ court: court2 })) })
+        { label: t("Theme"), hint: t("The 小朝廷 look: the seals on officials, the stamp on a reply, catchphrases, the 值房图 and court wording. Off leaves a plain Bot team.") },
+        (0, import_react49.createElement)(Switch, { label: t("Theme"), on: prefs.court !== false, onChange: (court2) => run2(actions.setPrefs({ court: court2 })) })
       ),
       (0, import_react49.createElement)(SetRow, { label: t("Message layout") }, (0, import_react49.createElement)(Choice, { label: t("Message layout"), value: layoutOf(prefs), options: LAYOUTS, pick: (id) => run2(actions.setPrefs({ layout: id })) })),
       // The flat layout's text has a width of its own; the bubble width stays for the user's messages.
@@ -52406,6 +52430,10 @@ var COURT_BOARD_CSS = `
   .bt-cb-roster[data-closing]{animation:bt-cb-roster-out 180ms ease-in forwards}
   .bt-cb-state b.bt-cb-stamp,.bt-cb-row .s[data-kind=pending],.bt-cb-row .s[data-kind=question],.bt-cb-row .s[data-kind=done]{animation:bt-cb-stamp-in ${SPRING_POP.duration}ms ${SPRING_POP.easing}}
 }
+@media (prefers-reduced-motion:no-preference){
+  .bt-cb-entry,.bt-cb-rail-entry{animation:bt-cb-entry-in ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+}
+@keyframes bt-cb-entry-in{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes bt-cb-card-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
 @keyframes bt-cb-roster-in{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
 @keyframes bt-cb-card-out{to{opacity:0;transform:translateX(12px)}}
@@ -52977,6 +53005,7 @@ function apply(ctx) {
       const width = widthOf(prefs);
       const flatWidth = flatWidthOf(prefs);
       document.body.dataset.btMotion = motion;
+      document.body.dataset.btCourt = prefs.court === false ? "off" : "on";
       document.body.dataset.btLayout = layout;
       document.body.style.setProperty("--bt-msg-w", String(width / 100));
       document.body.style.setProperty("--bt-flat-w", String(flatWidth / 100));

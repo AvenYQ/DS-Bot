@@ -354,6 +354,7 @@ export function apply(ctx) {
       const width = widthOf(prefs)
       const flatWidth = flatWidthOf(prefs)
       document.body.dataset.btMotion = motion
+      document.body.dataset.btCourt = prefs.court === false ? 'off' : 'on'
       document.body.dataset.btLayout = layout
       document.body.style.setProperty('--bt-msg-w', String(width / 100))
       document.body.style.setProperty('--bt-flat-w', String(flatWidth / 100))

@@ -74,6 +74,10 @@ export const COURT_BOARD_CSS = `
   .bt-cb-roster[data-closing]{animation:bt-cb-roster-out 180ms ease-in forwards}
   .bt-cb-state b.bt-cb-stamp,.bt-cb-row .s[data-kind=pending],.bt-cb-row .s[data-kind=question],.bt-cb-row .s[data-kind=done]{animation:bt-cb-stamp-in ${SPRING_POP.duration}ms ${SPRING_POP.easing}}
 }
+@media (prefers-reduced-motion:no-preference){
+  .bt-cb-entry,.bt-cb-rail-entry{animation:bt-cb-entry-in ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+}
+@keyframes bt-cb-entry-in{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes bt-cb-card-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
 @keyframes bt-cb-roster-in{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
 @keyframes bt-cb-card-out{to{opacity:0;transform:translateX(12px)}}

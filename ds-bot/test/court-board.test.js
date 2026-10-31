@@ -18,6 +18,15 @@ const { liveStateOf, createDoneHold } = bundled.exports
 
 const bot = (over = {}) => ({ id: 'b1', name: '首辅·张居正', section: '内阁', avatar: { color: '#123456' }, ...over })
 
+test('the court theme is on unless the team turned it off', async () => {
+  const { courtTheme } = await import('../src/client/sources.js')
+  assert.equal(courtTheme(undefined), true)
+  assert.equal(courtTheme({}), true)
+  assert.equal(courtTheme({ prefs: {} }), true)
+  assert.equal(courtTheme({ prefs: { court: true } }), true)
+  assert.equal(courtTheme({ prefs: { court: false } }), false)
+})
+
 test('a Bot is matched to the official whose name it carries', () => {
   assert.equal(officialFor(bot()).id, 'zjz')
   assert.equal(officialFor(bot({ name: '户部尚书·和珅' })).id, 'hs')
