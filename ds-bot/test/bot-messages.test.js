@@ -590,6 +590,32 @@ test('a Bot\'s answer waits for the work it handed on, and carries what came bac
   assert.deepEqual(await worksIn(team), {})
 })
 
+test('the work payload carries the work just given, and nothing else changes', async (t) => {
+  const team = await start(threeBots())
+  t.after(team.stop)
+  const { call, home } = team
+  // A team that did nothing yet: the same six views, and an empty summary.
+  assert.deepEqual((await call('state', {})).value.work, {
+    bots: {}, rooms: {}, approvals: [], waiting: {}, turns: {}, steered: {}, assignments: [],
+  })
+  await handedOn(team)
+  const works = await worksIn(team)
+  const expected = Object.values(works)
+    .filter(work => work.from !== undefined && work.to !== undefined && work.from !== work.to)
+    .map(({ from, to, at }) => ({ from, to, at }))
+    .sort((one, other) => other.at - one.at)
+  const first = (await call('state', {})).value
+  const second = (await call('state', {})).value
+  assert.deepEqual(first.work.assignments, expected)
+  // A poll only reads: the works stay as they were, and the other views answer the same.
+  assert.equal(first.revision, second.revision)
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).works, works)
+  const { assignments: shown, ...rest } = first.work
+  const { assignments: again, ...later } = second.work
+  assert.deepEqual(rest, later)
+  assert.deepEqual(shown, again)
+})
+
 test('a Bot may take part in the same work again, but not message one that waits for its result', async (t) => {
   const team = await start(threeBots())
   t.after(team.stop)

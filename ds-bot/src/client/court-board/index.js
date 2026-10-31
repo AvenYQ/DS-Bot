@@ -14,7 +14,11 @@ import { SealIcon } from './icons.js'
 import { castOf } from './state.js'
 import { SEALS } from './data.js'
 import { courtTheme } from '../sources.js'
+import { decreeFor } from './decree.js'
 import { createCourtScene } from './scene.js'
+
+// scene.js ends a 宣旨 ceremony after six seconds and ignores one that starts before it.
+const CEREMONY_MS = 6000
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
 // React sees a new snapshot.
@@ -97,6 +101,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const scene = useRef(null)
   const hour = useHour()
   const [broken, setBroken] = useState(false)
+  const playedDecree = useRef({})
+  const decreeUntil = useRef(0)
+  const [decreeWake, setDecreeWake] = useState(0)
   const [rosterOpen, setRosterOpen] = useState(false)
   const selected = state.selected
   // Nothing of the board outlives the theme: no scene, no card, no roster.
@@ -213,6 +220,25 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   }, [state.open])
 
   useEffect(() => () => { scene.current?.dispose(); scene.current = null }, [])
+
+  // A 宣旨 while the board is open: the Main Bot takes the square when it handed work to
+  // several officials at once, or gave it to a group. One ceremony at a time: a batch that
+  // arrives during one waits for it to end, then plays.
+  const assignments = work?.assignments ?? []
+  useEffect(() => {
+    if (!state.open || scene.current === null) return undefined
+    const now = Date.now()
+    if (now < decreeUntil.current) {
+      const timer = setTimeout(() => setDecreeWake(wake => wake + 1), decreeUntil.current - now)
+      return () => clearTimeout(timer)
+    }
+    const next = decreeFor(assignments, roster.mainBotId, playedDecree.current, now)
+    if (next === null) return undefined
+    playedDecree.current = { ...playedDecree.current, [next.kind]: next.at }
+    decreeUntil.current = now + CEREMONY_MS
+    scene.current.decree({ from: next.from, to: next.to, ...(next.room === undefined ? {} : { room: next.room }) })
+    return undefined
+  }, [assignments, state.open, roster.mainBotId, decreeWake])
 
   useEffect(() => {
     if (!state.open) return undefined

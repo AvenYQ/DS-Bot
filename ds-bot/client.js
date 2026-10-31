@@ -10411,6 +10411,7 @@ function castOf({ roster, live, hour, phrase, words }) {
       title: official ? `${official.title}·${official.name}` : bot.name,
       dept: official?.dept ?? group,
       building: official?.b ?? own.building,
+      section: group,
       offset: official?.off ?? 0,
       robe: official?.robe ?? own.robe,
       hat: official?.hat ?? own.hat,
@@ -10420,6 +10421,25 @@ function castOf({ roster, live, hour, phrase, words }) {
     cards.push({ bot, official, court: court2, group });
   }
   return { people, bots: cards };
+}
+
+// src/client/court-board/decree.js
+var WINDOW_MS = 1e4;
+function decreeFor(assignments, mainBotId, playedAt = 0, now2 = Date.now()) {
+  if (!Array.isArray(assignments) || mainBotId === void 0) return null;
+  let newest = 0;
+  for (const entry of assignments) {
+    if (!entry || entry.from !== mainBotId) continue;
+    if (typeof entry.at !== "number" || now2 - entry.at > WINDOW_MS) continue;
+    if (entry.at > newest) newest = entry.at;
+  }
+  if (newest === 0 || newest <= playedAt) return null;
+  const fresh = assignments.filter((entry) => entry && entry.from === mainBotId && typeof entry.at === "number" && newest - entry.at <= WINDOW_MS && now2 - entry.at <= WINDOW_MS);
+  const room2 = fresh.find((entry) => entry.room !== void 0);
+  if (room2 !== void 0) return { at: newest, from: mainBotId, to: [], room: room2.room };
+  const to = [...new Set(fresh.map((entry) => entry.to).filter((id) => typeof id === "string" && id !== ""))];
+  if (to.length < 2) return null;
+  return { at: newest, from: mainBotId, to };
 }
 
 // node_modules/three/build/three.module.js
@@ -39830,9 +39850,9 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     b.d = b.d || 6;
     b.h = b.h || 3;
     BMAP[b.id] = b;
-    if (b.type === "oct") octPavilion(b);
-    else if (b.type === "tower") tower(b);
-    else hall(b);
+    b.group = b.type === "oct" ? octPavilion(b) : b.type === "tower" ? tower(b) : hall(b);
+    b.homeX = b.x;
+    b.homeZ = b.z;
   }
   const tb = BMAP.taihe, ty = tb.platY, tz = tb.z + tb.d / 2 + 1.9;
   add(statics, B(1.8, 0.6, 1.3), "#e3a92a", 0, ty + 0.3, tz);
@@ -39884,49 +39904,108 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     roof(top, 15.4, 7.2, 5.2, Y, 4.2);
     plaque(top, "午门", 0, 4.6, 2.12, 2.6);
   }
-  const wallSeg = (x0, z0, x1, z1) => {
+  let walls = null;
+  let moat = null;
+  const wallSeg = (parent, x0, z0, x1, z1, h52 = 4) => {
     const len = Math.hypot(x1 - x0, z1 - z0), hz = Math.abs(z1 - z0) > Math.abs(x1 - x0);
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    add(statics, hz ? B(1.2, 4, len) : B(len, 4, 1.2), RED, cx, 2, cz);
-    add(statics, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), "#e3a92a", cx, 4.25, cz);
-    add(statics, hz ? B(1.5, 0.4, len) : B(len, 0.4, 1.5), MARBLE, cx, 0.2, cz);
+    add(parent, hz ? B(1.2, h52, len) : B(len, h52, 1.2), RED, cx, h52 / 2, cz);
+    add(parent, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), "#e3a92a", cx, h52 + 0.25, cz);
+    add(parent, hz ? B(1.5, 0.4, len) : B(len, 0.4, 1.5), MARBLE, cx, 0.2, cz);
   };
-  wallSeg(-18, -56, 18, -56);
-  for (const s of [-1, 1]) {
-    wallSeg(18 * s, -56, 18 * s, -8);
-    wallSeg(18 * s, -4, 18 * s, 20);
-    wallSeg(18 * s, 24, 18 * s, 41);
-    wallSeg(13 * s, 41.4, 18 * s, 41.4);
-  }
-  wallSeg(-18, -24, -3, -24);
-  wallSeg(3, -24, 18, -24);
-  const gate = (x, z, ry) => {
+  const cornerTower = (parent, x, z) => {
     const g = new Group();
     g.position.set(x, 0, z);
-    g.rotation.y = ry;
+    parent.add(g);
+    add(g, B(6, 5, 6), RED, 0, 2.5, 0);
+    add(g, B(6.4, 0.5, 6.4), "#e3a92a", 0, 5.25, 0);
+    add(g, B(7, 0.3, 7), BAND, 0, 5.6, 0);
+    roof(g, 8.4, 8.4, 5.75, Y, 3);
+  };
+  const buildWalls = () => {
+    if (walls) dropGroup(walls);
+    walls = new Group();
+    scene.add(walls);
+    let minX = -18, maxX = 18, minZ = -56, maxZ = 41;
+    for (const b of buildings) {
+      minX = Math.min(minX, b.x - b.w / 2 - 4);
+      maxX = Math.max(maxX, b.x + b.w / 2 + 4);
+      minZ = Math.min(minZ, b.z - b.d / 2 - 5);
+      maxZ = Math.max(maxZ, b.z + b.foot / 2 + 6);
+    }
+    const gate = 8;
+    const bounds = { minX: minX - 4, maxX: maxX + 4, minZ: minZ - 4, maxZ: maxZ + 4 };
+    const { minX: x0, maxX: x1, minZ: z0, maxZ: z1 } = bounds;
+    wallSeg(walls, x0, z0, x1, z0);
+    wallSeg(walls, x0, z1, -gate, z1);
+    wallSeg(walls, gate, z1, x1, z1);
+    wallSeg(walls, x0, z0, x0, z1);
+    wallSeg(walls, x1, z0, x1, z1);
+    wallSeg(walls, x0, -24, -3, -24, 3.4);
+    wallSeg(walls, 3, -24, x1, -24, 3.4);
+    for (const [sx, sz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) cornerTower(walls, sx, sz);
+    if (moat) dropGroup(moat);
+    moat = new Group();
+    scene.add(moat);
+    const w = 6, pad2 = 9;
+    add(moat, B(x1 - x0 + pad2 * 2, 0.3, w), "#2f6f86", 0, -0.12, z0 - pad2);
+    add(moat, B(x1 - x0 + pad2 * 2, 0.3, w), "#2f6f86", 0, -0.12, z1 + pad2);
+    add(moat, B(w, 0.3, z1 - z0 + pad2 * 2), "#2f6f86", x0 - pad2, -0.12, 0);
+    add(moat, B(w, 0.3, z1 - z0 + pad2 * 2), "#2f6f86", x1 + pad2, -0.12, 0);
+    add(moat, B(9, 0.5, pad2 * 2 + 2), MARBLE, 0, 0.05, z1 + pad2);
+    return bounds;
+  };
+  buildWalls();
+  const YARDS = [
+    { x: 34, z: -14 },
+    { x: -34, z: -14 },
+    { x: 34, z: 8 },
+    { x: -34, z: 8 },
+    { x: 34, z: 28 },
+    { x: -34, z: 28 },
+    { x: 0, z: -48 },
+    { x: 20, z: -46 },
+    { x: -20, z: -46 }
+  ];
+  const layoutSections = (people) => {
+    const sections = [];
+    for (const person2 of people) {
+      const name = person2.section ?? "";
+      let entry = sections.find((item) => item.name === name);
+      if (!entry) {
+        entry = { name, ids: [] };
+        sections.push(entry);
+      }
+      if (person2.building !== void 0 && !entry.ids.includes(person2.building)) entry.ids.push(person2.building);
+    }
+    sections.forEach((entry, index) => {
+      const yard = YARDS[index % YARDS.length];
+      const wrappers = index >= YARDS.length ? Math.floor(index / YARDS.length) : 0;
+      const cx = yard.x + wrappers * 4;
+      const cz = yard.z + wrappers * 10;
+      const halls = entry.ids.map((id) => BMAP[id]).filter((b) => b && !b.palace);
+      halls.forEach((b, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        b.x = cx + (col === 0 ? -6.5 : 6.5);
+        b.z = cz - row * 11;
+        b.group.position.set(b.x, 0, b.z);
+        b.yard = { x: cx, z: cz };
+      });
+    });
+    for (const b of buildings) if (!b.yard && !b.palace) b.group.position.set(b.x, 0, b.z);
+    buildWalls();
+  };
+  {
+    const g = new Group();
+    g.position.set(0, 0, -24);
     statics.add(g);
     add(g, B(1.4, 4.8, 1.8), RED, -2.6, 2.4, 0);
     add(g, B(1.4, 4.8, 1.8), RED, 2.6, 2.4, 0);
     add(g, B(6.6, 0.9, 1.9), RED, 0, 4.4, 0);
     add(g, B(6.8, 0.35, 2.4), BAND, 0, 4.95, 0);
     roof(g, 8, 3.6, 5.1, Y, 2);
-  };
-  gate(0, -24, 0);
-  for (const s of [-1, 1]) {
-    gate(18 * s, -6, Math.PI / 2);
-    gate(18 * s, 22, Math.PI / 2);
   }
-  const cornerTower = (x, z) => {
-    const g = new Group();
-    g.position.set(x, 4.5, z);
-    statics.add(g);
-    add(g, B(3.4, 0.4, 3.4), MARBLE, 0, 0.2, 0);
-    add(g, B(2.6, 1.8, 2.6), RED, 0, 1.3, 0);
-    add(g, B(3.2, 0.35, 3.2), BAND, 0, 2.35, 0);
-    roof(g, 4.6, 4.6, 2.5, Y, 2.6);
-  };
-  cornerTower(-18, -56);
-  cornerTower(18, -56);
   octPavilion({ x: 0, z: -50, roof: "#3a8f95" }, 0.55);
   const tex = (fn, size = 256) => {
     const cv = document.createElement("canvas");
@@ -40181,6 +40260,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
   let minutes = 12 * 60;
   const tmp2 = new Vector3();
   const clock4 = new Clock();
+  const UP = new Vector3(0, 1, 0);
   const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const spareSpot = (index) => new Vector3(-11 + index % 10 * 2.4, 0, 50.5 + Math.floor(index / 10) * 2.6);
   const homeOf = (person2, index) => {
@@ -40396,14 +40476,33 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     return p;
   };
   const assignSlots = () => {
-    const next = { E: 0, W: 0 };
+    const rows2 = /* @__PURE__ */ new Map();
+    const centre = { x: 0, z: 6 };
     for (const p of cast) {
-      const side = p.side === "W" ? "W" : "E";
-      const index = next[side]++;
-      const sign2 = side === "E" ? 1 : -1;
-      p.slot = new Vector3(sign2 * (4.6 + index % 2 * 3.6), 0, 4.2 + Math.floor(index / 2) * 3.4);
+      const key = p.section ?? "";
       const b = BMAP[p.building];
-      p.zone = !b || Math.abs(b.x) < 15 ? "C" : b.x > 0 ? "E" : "W";
+      let entry = rows2.get(key);
+      if (!entry) {
+        const yard = b?.yard;
+        entry = { list: [], x: yard ? yard.x : 0, z: yard ? yard.z : -6 };
+        rows2.set(key, entry);
+      }
+      const target = b?.yard ?? centre;
+      entry.list.push(p);
+      entry.x = target.x;
+      entry.z = Math.min(entry.z, target.z);
+      const bx = b?.x ?? target.x;
+      p.zone = Math.abs(bx) < 15 ? "C" : bx > 0 ? "E" : "W";
+    }
+    for (const entry of rows2.values()) {
+      entry.list.forEach((p, i) => {
+        const perRow = 4;
+        const col = i % perRow;
+        const row = Math.floor(i / perRow);
+        const x = entry.x + (col - (perRow - 1) / 2) * 2.6;
+        const z = entry.z - 8 - row * 2.6;
+        p.slot = new Vector3(x, 0, z);
+      });
     }
   };
   const dropGroup = (group) => {
@@ -40420,12 +40519,14 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (p.el) p.el.remove();
       dropGroup(p.g);
       dropGroup(p.desk);
+      dropGroup(p.sign);
     }
     cast = [];
   };
   const setPeople = (list) => {
     dropCast();
     const rows2 = Array.isArray(list) ? list : [];
+    layoutSections(rows2);
     cast = rows2.map((raw, index) => {
       const p = normalize(raw, index);
       makeDesk(p);
@@ -40452,6 +40553,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
   };
   const select = (id) => {
     const p = person(id);
+    if (p) p.bowAt = tick;
     selectedId = p ? p.id : null;
     for (const other of cast) markTag(other, other === p);
     if (!p) marker.visible = false;
@@ -40477,10 +40579,139 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     }
     glide(tgt, tgt.clone().add(dir.multiplyScalar(narrow ? 34 : 28)));
   };
+  let lastTouch = performance.now();
   const onControlsStart = () => {
     fly = null;
+    lastTouch = performance.now();
   };
   controls.addEventListener("start", onControlsStart);
+  const plaza = new Vector3(0, 0, 8);
+  const plazaHalo = new Mesh(
+    new RingGeometry(3.2, 4.6, 56),
+    new MeshBasicMaterial({ color: 16766314, transparent: true, opacity: 0, depthWrite: false, side: DoubleSide })
+  );
+  plazaHalo.rotation.x = -Math.PI / 2;
+  plazaHalo.position.set(plaza.x, 0.06, plaza.z);
+  scene.add(plazaHalo);
+  let solemn = null;
+  const SIGN_INK = { done: "#c62f2f", pending: "#d99a2b", question: "#4a6f92" };
+  const makeSign = (b) => {
+    const g = new Group();
+    g.position.set(b.x, 0, b.z + b.foot / 2 + 2.2);
+    add(g, C(0.07, 0.07, 1.5, 5), "#5a4230", -0.5, 0.75, 0);
+    add(g, C(0.07, 0.07, 1.5, 5), "#5a4230", 0.5, 0.75, 0);
+    const plank = add(g, B(1.5, 0.5, 0.08), "#f3e7cd", 0, 1.25, 0);
+    scene.add(g);
+    g.visible = false;
+    return { group: g, plank };
+  };
+  const latestSign = (p, kind) => {
+    const b = BMAP[p.building];
+    const wants = kind === "done" || kind === "pending" || kind === "question";
+    if (!b || !wants) {
+      if (p.sign) p.sign.group.visible = false;
+      return;
+    }
+    p.sign ??= makeSign(b);
+    p.sign.group.visible = true;
+    p.sign.plank.material.color.set(SIGN_INK[kind]);
+  };
+  const clearSolemn = () => {
+    if (!solemn) return;
+    for (const timer of solemn.timers) clearTimeout(timer);
+    solemn = null;
+    plazaHalo.material.opacity = 0;
+  };
+  const makeScroll = (host) => {
+    const g = new Group();
+    g.position.set(0.34, 1.32, 0.2);
+    g.rotation.z = -0.5;
+    add(g, C(0.05, 0.05, 0.34, 6), "#7a5a3a", 0, 0, 0);
+    add(g, B(0.36, 1e-3, 0.06), "#f3e7cd", 0, 0.02, 0.02);
+    g.visible = false;
+    host.g.add(g);
+    return g;
+  };
+  const sparkle = (host, crowd) => {
+    const from = host.g.position.clone().add(new Vector3(0, 1.4, 0));
+    for (const target of crowd) {
+      const spark = new Mesh(new SphereGeometry(0.12, 6, 5), new MeshBasicMaterial({ color: 16766314 }));
+      spark.position.copy(from);
+      scene.add(spark);
+      const to = target.g.position.clone().add(new Vector3(0, 1.2, 0));
+      const started = performance.now();
+      const step = () => {
+        const k = Math.min(1, (performance.now() - started) / 700);
+        spark.position.lerpVectors(from, to, k);
+        spark.position.y += Math.sin(k * Math.PI) * 0.8;
+        if (k < 1 && running2) requestAnimationFrame(step);
+        else {
+          scene.remove(spark);
+          spark.geometry.dispose();
+          spark.material.dispose();
+        }
+      };
+      requestAnimationFrame(step);
+    }
+  };
+  const decree = ({ from, to, room: room2 } = {}) => {
+    const host = person(from);
+    if (!host || solemn) return;
+    const invited = Array.isArray(to) ? cast.filter((p) => to.includes(p.id)) : [];
+    const crowd = room2 !== void 0 ? cast.filter((p) => p !== host) : invited;
+    if (room2 === void 0 && invited.length < 2) return;
+    const timers = [];
+    solemn = { timers, phase: "gather" };
+    const later = (ms, fn) => timers.push(setTimeout(() => {
+      if (solemn) fn();
+    }, reduce ? Math.min(ms, 900) : ms));
+    host.path = [plaza.clone()];
+    host.mode = "decree-host";
+    crowd.forEach((p, i) => {
+      const perRow = 4;
+      const col = i % perRow, row = Math.floor(i / perRow);
+      p.path = [new Vector3(plaza.x + (col - (perRow - 1) / 2) * 2.5, 0, plaza.z + 4.5 + row * 2.4)];
+      p.mode = "decree-guest";
+      p.delay = reduce ? 0 : 0.1 * i;
+    });
+    for (const p of cast) {
+      if (p === host || crowd.includes(p)) continue;
+      p.path = [];
+      p.watch = plaza.clone();
+    }
+    later(1700, () => {
+      solemn.phase = "proclaim";
+      plazaHalo.material.opacity = 0.85;
+      host.scroll ??= makeScroll(host);
+      host.scroll.visible = true;
+      host.armR.position.y = 1.45;
+      host.g.rotation.y = Math.PI;
+    });
+    later(2900, () => {
+      solemn.phase = "bow";
+      for (const p of crowd) p.bowAt = tick;
+      host.bowAt = tick + 0.2;
+      if (!reduce) sparkle(host, crowd);
+    });
+    later(4200, () => {
+      solemn.phase = "disperse";
+      if (host.scroll) host.scroll.visible = false;
+      plazaHalo.material.opacity = 0;
+      host.path = [host.home.clone()];
+      host.mode = "toHome";
+      for (const p of crowd) {
+        p.path = [p.home.clone()];
+        p.mode = "toHome";
+      }
+    });
+    later(6e3, () => {
+      for (const p of cast) {
+        p.watch = null;
+        if (p.mode === "decree-host" || p.mode === "decree-guest") p.mode = "home";
+      }
+      clearSolemn();
+    });
+  };
   const V = (x, z) => new Vector3(x, 0, z);
   const route = (p) => {
     const h52 = p.home, s = p.slot, P = [];
@@ -40596,6 +40827,10 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       controls.target.lerpVectors(fly.ft, fly.tt, e);
       camera.position.lerpVectors(fly.fc, fly.tc, e);
       if (k >= 1) fly = null;
+    } else if (!solemn && !reduce && performance.now() - lastTouch > 2e4) {
+      const off = camera.position.clone().sub(controls.target);
+      off.applyAxisAngle(UP, dt * 0.05);
+      camera.position.copy(controls.target).add(off);
     }
     controls.target.x = Math.max(-70, Math.min(70, controls.target.x));
     controls.target.z = Math.max(-75, Math.min(70, controls.target.z));
@@ -40620,6 +40855,12 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
         }
       } else if (p.mode === "home") {
         if (kind === "idle") {
+          if (p.lifeAt === void 0) p.lifeAt = tick + 5 + rnd() * 9;
+          if (tick > p.lifeAt && !solemn) {
+            p.life = ["tea", "stretch", "doze"][Math.floor(rnd() * 3)];
+            p.lifeUntil = tick + 2.2;
+            p.lifeAt = tick + 9 + rnd() * 12;
+          }
           p.wt -= dt;
           if (!p.wander || p.wt <= 0) {
             const a = rnd() * Math.PI * 2, r = 0.8 + rnd() * 1.6;
@@ -40650,9 +40891,17 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       }
       if (!moving) {
         let face = null;
-        if (p.mode === "court") face = Math.PI;
+        if (p.watch) face = Math.atan2(p.watch.x - p.g.position.x, p.watch.z - p.g.position.z);
+        else if (p.mode === "court") face = Math.PI;
         else if (kind === "work" || kind === "alert" || kind === "error" || kind === "sleep" || kind === "waiting" || kind === "done" || kind === "pending" || kind === "question") face = 0;
         if (face !== null) p.rot = angLerp(p.rot, face, Math.min(1, dt * 5));
+      }
+      if (p.bowAt !== void 0) {
+        const k = (tick - p.bowAt) / 0.8;
+        if (k >= 1) {
+          p.bowAt = void 0;
+          p.body.rotation.x = 0;
+        } else if (k > 0) p.body.rotation.x = reduce ? 0 : Math.sin(k * Math.PI) * 0.42;
       }
       p.g.rotation.y = p.rot;
       const t2 = tick + p.phase, run2 = moving && spd > 3;
@@ -40676,6 +40925,19 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
         hz = Math.sin(t2 * 1.1) * 0.07;
       }
       if (kind !== "sleep") p.body.scale.y = 1;
+      if (p.life && tick < p.lifeUntil && !moving) {
+        const step = (p.lifeUntil - tick) / 2.2;
+        if (p.life === "tea") {
+          arz = 0.5;
+          hx = 0.12;
+        } else if (p.life === "stretch") {
+          hz = Math.sin(step * Math.PI * 2) * 0.18;
+          arz = 0.4;
+        } else if (p.life === "doze") {
+          hx = 0.34;
+          hz = 0.12;
+        }
+      } else if (p.life && tick >= p.lifeUntil) p.life = void 0;
       p.body.position.y = by;
       p.body.rotation.z = rz;
       p.head.rotation.x += (hx - p.head.rotation.x) * Math.min(1, dt * 6);
@@ -40693,6 +40955,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       p.ringMat.color.set(rc);
       p.ringMat.opacity = loud ? 0.55 + Math.sin(tick * 6) * 0.35 : kind === "work" ? 0.85 : kind === "court" || kind === "walk" || kind === "back" ? 0.6 : 0.35;
       p.ring.scale.setScalar(loud ? 1 + Math.sin(tick * 6) * 0.12 : 1);
+      latestSign(p, kind);
       const sealMap = sealTextures[p.live.kind];
       p.seal.visible = Boolean(sealMap);
       if (sealMap && p.seal.material.map !== sealMap) {
@@ -40794,6 +41057,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     flyTo,
     start,
     stop,
+    decree,
     resize,
     dispose,
     isRunning: () => running2
@@ -40889,6 +41153,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const scene = (0, import_react23.useRef)(null);
   const hour = useHour();
   const [broken, setBroken] = (0, import_react23.useState)(false);
+  const playedDecree = (0, import_react23.useRef)(0);
   const [rosterOpen, setRosterOpen] = (0, import_react23.useState)(false);
   const selected = state.selected;
   const themed = courtTheme(roster);
@@ -41000,6 +41265,14 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     scene.current?.dispose();
     scene.current = null;
   }, []);
+  const assignments = work?.assignments ?? [];
+  (0, import_react23.useEffect)(() => {
+    if (!state.open || scene.current === null) return;
+    const next = decreeFor(assignments, roster.mainBotId, playedDecree.current);
+    if (next === null) return;
+    playedDecree.current = next.at;
+    scene.current.decree({ from: next.from, to: next.to, ...next.room !== void 0 ? { room: next.room } : {} });
+  }, [assignments, state.open, roster.mainBotId]);
   (0, import_react23.useEffect)(() => {
     if (!state.open) return void 0;
     const onKey = (event) => {

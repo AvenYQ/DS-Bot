@@ -78,6 +78,7 @@ export function castOf({ roster, live, hour, phrase, words }) {
       title: official ? `${official.title}·${official.name}` : bot.name,
       dept: official?.dept ?? group,
       building: official?.b ?? own.building,
+      section: group,
       offset: official?.off ?? 0,
       robe: official?.robe ?? own.robe,
       hat: official?.hat ?? own.hat,

@@ -145,3 +145,24 @@ test('the cast dresses a known official from the table and an unknown Bot from i
   assert.equal(worded.building, 'gongbu')
   assert.equal(bots.length, 3)
 })
+
+test('a decree is staged for several named officials, once, inside ten seconds', async () => {
+  const { decreeFor } = await import('../src/client/court-board/decree.js')
+  const now = 1_000_000
+  const at = now - 2_000
+  const two = [{ from: 'chief', to: 'a', at }, { from: 'chief', to: 'b', at: at + 500 }]
+  assert.deepEqual(decreeFor(two, 'chief', 0, now), { at: at + 500, from: 'chief', to: ['a', 'b'] })
+  // one recipient is a hand-over, not a proclamation
+  assert.equal(decreeFor([two[0]], 'chief', 0, now), null)
+  // already staged
+  assert.equal(decreeFor(two, 'chief', at + 500, now), null)
+  // stale
+  assert.equal(decreeFor(two, 'chief', 0, at + 11_000), null)
+  // someone other than the Main Bot
+  assert.equal(decreeFor(two, 'other', 0, now), null)
+  // a group order outranks the named list
+  const room = [...two, { from: 'chief', room: 'r1', at: at + 600 }]
+  assert.deepEqual(decreeFor(room, 'chief', 0, now), { at: at + 600, from: 'chief', to: [], room: 'r1' })
+  // the same official named twice counts once
+  assert.equal(decreeFor([two[0], { from: 'chief', to: 'a', at: at + 100 }], 'chief', 0, now), null)
+})
