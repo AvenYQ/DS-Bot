@@ -15,7 +15,7 @@ const CLIENT = join(PLUGIN, 'src', 'client')
 export const DEBT = join(PLUGIN, 'test', 'style-debt.json')
 
 // The theme colors, the Bot colors and the generated characters.
-const PALETTES = new Set(['themes.js', 'inks.js', 'characters.js'])
+const PALETTES = new Set(['themes.js', 'inks.js', 'characters.js', 'data.js', 'scene.js'])
 export const RADII = ['0', '4px', '6px', '8px', '10px', '12px', '16px', '18px', '20px', '22px', '999px', '50%', 'inherit']
 
 const COLOR = /#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi
@@ -93,7 +93,7 @@ const steps = value => value.replace(/!important/g, '').replace(/\([^)]*\)/g, gr
 
 // Each check takes a file name and its code, and returns the values that skip the shared ones.
 export const checks = {
-  colors: (file, text) => (PALETTES.has(file) ? [] : [...colorLiterals(text)]
+  colors: (file, text) => (PALETTES.has(file.split('/').pop()) ? [] : [...colorLiterals(text)]
     .filter(({ value, index }) => !exempt(file, value, text, index))
     .map(({ value }) => value)),
   radii: (file, text) => [...text.matchAll(RADIUS)]

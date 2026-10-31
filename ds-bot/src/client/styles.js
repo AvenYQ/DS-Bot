@@ -13,7 +13,7 @@ import { SPRING_SHAPE, SPRING_TAP, SPRING_STRETCH, SPRING_POP, spring } from './
 // CONVERSATION_CSS re-skins the shell's own conversation DOM and styles what only
 // the conversation renders.
 export const SHELL_CSS = `
-body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;--bt-seal-ink:#2b2d31;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-star-ink:#ffffff;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-cinnabar:#c62f2f;--bt-paper:#fff8ec;--bt-seal-ink:#2b2d31;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 /* Text as Grok Bot sets it: the conversation one px larger than the shell's setting (15px
    by default, 24px lines), drawn with macOS's own smoothing instead of the thinner
    antialiased rendering, so Chinese reads fuller and crisper. The shell's size setting
@@ -22,7 +22,7 @@ body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-
 html body{--bt-text-size:calc(var(--dsh-content-font-size,14px) + 1px);--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 13px)!important;--dsw-font-markdown-base:var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-markdown-base-strong:600 var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-xxs-12:13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-12-font-size:13px!important;--dsw-font-xxs-12-line-height:19px!important;--dsw-font-xxs-strong-12:500 13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-strong-12-font-size:13px!important;--dsw-font-xxs-strong-12-line-height:19px!important;--dsw-font-xxxs-11:12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-11-font-size:12px!important;--dsw-font-xxxs-11-line-height:16px!important;--dsw-font-xxxs-strong-11:500 12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-strong-11-font-size:12px!important;--dsw-font-xxxs-strong-11-line-height:16px!important;-webkit-font-smoothing:auto!important}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
-body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-seal-ink:#d9d6cf}
+body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-paper:#f4e7cf;--bt-seal-ink:#d9d6cf}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join('')}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join('')}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
@@ -1016,6 +1016,11 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
    without its copy and branch row; a tail with nothing in it takes no room. */
 [data-turn-tail]>:not([data-slot="conversation.chat.turnTail"]){display:none!important}
 [class*="_flowItem"][data-chat-flow-kind="turn-tail"]:not(:has([data-slot="conversation.chat.turnTail"]:not(:empty))){display:none!important}
+/* A delivered file's card is as wide as its name, not the whole column (as in Grok Bot):
+   the description still fills the card and ellipses, but takes no width of its own. */
+[data-presented-files-row]{display:flex!important;flex-wrap:wrap;align-items:stretch;gap:10px}
+[data-presented-files-row]>[data-presented-file]{flex:0 1 auto!important;width:auto!important;min-width:0!important;max-width:100%!important}
+[data-presented-files-row]>[data-presented-file] [data-presented-description]{width:0!important;min-width:100%!important}
 /* Rhythm as in Grok Bot (process-groups.js marks the items): one speaker's bubbles 4px apart,
    every change of speaker 14px, either way round. */
 [data-chat-flow-kind=user],[data-chat-flow-kind=question-reply],[data-chat-flow-kind=command-input],[data-chat-flow] [data-submission-echo]{margin-top:14px!important}
@@ -1105,7 +1110,7 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 [data-composer-card] [class*="_trailing"]{gap:8px!important}
 /* No display here: DSH hides these controls with [hidden] while the Bot works. */
 [data-composer-card] [class*="_standardControls"]{align-items:center!important;gap:8px!important}
-[data-composer-card] button[class*="_primary"]{width:28px!important;height:28px!important;background:var(--bt-accent)!important;color:var(--bt-accent-ink,#fff)!important;border-radius:50%!important;transition:opacity .15s ease,${spring(SPRING_TAP, 'scale')};animation:bt-icon-swap ${SPRING_POP.duration}ms ${SPRING_POP.easing}}
+[data-composer-card] button[class*="_primary"]{width:28px!important;height:28px!important;background:var(--bt-accent)!important;color:var(--bt-accent-ink,#fff)!important;border-radius:50%!important;transform:none;transition:opacity .15s ease,${spring(SPRING_TAP, 'scale')};animation:bt-icon-swap ${SPRING_POP.duration}ms ${SPRING_POP.easing}}
 [data-composer-card] button[class*="_primary"]:hover:not(:disabled){opacity:.9}
 [data-composer-card] button[class*="_primary"]:active:not(:disabled){scale:.9}
 @keyframes bt-icon-swap{from{opacity:0;transform:scale(.5) rotate(-30deg)}}
