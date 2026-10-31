@@ -16,7 +16,7 @@ const { JSDOM } = createRequire(join(process.env.DSH_HARNESS ?? join(PLUGIN, '..
 // fixtures retain refs across commits and run their layout effects after each render.
 const { outputFiles } = await build({
   stdin: {
-    contents: "export { SHELL_CSS } from './src/client/styles.js'\nexport { SIDEBAR_CSS, TeamSidebar } from './src/client/sidebar.js'",
+    contents: "export { SHELL_CSS } from './src/client/styles.js'\nexport { SIDEBAR_CSS, TeamSidebar } from './src/client/sidebar.js'\nexport { liveStateOf } from './src/client/live-state.js'",
     resolveDir: PLUGIN,
   },
   bundle: true, format: 'cjs', platform: 'browser', write: false, logLevel: 'silent',
@@ -39,9 +39,66 @@ const viewport = { innerWidth: 1280 }
 runInNewContext(outputFiles[0].text, {
   module, exports: module.exports,
   require: name => (name === 'react' ? react : {}),
-  window: viewport,
+  window: viewport, setTimeout, clearTimeout,
 })
-const { SHELL_CSS, SIDEBAR_CSS, TeamSidebar } = module.exports
+const { SHELL_CSS, SIDEBAR_CSS, TeamSidebar, liveStateOf } = module.exports
+
+test('Bot seals distinguish approvals, questions and completed work', () => {
+  const input = { bot: { id: 'writer' }, roster: {} }
+  const state = extra => liveStateOf({ ...input, ...extra }).seal
+  assert.equal(state({ entry: { completionUnread: true } }), 'done')
+  assert.equal(state({ entry: { completionUnread: true }, active: true }), null)
+  assert.equal(state({ entry: { pendingInteraction: { kind: 'question' } } }), 'question')
+  assert.equal(state({ roster: { questions: { writer: {} } } }), 'question')
+  assert.equal(state({ entry: { pendingInteraction: { kind: 'other' } } }), null)
+  assert.equal(state({ approval: true, roster: { questions: { writer: {} } }, entry: { completionUnread: true } }), 'approval')
+})
+
+test('sidebar Bot rows and cards show the same accessible seal', () => {
+  viewport.innerWidth = 1280
+  const bot = { id: 'writer', name: 'Writer', createdAt: 1 }
+  const roster = { bots: [bot], rooms: [], agents: [], byId: { writer: bot }, ready: true, exchangeTurns: {}, questions: { writer: {} } }
+  const render = (wide, tile, approval) => {
+    const rows = []
+    const walk = node => {
+      if (Array.isArray(node)) return node.forEach(walk)
+      if (!node || typeof node !== 'object') return
+      if (node.type?.name === 'BotRow') rows.push(node)
+      walk(node.props?.children)
+    }
+    walk(TeamSidebar({
+      useSidebarPref: pick => pick(wide ? 'open' : 'rail'),
+      actions: {}, useRoster: pick => pick({ ...roster, mainBotId: tile ? 'writer' : undefined }),
+      useUi: pick => pick({ unread: {} }), useRegistry: pick => pick({}),
+      useSessions: pick => pick({ ids: [], byId: {} }), useUpdate: () => ({}),
+      useSessionStatus: pick => pick(new Map()), useSessionRetainInfo: () => null,
+      useActivity: pick => pick({}), useWork: pick => pick({ rooms: {}, approvals: approval ? [{ botId: 'writer' }] : [] }),
+    }))
+    const row = rows[0].type(rows[0].props)
+    const nodes = []
+    const expand = node => {
+      if (Array.isArray(node)) return node.forEach(expand)
+      if (!node || typeof node !== 'object') return
+      if (node.type?.name === 'BotAvatar') { nodes.push(node); return }
+      if (typeof node.type === 'function') return expand(node.type(node.props))
+      nodes.push(node)
+      expand(node.props?.children)
+    }
+    expand(row)
+    return nodes
+  }
+  for (const [wide, tile] of [[true, false], [false, false], [true, true]]) {
+    for (const approval of [false, true]) {
+      const nodes = render(wide, tile, approval)
+      const seal = nodes.filter(node => node.props?.className === 'bt-done')
+      assert.equal(seal.length, 1)
+      assert.equal(seal[0].props['data-kind'], approval ? 'approval' : 'question')
+      assert.equal(seal[0].props['aria-hidden'], true)
+      assert.equal(nodes.find(node => node.type?.name === 'BotAvatar').props.alertBadge, false)
+      assert.match(nodes.find(node => node.props?.['aria-label']?.includes('Writer')).props['aria-label'], approval ? /approval/ : /answer/)
+    }
+  }
+})
 
 function navigationSidebar(wide, { leftDrawer = false } = {}) {
   const calls = []

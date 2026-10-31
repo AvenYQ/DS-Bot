@@ -29,6 +29,7 @@ function useMarkedUnread(id, active, marked, actions) {
 }
 
 const PinMark = () => h('span', { className: 'bt-pin', 'aria-hidden': true }, h(PinMarkIcon))
+const Seal = ({ kind }) => kind ? h('span', { key: kind, className: 'bt-done', 'data-kind': kind, 'aria-hidden': true }, { done: '办', approval: '批', question: '询' }[kind]) : null
 
 // The rail shows a row's name only on hover; the wide list does so when the name is
 // cut, which only the laid-out row can tell, so it is measured as the pointer enters.
@@ -64,8 +65,8 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   // The chat's copy of the photo is made ahead, so opening the chat shows it at once.
   warmPhoto(bot.avatar?.image)
   const preview = useSessions(list => previewOf(list, part, roster.exchangeTurns[part]))
-  const live = useBotLiveState({ bot, roster, marked, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork })
-  const { running, active, unread, done, doing, groups, away, waits, approval, alert } = live
+  const live = useBotLiveState({ bot, roster, marked, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, confirmCompletion: actions.confirmCompletion })
+  const { running, active, unread, doing, groups, away, waits, approval, question, seal } = live
   useMarkedUnread(id, active, marked, actions)
   const main = isMainOf(roster, id)
   const tile = isPinned(roster, bot)
@@ -80,13 +81,13 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     actions.openMenu({ kind: 'bot', id, x: event.clientX, y: event.clientY })
   }
   const pinned = false
-  const label = [bot.name, main ? t('Main Bot') : '', pinned ? t('Pinned') : '', running || away ? t('Working') : '', waitsFor, approval ? t('Waiting for your approval') : alert ? t('Waiting for your answer') : '', unread ? t('Unread activity') : ''].filter(Boolean).join(', ')
+  const label = [bot.name, main ? t('Main Bot') : '', pinned ? t('Pinned') : '', running || away ? t('Working') : '', waitsFor, approval ? t('Waiting for your approval') : question ? t('Waiting for your answer') : '', unread ? t('Unread activity') : ''].filter(Boolean).join(', ')
   if (tile && wide) {
     return h('div', { className: 'bt-tile-wrap' }, h('button', {
       type: 'button', className: 'bt-tile', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
       'data-bot-id': id, title: preview || bot.name, onClick: () => actions.openSession(id), onContextMenu,
     },
-    h(BotAvatar, { bot, size: 60, state, main, shared: true }),
+    h('span', { className: 'bt-tile-avatar' }, h(BotAvatar, { bot, size: 60, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal })),
     h('span', { className: 'bt-tile-name' }, bot.name),
     bot.role ? h('span', { className: 'bt-chip' }, bot.role) : null))
   }
@@ -94,21 +95,20 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
     'data-bot-id': id, title: wide ? undefined : bot.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id), onContextMenu,
   },
-  h(BotAvatar, { bot, size: wide ? 36 : 44, state, main, shared: true }),
+  wide ? h('span', { className: 'bt-row-avatar' }, h(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal }))
+    : h(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
   pinned && !wide ? h(PinMark) : null,
   // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
   !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
-  !wide && done ? h('span', { className: 'bt-done', 'aria-hidden': true }, '办') : null,
+  !wide ? h(Seal, { kind: seal }) : null,
   wide ? h('span', { className: 'bt-row-body' },
     h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, bot.name), pinned ? h(PinMark) : null),
     runningLine ? h('span', { className: 'bt-row-preview' }, runningLine)
       : awayLine ? h('span', { className: 'bt-row-preview' }, awayLine)
         : waitsFor ? h('span', { className: 'bt-row-preview' }, waitsFor)
           : preview ? h('span', { className: 'bt-row-preview' }, preview) : null) : null,
-  wide && done ? h('span', { className: 'bt-done', 'aria-hidden': true }, '办')
-    : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
-      // On the rail a finished job shows its 办 seal; a question or other unread news its dot.
-      : !wide && !active && (alert || (unread && !done)) ? h('span', { className: `bt-dot${alert ? ' bt-dot-wait' : ''}`, 'aria-hidden': true }) : null)
+  wide && !seal && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
+    : !wide && !seal && !active && unread ? h('span', { className: 'bt-dot', 'aria-hidden': true }) : null)
 }
 
 function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
@@ -988,8 +988,15 @@ export const SIDEBAR_CSS = `
 .bt-busy i:nth-child(2){animation-delay:.15s}
 .bt-busy i:nth-child(3){animation-delay:.3s}
 @keyframes bt-busy-dot{0%,60%,100%{opacity:.35;translate:0 0}30%{opacity:1;translate:0 -1.5px}}
-.bt-done{flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-cinnabar);border-radius:4px;color:var(--bt-cinnabar);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;opacity:.9;pointer-events:none;animation:bt-stamp-down .45s cubic-bezier(.3,1.5,.5,1) both}
-.bt-rail .bt-done{position:absolute;top:28px;left:calc(50% + 7px);width:16px;height:16px;font-size:10px;background:var(--bt-sidebar)}
+.bt-done{--bt-seal-color:var(--bt-cinnabar);flex:none;display:grid;place-items:center;box-sizing:border-box;width:18px;height:18px;margin-right:1px;border:1.5px solid var(--bt-seal-color);border-radius:4px;color:var(--bt-seal-color);font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif;font-weight:900;font-size:11px;line-height:1;rotate:-10deg;pointer-events:none;animation:bt-seal-arrive .32s ease-out both}
+.bt-done[data-kind=approval]{--bt-seal-color:var(--bt-seal-approval)}
+.bt-done[data-kind=question]{--bt-seal-color:var(--bt-seal-question)}
+@keyframes bt-seal-arrive{0%{opacity:0;scale:1.22;translate:0 -2px}65%{opacity:1;scale:.96;translate:0 0}100%{opacity:1;scale:1;translate:0 0}}
+.bt-rail .bt-done{position:absolute;bottom:2px;left:calc(50% - 27px);width:16px;height:16px;font-size:10px;background:var(--bt-sidebar)}
+.bt-tile-avatar{position:relative;display:inline-flex}
+.bt-tile-avatar .bt-done{position:absolute;left:-4px;bottom:-2px;background:var(--bt-sidebar)}
+.bt-row-avatar{position:relative;display:inline-flex;flex:none}
+.bt-row-avatar .bt-done{position:absolute;left:-3px;bottom:-2px;width:14px;height:14px;margin:0;font-size:9px;background:var(--bt-sidebar)}
 /* Opening the sidebar: its rows ease in from the left while the column widens, a beat after
    the top row, instead of being uncovered as the column grows. */
 @keyframes bt-wide-in{from{opacity:0;transform:translateX(-10px)}}

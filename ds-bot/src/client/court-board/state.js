@@ -29,10 +29,11 @@ export const sleepsAt = hour => hour < 6.5 || hour >= 22.5
  *   interface's copy; the caller supplies them so this module stays copy-free
  * @param {{done?: string, waiting?: string}} [words]
  * @returns {{kind: string, text: string}} `kind` is one the scene paints: work, idle,
- *   sleep, alert, waiting, done, pending, court.
+ *   sleep, alert, waiting, done, pending, question, court.
  */
 export function courtStateOf(live, hour, phrase = () => '', words = {}) {
-  if (live.alert) return { kind: 'pending', text: '' }
+  if (live.approval) return { kind: 'pending', text: '' }
+  if (live.alert) return { kind: 'question', text: '' }
   if (live.away) return { kind: 'court', text: live.roomName ?? '' }
   if (live.running) return { kind: 'work', text: phrase(live) }
   if (live.done) return { kind: 'done', text: words.done ?? '' }

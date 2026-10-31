@@ -42,6 +42,7 @@ function themeVars(mode, dark, accent = mode.accent) {
     '--bt-hover': dark ? 'rgba(160,160,160,.12)' : 'rgba(119,119,119,.09)',
     '--bt-active': dark ? 'rgba(160,160,160,.2)' : 'rgba(119,119,119,.17)',
     '--bt-accent': accent, '--bt-accent-ink': accentInk(accent),
+    '--bt-seal-approval': dark ? '#e8b865' : '#94600e', '--bt-seal-question': dark ? '#78b8c8' : '#276c80',
     '--bt-user': mode.user, '--bt-user-ink': mode.userText,
     '--bt-tag-bg': rgba(mode.text, dark ? 0.09 : 0.06), '--bt-tag-ink': rgba(mode.text, 0.58),
   }

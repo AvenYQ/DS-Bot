@@ -9,9 +9,10 @@ import { workPhrase } from '../cells.js'
 import { ScheduleSummary } from '../schedules.js'
 import { currentPart, previewOf } from '../text.js'
 import { t } from '../i18n.js'
-import { liveStateOf, groupsOf } from '../live-state.js'
+import { liveStateOf, groupsOf, useDoneHold } from '../live-state.js'
 import { SealIcon } from './icons.js'
 import { castOf } from './state.js'
+import { SEALS } from './data.js'
 import { createCourtScene } from './scene.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
@@ -58,20 +59,21 @@ export function CourtBoardEntry({ wide = true, useRoster, useSessionStatus, useW
   if (!wide) {
     return h('button', {
       type: 'button', className: 'bt-cb-rail-entry', 'aria-label': label, title: label,
-      onClick: () => openCourtBoard(),
+      onClick: openCourtBoard,
     }, h(SealIcon, { size: 20, mono: true, small: true }))
   }
   return h('div', {
     className: 'bt-cb-entry', 'data-open': hover ? 'true' : 'false',
     onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false),
   },
-  h('span', { className: 'bt-cb-entry-pill', 'aria-hidden': true },
-    h('span', { className: 'bt-cb-entry-label' }, label),
-    count > 0 ? h('span', { className: 'bt-cb-entry-count' }, t('{count} 位当值', { count })) : null),
   h('button', {
     type: 'button', className: 'bt-cb-entry-btn', 'aria-label': label, title: label,
-    onClick: () => openCourtBoard(),
-  }, h(SealIcon, { size: 20, small: true })))
+    onClick: openCourtBoard,
+  },
+  h('span', { className: 'bt-cb-entry-copy', 'aria-hidden': true },
+    h('span', { className: 'bt-cb-entry-label' }, label),
+    count > 0 ? h('span', { className: 'bt-cb-entry-count' }, t('{count} 位当值', { count })) : null),
+  h('span', { className: 'bt-cb-entry-icon' }, h(SealIcon, { size: 20, small: true }))))
 }
 
 /**
@@ -95,35 +97,38 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const selected = state.selected
 
   // The cast, in sidebar order, from the same derivation the sidebar's rows use.
-  const cast = useMemo(() => {
-    const live = new Map()
+  const liveStates = useMemo(() => {
+    const live = []
     for (const bot of roster.bots ?? []) {
       if (!bot || bot.hidden) continue
       const waiting = work?.waiting?.[bot.id] ?? null
       const state = liveStateOf({
         bot, roster,
         entry: status?.get?.(currentPart(bot)),
-        active: false,
+        active: (sessions?.byId?.[currentPart(bot)]?.retainedBy?.mainView ?? 0) > 0,
         doing: activity?.[bot.id],
         approval: (work?.approvals ?? []).some(item => item.botId === bot.id),
         rooms: work?.rooms ?? {},
+        turn: work?.turns?.[currentPart(bot)] ?? null,
         waiting,
       })
       // The words the bubble and the card carry, from the same copy the sidebar uses.
       const waitsFor = [...(waiting?.bots ?? []).map(id => roster.byId?.[id]?.name), ...(waiting?.rooms ?? []).map(id => roster.roomsById?.[id]?.name)].filter(Boolean)
-      live.set(bot.id, {
+      live.push({
         ...state,
         bot,
         roomName: roster.roomsById?.[state.groups[0]?.id]?.name ?? '',
         waitsFor: waitsFor.length === 0 ? '' : t('Waiting for {names}', { names: waitsFor.join(t(' and ')) }),
       })
     }
-    return castOf({
-      roster, live, hour,
-      phrase: entry => `${workPhrase(entry.doing, entry.bot)}…`,
-      words: { done: t('已办') },
-    })
-  }, [roster, status, activity, work, hour])
+    return live
+  }, [roster, sessions, status, activity, work])
+  const heldStates = useDoneHold(liveStates, actions.confirmCompletion)
+  const cast = useMemo(() => castOf({
+    roster, live: new Map(heldStates.map(state => [state.bot.id, state])), hour,
+    phrase: entry => `${workPhrase(entry.doing, entry.bot)}…`,
+    words: { done: t('已办') },
+  }), [roster, heldStates, hour])
 
   // Choosing a conversation — from the sidebar or from the card — puts the board away.
   const mainId = useSessions(list => Object.values(list.byId ?? {}).find(session => (session?.retainedBy?.mainView ?? 0) > 0)?.id ?? null)
@@ -134,7 +139,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     else if (mainId !== openedOn.current) closeCourtBoard()
   }, [mainId, state.open])
 
-  // Build the world on the first open; keep it afterwards so reopening is instant.
+  // The stage is removed when closed, so its WebGL scene must be rebuilt on reopening.
   useEffect(() => {
     if (!state.open || scene.current !== null || stage.current === null) return undefined
     try {
@@ -154,7 +159,11 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     for (const person of cast.people) scene.current.setPersonState(person.id, person.state)
     scene.current.setTime(hour * 60)
     scene.current.start()
-    return undefined
+    const world = scene.current
+    return () => {
+      world.dispose()
+      if (scene.current === world) scene.current = null
+    }
   }, [state.open])
 
   // Feed the world while it is open. The cast is rebuilt only when the team changes;
@@ -205,8 +214,10 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return () => window.removeEventListener('keydown', onKey, true)
   }, [state.open])
 
+  const cardId = useExitValue(state.open ? selected : null)
+  const rosterVisible = useExitValue(state.open && rosterOpen ? 'open' : null)
   if (!state.open) return null
-  const card = selected === null ? null : cast.bots.find(item => item.bot.id === selected) ?? null
+  const card = cardId === null ? null : cast.bots.find(item => item.bot.id === cardId) ?? null
   const clock = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`
   return createPortal(h('div', { className: 'bt-cb-pane', style: { left: paneLeft } },
     h('div', { className: 'bt-cb-head' },
@@ -224,8 +235,19 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       h('div', { ref: stage, style: { position: 'absolute', inset: 0 } }),
       h('div', { ref: tags, className: 'bt-cb-tags' }),
       broken ? h('div', { className: 'bt-cb-broken' }, t('这台机器没有可用的 WebGL，值房图显示不出来；名册和官员卡片照常可用。')) : null,
-      card !== null ? h(OfficialCard, { item: card, sessions, actions }) : null,
-      rosterOpen ? h(RosterSheet, { bots: cast.bots, selected, onSelect: selectOfficial }) : null)), document.body)
+      card !== null ? h(OfficialCard, { item: card, sessions, actions, closing: selected === null }) : null,
+      rosterVisible ? h(RosterSheet, { bots: cast.bots, selected, closing: !rosterOpen, onSelect: id => { selectOfficial(id); scene.current?.flyTo(id) } }) : null)), document.body)
+}
+
+function useExitValue(value) {
+  const [retained, setRetained] = useState(value)
+  useEffect(() => {
+    if (value !== null) { setRetained(value); return undefined }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setRetained(null); return undefined }
+    const timer = setTimeout(() => setRetained(null), 180)
+    return () => clearTimeout(timer)
+  }, [value])
+  return value ?? retained
 }
 
 // The clock the board shows, in the officials' time zone; the sky follows it.
@@ -245,14 +267,14 @@ function nowHour() {
 }
 
 // The official's card: who he is, what he is doing now, his day, and the way to him.
-function OfficialCard({ item, sessions, actions }) {
+function OfficialCard({ item, sessions, actions, closing }) {
   const { bot, official, court } = item
   const part = currentPart(bot)
   const outline = sessions?.projectionsBySession?.[part]?.values?.turnOutline ?? sessions?.byId?.[part]?.projectionValues?.turnOutline
   const lines = Array.isArray(outline) ? outline.slice(-8).reverse() : []
   const preview = previewOf(sessions, part, [])
   const go = () => { closeCourtBoard(); actions.openSession(bot.id) }
-  return h('aside', { className: 'bt-cb-sheet bt-cb-card' },
+  return h('aside', { className: 'bt-cb-sheet bt-cb-card', 'data-closing': closing || undefined, inert: closing || undefined },
     h('div', { className: 'bt-cb-sheet-head' },
       h('span', { className: 'bt-cb-ava' }, h(BotAvatar, { bot, size: 40, state: 'idle' })),
       h('div', { className: 'bt-cb-who' },
@@ -260,8 +282,8 @@ function OfficialCard({ item, sessions, actions }) {
         h('div', { className: 'bt-cb-role' }, [official?.title ?? bot.role, official?.dept ?? bot.section].filter(Boolean).join(' · '))),
       h('button', { type: 'button', className: 'bt-cb-x', 'aria-label': t('关闭'), onClick: () => selectOfficial(null) }, '×')),
     h('div', { className: 'bt-cb-state', 'data-kind': court.kind },
-      h('b', null, stateWord(court.kind)),
-      court.kind === 'pending' ? t('等皇上定夺') : court.text || t('眼下没有差事')),
+      h('b', { key: court.kind, className: SEALS[court.kind] ? 'bt-cb-stamp' : undefined }, stateWord(court.kind)),
+      court.kind === 'pending' ? t('等皇上定夺') : court.kind === 'question' ? t('Waiting for your answer') : court.text || t('眼下没有差事')),
     official?.duty ? h('p', { className: 'bt-cb-desc' }, `${t('职掌')}：${official.duty}`) : null,
     h('div', { className: 'bt-cb-h' }, t('今日起居注')),
     lines.length === 0
@@ -278,10 +300,11 @@ function OfficialCard({ item, sessions, actions }) {
 const STATE_WORD = {
   work: '当值', idle: '候旨', sleep: '歇息', alert: '异常', waiting: '候', done: '已办', pending: '待批', court: '议事',
 }
-const stateWord = kind => t(STATE_WORD[kind] ?? '候旨')
+const stateWord = kind => SEALS[kind]?.word ?? t(STATE_WORD[kind] ?? '候旨')
+const stateLabel = kind => kind === 'question' ? t('Waiting for your answer') : t(STATE_WORD[kind] ?? '候旨')
 
 // The roster: every official in sidebar order, grouped as the sidebar groups them.
-function RosterSheet({ bots, selected, onSelect }) {
+function RosterSheet({ bots, selected, onSelect, closing }) {
   const groups = useMemo(() => {
     const order = []
     const map = new Map()
@@ -292,7 +315,7 @@ function RosterSheet({ bots, selected, onSelect }) {
     }
     return order.map(name => [name, map.get(name)])
   }, [bots])
-  return h('aside', { className: 'bt-cb-sheet bt-cb-roster' },
+  return h('aside', { className: 'bt-cb-sheet bt-cb-roster', 'data-closing': closing || undefined, inert: closing || undefined },
     h('div', { className: 'bt-cb-sheet-head' },
       h('div', { className: 'bt-cb-who' }, h('div', { className: 'bt-cb-name' }, t('名册')), h('div', { className: 'bt-cb-role' }, t('{count} 位', { count: bots.length })))),
     groups.map(([name, items]) => h('div', { className: 'bt-cb-grp', key: name },
@@ -303,5 +326,5 @@ function RosterSheet({ bots, selected, onSelect }) {
       },
       h('span', { className: 'd', style: { background: item.official?.robe ?? item.bot.avatar?.color ?? 'var(--bt-ink-2)' } }),
       h('span', { className: 'n' }, item.official ? item.official.name : item.bot.name),
-      h('span', { className: 's', 'data-kind': item.court.kind }, stateWord(item.court.kind)))))))
+      h('span', { key: item.court.kind, className: 's', 'data-kind': item.court.kind, title: stateLabel(item.court.kind), 'aria-label': stateLabel(item.court.kind) }, stateWord(item.court.kind)))))))
 }

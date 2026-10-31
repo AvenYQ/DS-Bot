@@ -7,6 +7,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { SEALS } from './data.js'
 
 // three r128 exports BufferGeometryUtils as a class and mergeBufferGeometries calls
 // this.mergeBufferAttributes, so the method cannot be called detached from the class.
@@ -64,8 +65,9 @@ const RING = {
   walk: '#d2452f',
   back: '#5b6aa8',
   waiting: '#c9bba8',
-  done: '#3f9a6b',
-  pending: '#c9bba8',
+  done: SEALS.done.color,
+  pending: SEALS.pending.color,
+  question: SEALS.question.color,
 }
 
 const sm = (a, b, x) => {
@@ -113,6 +115,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const camera = new THREE.PerspectiveCamera(narrow ? 50 : 40, first.w / first.h, 0.5, 700)
   camera.position.set(narrow ? 62 : 74, narrow ? 100 : 72, narrow ? 118 : 100)
   const controls = new OrbitControls(camera, canvas)
+  controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN
   controls.target.set(0, 0, -4)
   controls.enableDamping = true
   controls.dampingFactor = 0.08
@@ -736,21 +739,26 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   }
 
   /* ---------------- figures ---------------- */
-  // A cinnabar seal for the pending state, shared by every figure.
-  const sealTexture = () => {
+  // Textures are shared across figures and disposed with the scene.
+  const sealTexture = ({ word, color }) => {
     const cv = document.createElement('canvas')
-    cv.width = cv.height = 64
+    cv.width = cv.height = 128
     const c = cv.getContext('2d')
-    c.fillStyle = '#d2452f'
-    c.fillRect(6, 6, 52, 52)
-    c.strokeStyle = 'rgba(255,240,210,.75)'
-    c.lineWidth = 3
-    c.strokeRect(13, 13, 38, 38)
+    c.fillStyle = color
+    c.fillRect(8, 8, 112, 112)
+    c.strokeStyle = '#fff8ec'
+    c.lineWidth = 4
+    c.strokeRect(16, 16, 96, 96)
+    c.fillStyle = '#fff8ec'
+    c.font = 'bold 72px serif'
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillText(word, 64, 68)
     const t = new THREE.CanvasTexture(cv)
     t.anisotropy = maxAniso
     return t
   }
-  const SEAL = sealTexture()
+  const sealTextures = Object.fromEntries(Object.entries(SEALS).map(([kind, seal]) => [kind, sealTexture(seal)]))
 
   let cast = []
   let selectedId = null
@@ -830,7 +838,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     ring.rotation.x = -Math.PI / 2
     ring.position.y = 0.09
     g.add(ring)
-    const seal = new THREE.Sprite(new THREE.SpriteMaterial({ map: SEAL, transparent: true, depthWrite: false, rotation: -0.12 }))
+    const seal = new THREE.Sprite(new THREE.SpriteMaterial({ map: sealTextures.done, transparent: true, depthWrite: false, rotation: -0.12 }))
     seal.scale.set(0.55, 0.55, 1)
     seal.position.set(0, 2.9, 0)
     seal.visible = false
@@ -1031,7 +1039,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   const setPersonState = (id, live) => {
     const p = person(id)
     if (!p) return
-    p.live = { kind: live?.kind || 'idle', text: String(live?.text ?? '') }
+    const kind = live?.kind || 'idle'
+    if (kind !== p.live.kind && sealTextures[kind]) p.sealAt = tick
+    p.live = { kind, text: String(live?.text ?? '') }
     p.key = ''
   }
 
@@ -1043,6 +1053,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
   }
 
   const glide = (target, position, dur = 1.1) => {
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      fly = null
+      controls.target.copy(target)
+      camera.position.copy(position)
+      controls.update()
+      return
+    }
     fly = { t: 0, dur, ft: controls.target.clone(), tt: target, fc: camera.position.clone(), tc: position }
   }
 
@@ -1243,7 +1260,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
       if (!moving) {
         let face = null
         if (p.mode === 'court') face = Math.PI
-        else if (kind === 'work' || kind === 'alert' || kind === 'error' || kind === 'sleep' || kind === 'waiting' || kind === 'done' || kind === 'pending') face = 0
+        else if (kind === 'work' || kind === 'alert' || kind === 'error' || kind === 'sleep' || kind === 'waiting' || kind === 'done' || kind === 'pending' || kind === 'question') face = 0
         if (face !== null) p.rot = angLerp(p.rot, face, Math.min(1, dt * 5))
       }
       p.g.rotation.y = p.rot
@@ -1287,10 +1304,17 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
         : kind === 'work' ? 0.85
           : kind === 'court' || kind === 'walk' || kind === 'back' ? 0.6 : 0.35
       p.ring.scale.setScalar(loud ? 1 + Math.sin(tick * 6) * 0.12 : 1)
-      p.seal.visible = kind === 'pending'
+      const sealMap = sealTextures[p.live.kind]
+      p.seal.visible = Boolean(sealMap)
+      if (sealMap && p.seal.material.map !== sealMap) {
+        p.seal.material.map = sealMap
+        p.seal.material.needsUpdate = true
+      }
       if (p.seal.visible) {
-        p.seal.position.y = 2.9 + Math.sin(tick * 2.2 + p.phase) * 0.08
-        p.seal.material.rotation = -0.12 + Math.sin(tick * 1.1 + p.phase) * 0.08
+        const progress = reduce ? 1 : Math.min(1, Math.max(0, (tick - (p.sealAt ?? tick - 0.3)) / 0.3))
+        p.seal.position.y = 2.9 + (1 - progress) * 0.3
+        p.seal.material.rotation = -0.12
+        p.seal.material.opacity = progress
       }
       /* label */
       tmp.copy(p.g.position)
@@ -1366,7 +1390,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen }) {
     for (const t of textures) t.dispose()
     for (const m of materials) m.dispose()
     for (const g of geometries) g.dispose()
-    SEAL.dispose()
+    for (const texture of Object.values(sealTextures)) texture.dispose()
     scene.clear()
     renderer.dispose()
     renderer.forceContextLoss()

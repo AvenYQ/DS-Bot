@@ -10,6 +10,12 @@
 // stands in when the avatar has none.
 export const DEFAULT_ROBE = '#6f8aa6'
 
+export const SEALS = {
+  done: { word: '办', color: '#b83b2c' },
+  pending: { word: '批', color: '#a5680c' },
+  question: { word: '询', color: '#286b85' },
+}
+
 export const OFFICIALS = [
   { id: 'zjz', name: '张居正', title: '首辅', dept: '内阁', b: 'neige', off: -2, robe: '#3f7fd0', hat: 'wusha', side: 'E', duty: '总揽全局，维护总册与台账，皇上遇事不决时出主意' },
   { id: 'was', name: '王安石', title: '次辅', dept: '内阁', b: 'neige', off: 2, robe: '#b9485c', hat: 'wusha', side: 'E', duty: '对接本职：整车低压开关 DRE、知识库，派活给六部' },
