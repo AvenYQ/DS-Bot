@@ -3569,8 +3569,10 @@ header[class*="_header"] .bt-head{flex:1 1 auto;width:100%}
 [data-content-phase=hero] [class*="_composerHero"]{align-self:stretch!important;width:auto!important;padding-bottom:0!important}
 [data-content-phase=hero] [class*="_composerHero"]>[class$="_root"],[data-content-phase=hero] [class*="_heroWorkspaceRow"]{display:none!important}
 [data-content-phase=hero] [class*="_composerHero"] [class*="_input"]{min-height:0!important}
-/* The right sides give back the scrollbar gutter so both edges sit 16px from the column. */
-[class*="_scroll"]:has(> [class*="_column"]){padding:calc(60px + env(safe-area-inset-top,0px)) calc(11px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))!important}
+/* The native turn rail provides message navigation; hide only the chat scrollbar. */
+[data-conversation-scroll]{scrollbar-width:none!important;scrollbar-gutter:auto!important}
+[data-conversation-scroll]::-webkit-scrollbar{display:none;width:0;height:0}
+[class*="_scroll"]:has(> [class*="_column"]){padding:calc(60px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px))!important}
 /* The shell's running status only hosts the activity row (.bt-typing). */
 [data-chat-running]{display:block!important;width:100%;min-height:0!important;margin:0!important;padding:0!important}
 [data-chat-running]>span:not([role=status]){display:none!important}
@@ -3678,7 +3680,6 @@ body[data-bt-room] [data-composer-card]:has(button[class*="_primary"]:disabled) 
 .bt-mic-note{position:absolute;right:12px;bottom:calc(100% + 8px);padding:5px 10px;border-radius:8px;background:var(--bt-user);color:var(--bt-user-ink);font-size:12px;line-height:16px;white-space:nowrap;pointer-events:none;animation:bt-rise .16s ease-out}
 [data-chain-overlay-fallback="conversation.composer"]:has(~ .bt-q){display:block!important;order:2}
 .bt-q{order:1}
-div:has(> nav [class*="_marks"]){display:none!important}
 /* Every user-side bubble (sent, steering mid-turn, not yet admitted, question replies)
    takes its surface and its text from the one --bt-user pair: a skin that repaints
    the host's bubble surface alone would otherwise leave the text unreadable. */
