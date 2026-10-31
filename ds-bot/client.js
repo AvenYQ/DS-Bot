@@ -39976,6 +39976,39 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     }
     return { minX, maxX, minZ, maxZ };
   };
+  const clearFlats = () => {
+    for (const mesh of flats.children) mesh.geometry?.dispose();
+    flats.clear();
+  };
+  const buildGround = () => {
+    clearFlats();
+    const palaceX = 18, palaceZ0 = -58, palaceZ1 = 44;
+    pave.geometry.dispose();
+    pave.geometry = new PlaneGeometry(palaceX * 2 + 4, palaceZ1 - palaceZ0);
+    pave.position.set(0, 0.03, (palaceZ0 + palaceZ1) / 2);
+    paveT.repeat.set((palaceX * 2 + 4) / 4, (palaceZ1 - palaceZ0) / 4);
+    const byYard = /* @__PURE__ */ new Map();
+    for (const b of buildings) {
+      if (!b.yard) continue;
+      const key = `${b.yard.x}:${b.yard.z}`;
+      const entry = byYard.get(key) ?? { x: b.yard.x, z: b.yard.z, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+      entry.minX = Math.min(entry.minX, b.x - b.w / 2 - 3);
+      entry.maxX = Math.max(entry.maxX, b.x + b.w / 2 + 3);
+      entry.minZ = Math.min(entry.minZ, b.z - b.d / 2 - 3);
+      entry.maxZ = Math.max(entry.maxZ, b.z + b.foot / 2 + 5);
+      byYard.set(key, entry);
+    }
+    for (const entry of byYard.values()) {
+      const w = entry.maxX - entry.minX, d = entry.maxZ - entry.minZ;
+      flat(w, d, (entry.minX + entry.maxX) / 2, (entry.minZ + entry.maxZ) / 2, ROAD, 0.04);
+      const sign2 = Math.sign(entry.x) || 1;
+      const mouth = Math.abs(entry.x) - 21;
+      if (mouth > 1) flat(mouth, 3.2, sign2 * (21 + mouth / 2), (entry.minZ + entry.maxZ) / 2);
+    }
+    flat(3.2, palaceZ1 - palaceZ0, 0, (palaceZ0 + palaceZ1) / 2, "#f5efe2", 0.07);
+    for (const s of [-1, 1]) flat(3.2, palaceZ1 - palaceZ0, 21 * s, (palaceZ0 + palaceZ1) / 2);
+    flat(28, 18, 0, 52, ROAD);
+  };
   const buildWalls = () => {
     if (walls) dropGroup(walls);
     walls = new Group();
@@ -40001,6 +40034,7 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     add(moat, B(w, 0.3, z1 - z0 + pad2 * 2), "#2f6f86", x0 - pad2, -0.12, 0);
     add(moat, B(w, 0.3, z1 - z0 + pad2 * 2), "#2f6f86", x1 + pad2, -0.12, 0);
     add(moat, B(9, 0.5, pad2 * 2 + 2), MARBLE, 0, 0.05, z1 + pad2);
+    buildGround();
     return bounds;
   };
   buildWalls();
@@ -40038,8 +40072,9 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       const raw = cityBounds();
       const cx = (raw.minX + raw.maxX) / 2, cz = (raw.minZ + raw.maxZ) / 2;
       const span = Math.max(raw.maxX - raw.minX, raw.maxZ - raw.minZ);
+      const fit2 = Math.min(span, 150);
       controls.target.set(cx, 0, cz);
-      camera.position.set(cx + span * 0.55, span * 0.62, cz + span * 0.62);
+      camera.position.set(cx + fit2 * 0.5, fit2 * 0.56, cz + fit2 * 0.58);
       controls.update();
     }
   };
@@ -40090,8 +40125,8 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
       c.stroke();
     }
   });
-  paveT.repeat.set(36 / 4, 98 / 4);
-  const pave = new Mesh(new PlaneGeometry(36, 98), new MeshToonMaterial({ color: 16777215, map: paveT, gradientMap: gm }));
+  const paveMat = new MeshToonMaterial({ color: 16777215, map: paveT, gradientMap: gm });
+  const pave = new Mesh(new PlaneGeometry(36, 98), paveMat);
   pave.rotation.x = -Math.PI / 2;
   pave.position.set(0, 0.03, -7);
   pave.receiveShadow = true;
@@ -40102,17 +40137,6 @@ function createCourtScene({ container, tags, onSelect, onOpen }) {
     m.receiveShadow = true;
     flats.add(m);
   };
-  flat(3.2, 46, 0, 19, "#f5efe2", 0.07);
-  flat(28, 18, 0, 52, ROAD);
-  for (const s of [-1, 1]) {
-    flat(3.2, 100, 21 * s, -8);
-    for (const b of buildings.filter((b2) => b2.x * s > 15)) flat(b.w + 6, b.foot + 9, b.x, b.z + 3);
-    for (const z of [-6, 22]) flat(6, 3.2, 18 * s, z);
-  }
-  for (const b of buildings.filter((b2) => Math.abs(b2.x) > 15)) {
-    const hz = b.z + b.foot / 2 + 3.2 + 3;
-    flat(Math.abs(b.x) - 19 + 5, 3, (Math.abs(b.x) - 19 + 5) / 2 * Math.sign(b.x) + 19 * Math.sign(b.x), hz);
-  }
   {
     const f = (x) => 31.5 - x * x / 70;
     const pts = [];
