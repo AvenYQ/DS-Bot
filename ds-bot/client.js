@@ -43136,21 +43136,22 @@ function FooterAccount(props) {
   if (seated) return null;
   return (0, import_react26.createElement)("span", { className: "bt-foot-account" }, (0, import_react26.createElement)(AccountLauncher, { ...props, seat: false }));
 }
-function BotReturn({ wide, useSurface, actions }) {
+function BotReturn({ useSurface, actions, quiet = false }) {
   const mode = useSurface((value) => value.mode);
   if (mode !== "agent") return null;
   return (0, import_react26.createElement)(
     "button",
-    { type: "button", className: "bt-return", "aria-label": t("DeepSeek Bot"), title: t("DeepSeek Bot"), onClick: () => actions.setSurface("bot") },
-    (0, import_react26.createElement)(SealIcon, { size: 22, mono: true, small: true }),
-    wide ? (0, import_react26.createElement)("span", { className: "bt-return-name" }, t("DeepSeek Bot")) : null
+    { type: "button", className: quiet ? "bt-return bt-return-quiet" : "bt-return", "aria-label": t("DeepSeek Bot"), title: t("DeepSeek Bot"), onClick: () => actions.setSurface("bot") },
+    (0, import_react26.createElement)(SealIcon, { size: 18, mono: true, small: true })
   );
 }
 var RETURN_CSS = `
-.bt-return{display:flex;align-items:center;justify-content:flex-start;gap:10px;box-sizing:border-box;width:100%;height:36px;padding:0 10px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-return,.bt-return-square{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;flex:none;width:28px;height:28px;margin:0 0 0 2px;padding:0;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+/* In the rail the square sits on the rail's own column of round buttons, so it keeps
+   their alignment but a panel glyph's hover: a highlight, not another circle. */
+.bt-return-quiet{color:var(--bt-ink-3)}
 .bt-return:hover{background:rgba(127,127,127,.14)}
 .bt-return:active{transform:scale(.96)}
-.bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 /* Agent mode has none of the court styles, so the mark's own outline is pinned here. */
 :is(.bt-return,.bt-panel-icon) .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
 .bt-panel-icon .bt-cb-seal{transform:scale(1.25)}
@@ -54006,25 +54007,21 @@ function apply(ctx) {
     () => shadow("conversation.input.dock", { id: "bot-learning", order: 850, priority: BOT_PRIORITY, inject: face }, LearningDock)
   ];
   ctx.effect(() => installCompiledStyles(RETURN_CSS, "return"), "ds-bot: return styles");
-  const CourtPanelIcon = (owner = {}) => (0, import_react57.createElement)("span", { className: "bt-panel-icon" }, (0, import_react57.createElement)(SealIcon, { size: owner.size ?? 16, mono: true, small: true }));
-  const CourtPanelEntry = () => {
+  const CourtIcon = ({ size = 16 } = {}) => (0, import_react57.createElement)("span", { className: "bt-panel-icon" }, (0, import_react57.createElement)(SealIcon, { size, mono: true, small: true }));
+  const CourtLanding = () => {
     (0, import_react57.useEffect)(() => {
+      ctx.layout.selectPanel(null);
       actions.setSurface("bot");
-      try {
-        ctx.get("layout")?.selectPanel?.(null);
-      } catch (error) {
-        quietly("panel")(error);
-      }
     }, []);
     return null;
   };
   ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
     name: "sidebar.panellist",
     id: "deepseek-bot",
-    order: 6,
+    order: 8,
     label: () => "DeepSeek Bot"
-  }, CourtPanelIcon));
-  ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: "deepseek-bot" }, CourtPanelEntry));
+  }, CourtIcon));
+  ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: "deepseek-bot" }, CourtLanding));
   ctx.effect(() => {
     let previous;
     const sync = () => {
