@@ -16,7 +16,7 @@ const { JSDOM } = createRequire(join(process.env.DSH_HARNESS ?? join(PLUGIN, '..
 // fixtures retain refs across commits and run their layout effects after each render.
 const { outputFiles } = await build({
   stdin: {
-    contents: "export { SHELL_CSS } from './src/client/styles.js'\nexport { SIDEBAR_CSS, TeamSidebar } from './src/client/sidebar.js'\nexport { liveStateOf } from './src/client/live-state.js'",
+    contents: "export { SHELL_CSS } from './src/client/styles.js'\nexport { SIDEBAR_CSS, RETURN_CSS, TeamSidebar } from './src/client/sidebar.js'\nexport { liveStateOf } from './src/client/live-state.js'",
     resolveDir: PLUGIN,
   },
   bundle: true, format: 'cjs', platform: 'browser', write: false, logLevel: 'silent',
@@ -491,10 +491,9 @@ test('the Bot footer lays out the account, another plugin\'s entry and the setti
   assert.equal(columnOf(document.querySelector('.x_settingsArea')), '3')
 })
 
-// #452: the Connect plugins button left the footer; what DS Bot puts there is
-// the account menu and the way back from Agent mode.
-test('the Bot footer holds the account and the return button only', () => {
+test('the Bot panel sits between design and schedules and opens its landing', () => {
   const source = readFileSync(new URL('../src/client/index.js', import.meta.url), 'utf8')
-  const ids = [...source.matchAll(/shadow\('sidebar\.footer\.action',\s*\{[^}]*?id:\s*['"]([^'"]+)['"]/g)].map(match => match[1])
-  assert.deepEqual(ids.sort(), ['bot-account', 'bot-return'])
+  assert.match(source, /id:\s*'deepseek-bot',\s*order:\s*8/)
+  assert.match(source, /key: 'deepseek-bot' \}, CourtLanding\)/)
+  assert.match(source, /const CourtLanding = \(\) => \{[\s\S]*?selectPanel\(null\)[\s\S]*?setSurface\('bot'\)/)
 })

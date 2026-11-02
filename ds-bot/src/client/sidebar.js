@@ -958,36 +958,42 @@ export function FooterAccount(props) {
 }
 
 // The only entry registered in every mode: in Agent mode the whole Bot surface is
-// withdrawn, and this button in the shell's own footer is the way back.
-export function BotReturn({ wide, useSurface, actions }) {
+// withdrawn, and this button above the shell's panel rows is the way back. It keeps
+// that list's shape — one icon in a square button — so it reads as another panel row
+// rather than a full-width row of its own.
+export function BotReturn({ useSurface, actions, quiet = false }) {
   const mode = useSurface(value => value.mode)
   if (mode !== 'agent') return null
   // The 小朝廷 mark, monochrome: the same outline the court board entry wears, so the
   // shell's own sidebar carries the team under the one icon.
-  return h('button', { type: 'button', className: 'bt-return', 'aria-label': t('DeepSeek Bot'), title: t('DeepSeek Bot'), onClick: () => actions.setSurface('bot') },
-    h(SealIcon, { size: 22, mono: true, small: true }),
-    wide ? h('span', { className: 'bt-return-name' }, t('DeepSeek Bot')) : null)
+  return h('button', { type: 'button', className: quiet ? 'bt-return bt-return-quiet' : 'bt-return', 'aria-label': t('DeepSeek Bot'), title: t('DeepSeek Bot'), onClick: () => actions.setSurface('bot') },
+    h(SealIcon, { size: 18, mono: true, small: true }))
 }
 
 // Agent mode has none of the shell-group styles, so the return button carries its own.
+// The square is the shell's rail toggle (28px) and the mark inside it sits on the
+// panel rows' 16px glyph, so the column reads as one strip in both widths.
 export const RETURN_CSS = `
-.bt-return{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;min-width:36px;padding:0 9px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-return,.bt-return-square{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;flex:none;width:28px;height:28px;margin:0 0 0 2px;padding:0;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+/* In the rail the square sits on the rail's own column of round buttons, so it keeps
+   their alignment but a panel glyph's hover: a highlight, not another circle. */
+.bt-return-quiet{color:var(--bt-ink-3)}
 .bt-return:hover{background:rgba(127,127,127,.14)}
 .bt-return:active{transform:scale(.96)}
-.bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Agent mode has none of the court styles, so the mark's own outline is pinned here. */
-.bt-return .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
-.bt-return .bt-cb-seal-body{fill:none;stroke:currentColor;stroke-width:54;stroke-linejoin:round}
-.bt-return .bt-cb-seal-frame{display:none}
-.bt-return .bt-cb-seal-eave{fill:none;stroke:currentColor;stroke-width:26;stroke-linecap:round}
-.bt-return .bt-cb-seal-dot{fill:currentColor;stroke:none}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
+.bt-panel-icon .bt-cb-seal{transform:scale(1.25)}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-body{fill:none;stroke:currentColor;stroke-width:54;stroke-linejoin:round}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-frame{display:none}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-eave{fill:none;stroke:currentColor;stroke-width:26;stroke-linecap:round}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-dot{fill:currentColor;stroke:none}
 `
 
 export function BrandMark({ size = 24 }) {
-  return h('span', { className: 'bt-brand-whale' }, h(BotMark, { look: MAIN_LOOK, size }))
+  return h('span', { className: 'bt-brand-whale' }, h(SealIcon, { size, mono: true, small: true }))
 }
 export function BrandName() {
-  return h('span', { style: { fontWeight: 600, fontSize: 14 } }, 'DS Bot')
+  return h('span', { style: { fontWeight: 600, fontSize: 14 } }, t('DeepSeek Bot'))
 }
 
 // With the whale holding the settings seat, the Bot row is just the account menu;

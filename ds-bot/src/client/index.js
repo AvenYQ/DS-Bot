@@ -1,3 +1,4 @@
+import { createElement as h, useEffect } from 'react'
 import { call } from './api.js'
 import { isHex, inkText, paintCss } from './inks.js'
 import { DEFAULT_MASK, SHAPES, markupCache, maskOf } from './characters.js'
@@ -11,7 +12,7 @@ import { lookOf } from './mark.js'
 import { DRAG_SORT_CSS } from './drag-sort.js'
 import { installTailKeeper } from './tail-keeper.js'
 import { installProcessGroups } from './process-groups.js'
-import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, BotReturn, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
+import { TeamSidebar, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts, openHarnessOnboarding, openHarnessSettings } from './sidebar.js'
 import { frameLayout, readSidebar, writeSidebar, toggledPref, DSH_NARROW } from './frame-layout.js'
 import { installFrameWatch } from './frame-watch.js'
 import { HeaderPill } from './header.js'
@@ -38,6 +39,7 @@ import { GROUP_SETTINGS_CSS } from './group-settings.js'
 import { FOLDER_CSS } from './folder-menu.js'
 import { USAGE_CSS } from './usage-page.js'
 import { CourtBoardLayer } from './court-board/index.js'
+import { SealIcon } from './court-board/icons.js'
 import { COURT_BOARD_CSS } from './court-board/styles.js'
 import { SCHEDULE_CSS } from './schedules.js'
 import { STORAGE, migrateStorage } from './storage.js'
@@ -980,7 +982,20 @@ export function apply(ctx) {
   ]
   // The return button belongs to neither group: it renders only in Agent mode.
   ctx.effect(() => installCompiledStyles(RETURN_CSS, 'return'), 'ds-bot: return styles')
-  shadow('sidebar.footer.action', { id: 'bot-return', order: -300, inject: face }, BotReturn)
+  // The sidebar renders the icon continuously; navigation happens only when the
+  // shell selects the matching main panel after the user clicks its row.
+  const CourtIcon = ({ size = 16 } = {}) => h('span', { className: 'bt-panel-icon' }, h(SealIcon, { size, mono: true, small: true }))
+  const CourtLanding = () => {
+    useEffect(() => {
+      ctx.layout.selectPanel(null)
+      actions.setSurface('bot')
+    }, [])
+    return null
+  }
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: 'deepseek-bot', order: 8, label: () => 'DeepSeek Bot',
+  }, CourtIcon))
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'deepseek-bot' }, CourtLanding))
 
   // The main view decides `plain`: a DSH Agent Session keeps the Bot shell but
   // withdraws the conversation replacements, so the native dsh page shows. A jump

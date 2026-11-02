@@ -1547,8 +1547,8 @@ function bodyOf(def, paint, flat = false) {
     return "";
   }
 }
-var eyeMarkup = ([cx, cy, w, h52, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><rect class="bt-eye" x="${-w / 2}" y="${-h52 / 2}" width="${w}" height="${h52}" rx="${w / 2}"/></g>`;
-var happyEyeMarkup = ([cx, cy, w, h52, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><path class="bt-eye-happy" opacity="0" d="M${-w * 0.62} ${h52 * 0.14}Q0 ${-h52 * 0.42} ${w * 0.62} ${h52 * 0.14}" fill="none" stroke="#000" stroke-width="${w * 0.5}" stroke-linecap="round"/></g>`;
+var eyeMarkup = ([cx, cy, w, h53, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><rect class="bt-eye" x="${-w / 2}" y="${-h53 / 2}" width="${w}" height="${h53}" rx="${w / 2}"/></g>`;
+var happyEyeMarkup = ([cx, cy, w, h53, tilt]) => `<g transform="translate(${cx} ${cy}) rotate(${tilt})"><path class="bt-eye-happy" opacity="0" d="M${-w * 0.62} ${h53 * 0.14}Q0 ${-h53 * 0.42} ${w * 0.62} ${h53 * 0.14}" fill="none" stroke="#000" stroke-width="${w * 0.5}" stroke-linecap="round"/></g>`;
 var maskBox = (size) => `maskUnits="userSpaceOnUse" x="${-size}" y="${-size}" width="${size * 3}" height="${size * 3}"`;
 var holes = (def, eyes) => `<rect x="${-def.size}" y="${-def.size}" width="${def.size * 3}" height="${def.size * 3}" fill="#fff"/>${eyes}`;
 var MASK_ID = "%MASK%";
@@ -2375,12 +2375,12 @@ function liveSprings(apply2) {
     const dt = Math.min(0.5, Math.max(1e-3, (now2 - last) / 1e3));
     last = now2;
     const steps = Math.ceil(dt * 240);
-    const h52 = dt / steps;
+    const h53 = dt / steps;
     let moving = false;
     for (const value of values.values()) {
       for (let index = 0; index < steps; index += 1) {
-        value.v += (-value.k * (value.x - value.to) - value.c * value.v) * h52;
-        value.x += value.v * h52;
+        value.v += (-value.k * (value.x - value.to) - value.c * value.v) * h53;
+        value.x += value.v * h53;
       }
       if (Math.abs(value.x - value.to) < 0.05 && Math.abs(value.v) < 1) {
         value.x = value.to;
@@ -2660,10 +2660,12 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:var(--bt-font)}
-.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0}
-.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
+.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0;min-width:0;container-type:inline-size}
+.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;overflow:hidden;max-width:240px;transition:max-width .26s cubic-bezier(.32,.72,0,1),opacity .18s ease,transform .26s cubic-bezier(.32,.72,0,1),padding .26s cubic-bezier(.32,.72,0,1);padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
 .bt-brand-whale{display:inline-flex;color:var(--bt-accent)}
-.bt-round{width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
+@container (max-width:330px){.bt-side-top>.bt-brand{max-width:0;opacity:0;transform:translateX(-6px);padding-left:0;padding-right:0;pointer-events:none}}
+@media (prefers-reduced-motion:reduce){.bt-side-top>.bt-brand{transition:none}}
+.bt-round{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
 .bt-round:hover{background:var(--bt-hover)}
 .bt-round:active{transform:scale(.94)}
 .bt-list{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0;flex:1 1 auto}
@@ -11207,8 +11209,8 @@ var Matrix3 = class {
   }
   determinant() {
     const te = this.elements;
-    const a = te[0], b = te[1], c = te[2], d = te[3], e = te[4], f = te[5], g = te[6], h52 = te[7], i = te[8];
-    return a * e * i - a * f * h52 - b * d * i + b * f * g + c * d * h52 - c * e * g;
+    const a = te[0], b = te[1], c = te[2], d = te[3], e = te[4], f = te[5], g = te[6], h53 = te[7], i = te[8];
+    return a * e * i - a * f * h53 - b * d * i + b * f * g + c * d * h53 - c * e * g;
   }
   invert() {
     const te = this.elements, n11 = te[0], n21 = te[1], n31 = te[2], n12 = te[3], n22 = te[4], n32 = te[5], n13 = te[6], n23 = te[7], n33 = te[8], t11 = n33 * n22 - n32 * n23, t12 = n32 * n13 - n33 * n12, t13 = n23 * n12 - n22 * n13, det = n11 * t11 + n21 * t12 + n31 * t13;
@@ -14174,17 +14176,17 @@ var Matrix4 = class _Matrix4 {
   makeOrthographic(left, right, top, bottom, near, far) {
     const te = this.elements;
     const w = 1 / (right - left);
-    const h52 = 1 / (top - bottom);
+    const h53 = 1 / (top - bottom);
     const p = 1 / (far - near);
     const x = (right + left) * w;
-    const y = (top + bottom) * h52;
+    const y = (top + bottom) * h53;
     const z = (far + near) * p;
     te[0] = 2 * w;
     te[4] = 0;
     te[8] = 0;
     te[12] = -x;
     te[1] = 0;
-    te[5] = 2 * h52;
+    te[5] = 2 * h53;
     te[9] = 0;
     te[13] = -y;
     te[2] = 0;
@@ -15709,8 +15711,8 @@ var Color = class {
     this.b = b;
     return this;
   }
-  setHSL(h52, s, l) {
-    h52 = euclideanModulo(h52, 1);
+  setHSL(h53, s, l) {
+    h53 = euclideanModulo(h53, 1);
     s = clamp(s, 0, 1);
     l = clamp(l, 0, 1);
     if (s === 0) {
@@ -15718,9 +15720,9 @@ var Color = class {
     } else {
       const p = l <= 0.5 ? l * (1 + s) : l + s - l * s;
       const q = 2 * l - p;
-      this.r = hue2rgb(q, p, h52 + 1 / 3);
-      this.g = hue2rgb(q, p, h52);
-      this.b = hue2rgb(q, p, h52 - 1 / 3);
+      this.r = hue2rgb(q, p, h53 + 1 / 3);
+      this.g = hue2rgb(q, p, h53);
+      this.b = hue2rgb(q, p, h53 - 1 / 3);
     }
     return this;
   }
@@ -15757,11 +15759,11 @@ var Color = class {
         case "hsl":
         case "hsla":
           if (color = /^\s*(\d*\.?\d+)\s*,\s*(\d+)\%\s*,\s*(\d+)\%\s*(?:,\s*(\d*\.?\d+)\s*)?$/.exec(components)) {
-            const h52 = parseFloat(color[1]) / 360;
+            const h53 = parseFloat(color[1]) / 360;
             const s = parseInt(color[2], 10) / 100;
             const l = parseInt(color[3], 10) / 100;
             handleAlpha(color[4]);
-            return this.setHSL(h52, s, l);
+            return this.setHSL(h53, s, l);
           }
           break;
       }
@@ -15887,9 +15889,9 @@ var Color = class {
   getStyle() {
     return "rgb(" + (this.r * 255 | 0) + "," + (this.g * 255 | 0) + "," + (this.b * 255 | 0) + ")";
   }
-  offsetHSL(h52, s, l) {
+  offsetHSL(h53, s, l) {
     this.getHSL(_hslA);
-    _hslA.h += h52;
+    _hslA.h += h53;
     _hslA.s += s;
     _hslA.l += l;
     this.setHSL(_hslA.h, _hslA.s, _hslA.l);
@@ -15946,10 +15948,10 @@ var Color = class {
   lerpHSL(color, alpha) {
     this.getHSL(_hslA);
     color.getHSL(_hslB);
-    const h52 = lerp(_hslA.h, _hslB.h, alpha);
+    const h53 = lerp(_hslA.h, _hslB.h, alpha);
     const s = lerp(_hslA.s, _hslB.s, alpha);
     const l = lerp(_hslA.l, _hslB.l, alpha);
-    this.setHSL(h52, s, l);
+    this.setHSL(h53, s, l);
     return this;
   }
   equals(c) {
@@ -27463,17 +27465,17 @@ var ExtrudeGeometry = class extends BufferGeometry {
       const reverse = !ShapeUtils.isClockWise(vertices);
       if (reverse) {
         vertices = vertices.reverse();
-        for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-          const ahole = holes2[h52];
+        for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+          const ahole = holes2[h53];
           if (ShapeUtils.isClockWise(ahole)) {
-            holes2[h52] = ahole.reverse();
+            holes2[h53] = ahole.reverse();
           }
         }
       }
       const faces = ShapeUtils.triangulateShape(vertices, holes2);
       const contour = vertices;
-      for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-        const ahole = holes2[h52];
+      for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+        const ahole = holes2[h53];
         vertices = vertices.concat(ahole);
       }
       function scalePt2(pt, vec, size) {
@@ -27540,8 +27542,8 @@ var ExtrudeGeometry = class extends BufferGeometry {
       }
       const holesMovements = [];
       let oneHoleMovements, verticesMovements = contourMovements.concat();
-      for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-        const ahole = holes2[h52];
+      for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+        const ahole = holes2[h53];
         oneHoleMovements = [];
         for (let i = 0, il = ahole.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
           if (j === il) j = 0;
@@ -27559,9 +27561,9 @@ var ExtrudeGeometry = class extends BufferGeometry {
           const vert = scalePt2(contour[i], contourMovements[i], bs2);
           v(vert.x, vert.y, -z);
         }
-        for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-          const ahole = holes2[h52];
-          oneHoleMovements = holesMovements[h52];
+        for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+          const ahole = holes2[h53];
+          oneHoleMovements = holesMovements[h53];
           for (let i = 0, il = ahole.length; i < il; i++) {
             const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
             v(vert.x, vert.y, -z);
@@ -27601,9 +27603,9 @@ var ExtrudeGeometry = class extends BufferGeometry {
           const vert = scalePt2(contour[i], contourMovements[i], bs2);
           v(vert.x, vert.y, depth + z);
         }
-        for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-          const ahole = holes2[h52];
-          oneHoleMovements = holesMovements[h52];
+        for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+          const ahole = holes2[h53];
+          oneHoleMovements = holesMovements[h53];
           for (let i = 0, il = ahole.length; i < il; i++) {
             const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
             if (!extrudeByPath) {
@@ -27648,8 +27650,8 @@ var ExtrudeGeometry = class extends BufferGeometry {
         let layeroffset = 0;
         sidewalls(contour, layeroffset);
         layeroffset += contour.length;
-        for (let h52 = 0, hl = holes2.length; h52 < hl; h52++) {
-          const ahole = holes2[h52];
+        for (let h53 = 0, hl = holes2.length; h53 < hl; h53++) {
+          const ahole = holes2[h53];
           sidewalls(ahole, layeroffset);
           layeroffset += ahole.length;
         }
@@ -29874,8 +29876,8 @@ var AnimationClip = class {
     const blendMode = animation.blendMode;
     let duration = animation.length || -1;
     const hierarchyTracks = animation.hierarchy || [];
-    for (let h52 = 0; h52 < hierarchyTracks.length; h52++) {
-      const animationKeys = hierarchyTracks[h52].keys;
+    for (let h53 = 0; h53 < hierarchyTracks.length; h53++) {
+      const animationKeys = hierarchyTracks[h53].keys;
       if (!animationKeys || animationKeys.length === 0) continue;
       if (animationKeys[0].morphTargets) {
         const morphTargetNames = {};
@@ -29899,7 +29901,7 @@ var AnimationClip = class {
         }
         duration = morphTargetNames.length * (fps || 1);
       } else {
-        const boneName = ".bones[" + bones[h52].name + "]";
+        const boneName = ".bones[" + bones[h53].name + "]";
         addNonemptyTrack(
           VectorKeyframeTrack,
           boneName + ".position",
@@ -36228,29 +36230,29 @@ var CameraHelper = class extends LineSegments {
   update() {
     const geometry = this.geometry;
     const pointMap = this.pointMap;
-    const w = 1, h52 = 1;
+    const w = 1, h53 = 1;
     _camera.projectionMatrixInverse.copy(this.camera.projectionMatrixInverse);
     setPoint("c", pointMap, geometry, _camera, 0, 0, -1);
     setPoint("t", pointMap, geometry, _camera, 0, 0, 1);
-    setPoint("n1", pointMap, geometry, _camera, -w, -h52, -1);
-    setPoint("n2", pointMap, geometry, _camera, w, -h52, -1);
-    setPoint("n3", pointMap, geometry, _camera, -w, h52, -1);
-    setPoint("n4", pointMap, geometry, _camera, w, h52, -1);
-    setPoint("f1", pointMap, geometry, _camera, -w, -h52, 1);
-    setPoint("f2", pointMap, geometry, _camera, w, -h52, 1);
-    setPoint("f3", pointMap, geometry, _camera, -w, h52, 1);
-    setPoint("f4", pointMap, geometry, _camera, w, h52, 1);
-    setPoint("u1", pointMap, geometry, _camera, w * 0.7, h52 * 1.1, -1);
-    setPoint("u2", pointMap, geometry, _camera, -w * 0.7, h52 * 1.1, -1);
-    setPoint("u3", pointMap, geometry, _camera, 0, h52 * 2, -1);
+    setPoint("n1", pointMap, geometry, _camera, -w, -h53, -1);
+    setPoint("n2", pointMap, geometry, _camera, w, -h53, -1);
+    setPoint("n3", pointMap, geometry, _camera, -w, h53, -1);
+    setPoint("n4", pointMap, geometry, _camera, w, h53, -1);
+    setPoint("f1", pointMap, geometry, _camera, -w, -h53, 1);
+    setPoint("f2", pointMap, geometry, _camera, w, -h53, 1);
+    setPoint("f3", pointMap, geometry, _camera, -w, h53, 1);
+    setPoint("f4", pointMap, geometry, _camera, w, h53, 1);
+    setPoint("u1", pointMap, geometry, _camera, w * 0.7, h53 * 1.1, -1);
+    setPoint("u2", pointMap, geometry, _camera, -w * 0.7, h53 * 1.1, -1);
+    setPoint("u3", pointMap, geometry, _camera, 0, h53 * 2, -1);
     setPoint("cf1", pointMap, geometry, _camera, -w, 0, 1);
     setPoint("cf2", pointMap, geometry, _camera, w, 0, 1);
-    setPoint("cf3", pointMap, geometry, _camera, 0, -h52, 1);
-    setPoint("cf4", pointMap, geometry, _camera, 0, h52, 1);
+    setPoint("cf3", pointMap, geometry, _camera, 0, -h53, 1);
+    setPoint("cf4", pointMap, geometry, _camera, 0, h53, 1);
     setPoint("cn1", pointMap, geometry, _camera, -w, 0, -1);
     setPoint("cn2", pointMap, geometry, _camera, w, 0, -1);
-    setPoint("cn3", pointMap, geometry, _camera, 0, -h52, -1);
-    setPoint("cn4", pointMap, geometry, _camera, 0, h52, -1);
+    setPoint("cn3", pointMap, geometry, _camera, 0, -h53, -1);
+    setPoint("cn4", pointMap, geometry, _camera, 0, h53, -1);
     geometry.getAttribute("position").needsUpdate = true;
   }
   dispose() {
@@ -39724,8 +39726,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
   scene.add(flats);
   flats.userData.role = "courts";
   const pickables = [];
-  const B = (w, h52, d) => new BoxGeometry(w, h52, d);
-  const C = (rt, rb, h52, s = 10) => new CylinderGeometry(rt, rb, h52, s);
+  const B = (w, h53, d) => new BoxGeometry(w, h53, d);
+  const C = (rt, rb, h53, s = 10) => new CylinderGeometry(rt, rb, h53, s);
   const add = (parent, geo, c, x = 0, y = 0, z = 0, o = {}) => {
     const mesh = new Mesh(geo, c && c.isMaterial ? c : mat(c));
     mesh.position.set(x, y, z);
@@ -39739,20 +39741,20 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
     parent.add(mesh);
     return mesh;
   };
-  const frustum = (w0, d0, w1, d1, h52) => {
+  const frustum = (w0, d0, w1, d1, h53) => {
     const g = new BoxGeometry(1, 1, 1);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const top = p.getY(i) > 0;
-      p.setXYZ(i, p.getX(i) * (top ? w1 : w0), (p.getY(i) + 0.5) * h52, p.getZ(i) * (top ? d1 : d0));
+      p.setXYZ(i, p.getX(i) * (top ? w1 : w0), (p.getY(i) + 0.5) * h53, p.getZ(i) * (top ? d1 : d0));
     }
     g.computeVertexNormals();
     return g;
   };
-  const hipGeo = (w, d, h52) => {
+  const hipGeo = (w, d, h53) => {
     const r = Math.max(0, (w - d) / 2);
     const A = [-w / 2, 0, -d / 2], Bv = [w / 2, 0, -d / 2], Cv = [w / 2, 0, d / 2], D = [-w / 2, 0, d / 2];
-    const R1 = [-r, h52, 0], R2 = [r, h52, 0];
+    const R1 = [-r, h53, 0], R2 = [r, h53, 0];
     const tris = [D, Cv, R2, D, R2, R1, Bv, A, R1, Bv, R1, R2, Cv, Bv, R2, A, D, R1, A, Bv, Cv, A, Cv, D];
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(tris.flat(), 3));
@@ -39820,7 +39822,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
     const g = new Group();
     g.position.set(b.x, 0, b.z);
     statics.add(g);
-    const w = b.w, d = b.d, h52 = b.h, tiers = b.tiers || 1, th = 0.7, wall = b.wall || YAMEN;
+    const w = b.w, d = b.d, h53 = b.h, tiers = b.tiers || 1, th = 0.7, wall = b.wall || YAMEN;
     let y = 0, topD = d;
     for (let i = 0; i < tiers; i++) {
       const ext = (tiers - i) * 1.6;
@@ -39834,20 +39836,20 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
     const run2 = y * 1.7, L = Math.hypot(y, run2), z0 = topD / 2;
     add(g, B(3.4, 0.3, L), MARBLE, 0, y / 2, z0 + run2 / 2, { rx: Math.atan2(y, run2) });
     add(g, B(1.4, 0.32, L), "#e8dcc0", 0, y / 2 + 0.04, z0 + run2 / 2, { rx: Math.atan2(y, run2) });
-    add(g, B(w, h52, d), wall, 0, y + h52 / 2, 0);
+    add(g, B(w, h53, d), wall, 0, y + h53 / 2, 0);
     const n = Math.max(4, Math.round(w / 2.4)), cz = d / 2 + 0.7;
     for (let i = 0; i < n; i++) {
       const x = -w / 2 + 0.4 + (w - 0.8) * i / (n - 1);
-      add(g, C(0.2, 0.23, h52, 8), PILLAR, x, y + h52 / 2, cz);
+      add(g, C(0.2, 0.23, h53, 8), PILLAR, x, y + h53 / 2, cz);
     }
-    add(g, B(w + 0.6, 0.32, 0.4), "#7f2a1f", 0, y + h52 - 0.12, cz);
-    add(g, B(2.2, h52 * 0.74, 0.16), "#6e2a20", 0, y + h52 * 0.37, d / 2 + 0.06);
-    add(g, B(0.12, h52 * 0.74, 0.2), "#e3a92a", 0, y + h52 * 0.37, d / 2 + 0.1);
+    add(g, B(w + 0.6, 0.32, 0.4), "#7f2a1f", 0, y + h53 - 0.12, cz);
+    add(g, B(2.2, h53 * 0.74, 0.16), "#6e2a20", 0, y + h53 * 0.37, d / 2 + 0.06);
+    add(g, B(0.12, h53 * 0.74, 0.2), "#e3a92a", 0, y + h53 * 0.37, d / 2 + 0.1);
     const wx = Math.min(w / 4 + 0.6, w / 2 - 1.2);
-    add(g, B(1.7, h52 * 0.38, 0.14), glowWin, wx, y + h52 * 0.55, d / 2 + 0.06);
-    add(g, B(1.7, h52 * 0.38, 0.14), glowWin, -wx, y + h52 * 0.55, d / 2 + 0.06);
-    add(g, B(w + 1.4, 0.45, d + 1.8), BAND, 0, y + h52 + 0.2, 0);
-    const yr = y + h52 + 0.42;
+    add(g, B(1.7, h53 * 0.38, 0.14), glowWin, wx, y + h53 * 0.55, d / 2 + 0.06);
+    add(g, B(1.7, h53 * 0.38, 0.14), glowWin, -wx, y + h53 * 0.55, d / 2 + 0.06);
+    add(g, B(w + 1.4, 0.45, d + 1.8), BAND, 0, y + h53 + 0.2, 0);
+    const yr = y + h53 + 0.42;
     let top;
     const hh = d * 0.45 + 1.2;
     if (b.dbl) {
@@ -39860,7 +39862,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
       plaque(g, b.name, 0, yr + 1.95, ud / 2 + 0.04, Math.min(3.6, uw * 0.4));
     } else {
       top = roof(g, w + 3, d + 3, yr, b.roof, hh);
-      plaque(g, b.name, 0, y + h52 - 0.55, cz + 0.24, Math.min(3.4, w * 0.42));
+      plaque(g, b.name, 0, y + h53 - 0.55, cz + 0.24, Math.min(3.4, w * 0.42));
     }
     const fz = footD / 2 + 0.5;
     lantern(g, 2.3, fz);
@@ -39997,11 +39999,11 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
   }
   let walls = null;
   let moat = null;
-  const wallSeg = (parent, x0, z0, x1, z1, h52 = 4) => {
+  const wallSeg = (parent, x0, z0, x1, z1, h53 = 4) => {
     const len = Math.hypot(x1 - x0, z1 - z0), hz = Math.abs(z1 - z0) > Math.abs(x1 - x0);
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    add(parent, hz ? B(1.2, h52, len) : B(len, h52, 1.2), RED, cx, h52 / 2, cz);
-    add(parent, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), "#e3a92a", cx, h52 + 0.25, cz);
+    add(parent, hz ? B(1.2, h53, len) : B(len, h53, 1.2), RED, cx, h53 / 2, cz);
+    add(parent, hz ? B(1.9, 0.5, len + 0.4) : B(len + 0.4, 0.5, 1.9), "#e3a92a", cx, h53 + 0.25, cz);
     add(parent, hz ? B(1.5, 0.4, len) : B(len, 0.4, 1.5), MARBLE, cx, 0.2, cz);
   };
   const cornerTower = (parent, x, z) => {
@@ -40321,9 +40323,9 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
   marker.rotation.x = Math.PI;
   marker.visible = false;
   scene.add(marker);
-  const sky = (h52) => {
-    const day = sm(5.6, 7.2, h52) * (1 - sm(17.2, 18.9, h52));
-    const dusk = Math.max(Math.exp(-((h52 - 6.4) ** 2) / 0.5), Math.exp(-((h52 - 17.9) ** 2) / 0.5));
+  const sky = (h53) => {
+    const day = sm(5.6, 7.2, h53) * (1 - sm(17.2, 18.9, h53));
+    const dusk = Math.max(Math.exp(-((h53 - 6.4) ** 2) / 0.5), Math.exp(-((h53 - 17.9) ** 2) / 0.5));
     const top = cl("#18213f", "#7fc3ea", day).lerp(new Color("#f0a98a"), dusk * 0.55);
     const bot = cl("#33406e", "#eaf5f1", day).lerp(new Color("#fcd9ae"), dusk * 0.7);
     container.style.background = `linear-gradient(#${top.getHexString()},#${bot.getHexString()})`;
@@ -40332,7 +40334,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
     sun.color.copy(cl("#8ea4e0", "#ffffff", day).lerp(new Color("#ffb27a"), dusk * 0.6));
     hemi.intensity = 0.3 + 0.2 * day;
     hemi.color.copy(cl("#6d7bb3", "#dff2ff", day));
-    const a = Math.min(1, Math.max(0, (h52 - 6) / 12)) * Math.PI;
+    const a = Math.min(1, Math.max(0, (h53 - 6) / 12)) * Math.PI;
     if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50);
     else sun.position.set(-30, 80, 40);
     const nt = 1 - day;
@@ -40821,13 +40823,13 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
   };
   const V = (x, z) => new Vector3(x, 0, z);
   const route = (p) => {
-    const h52 = p.home, s = p.slot, P = [];
+    const h53 = p.home, s = p.slot, P = [];
     if (p.zone === "C") {
       const sx = Math.sign(s.x);
-      P.push(V(-1, h52.z), V(-1, -21.5), V(16 * sx, -21.5), V(16 * sx, 1), V(s.x, s.z));
+      P.push(V(-1, h53.z), V(-1, -21.5), V(16 * sx, -21.5), V(16 * sx, 1), V(s.x, s.z));
     } else {
-      const sx = p.zone === "E" ? 1 : -1, lz = h52.z + 3, gz = h52.z < 8 ? -6 : 22;
-      P.push(V(h52.x + 1.4, h52.z), V(h52.x + 1.4, lz), V(21 * sx, lz), V(21 * sx, gz), V(15 * sx, gz));
+      const sx = p.zone === "E" ? 1 : -1, lz = h53.z + 3, gz = h53.z < 8 ? -6 : 22;
+      P.push(V(h53.x + 1.4, h53.z), V(h53.x + 1.4, lz), V(21 * sx, lz), V(21 * sx, gz), V(15 * sx, gz));
       if (gz === -6) P.push(V(15 * sx, 1));
       P.push(V(s.x, s.z));
     }
@@ -40898,9 +40900,9 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
   canvas.addEventListener("pointerup", onUp);
   const resize = () => {
     if (dead) return;
-    const { w, h: h52 } = measure();
-    renderer.setSize(w, h52, false);
-    camera.aspect = w / h52;
+    const { w, h: h53 } = measure();
+    renderer.setSize(w, h53, false);
+    camera.aspect = w / h53;
     camera.updateProjectionMatrix();
   };
   const resizeObserver = new ResizeObserver(resize);
@@ -43136,33 +43138,35 @@ function FooterAccount(props) {
   if (seated) return null;
   return (0, import_react26.createElement)("span", { className: "bt-foot-account" }, (0, import_react26.createElement)(AccountLauncher, { ...props, seat: false }));
 }
-function BotReturn({ wide, useSurface, actions }) {
+function BotReturn({ useSurface, actions, quiet = false }) {
   const mode = useSurface((value) => value.mode);
   if (mode !== "agent") return null;
   return (0, import_react26.createElement)(
     "button",
-    { type: "button", className: "bt-return", "aria-label": t("DeepSeek Bot"), title: t("DeepSeek Bot"), onClick: () => actions.setSurface("bot") },
-    (0, import_react26.createElement)(SealIcon, { size: 22, mono: true, small: true }),
-    wide ? (0, import_react26.createElement)("span", { className: "bt-return-name" }, t("DeepSeek Bot")) : null
+    { type: "button", className: quiet ? "bt-return bt-return-quiet" : "bt-return", "aria-label": t("DeepSeek Bot"), title: t("DeepSeek Bot"), onClick: () => actions.setSurface("bot") },
+    (0, import_react26.createElement)(SealIcon, { size: 18, mono: true, small: true })
   );
 }
 var RETURN_CSS = `
-.bt-return{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;min-width:36px;padding:0 9px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-return,.bt-return-square{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;flex:none;width:28px;height:28px;margin:0 0 0 2px;padding:0;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+/* In the rail the square sits on the rail's own column of round buttons, so it keeps
+   their alignment but a panel glyph's hover: a highlight, not another circle. */
+.bt-return-quiet{color:var(--bt-ink-3)}
 .bt-return:hover{background:rgba(127,127,127,.14)}
 .bt-return:active{transform:scale(.96)}
-.bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Agent mode has none of the court styles, so the mark's own outline is pinned here. */
-.bt-return .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
-.bt-return .bt-cb-seal-body{fill:none;stroke:currentColor;stroke-width:54;stroke-linejoin:round}
-.bt-return .bt-cb-seal-frame{display:none}
-.bt-return .bt-cb-seal-eave{fill:none;stroke:currentColor;stroke-width:26;stroke-linecap:round}
-.bt-return .bt-cb-seal-dot{fill:currentColor;stroke:none}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal{display:block;flex:none;overflow:visible;color:currentColor}
+.bt-panel-icon .bt-cb-seal{transform:scale(1.25)}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-body{fill:none;stroke:currentColor;stroke-width:54;stroke-linejoin:round}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-frame{display:none}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-eave{fill:none;stroke:currentColor;stroke-width:26;stroke-linecap:round}
+:is(.bt-return,.bt-panel-icon) .bt-cb-seal-dot{fill:currentColor;stroke:none}
 `;
 function BrandMark({ size = 24 }) {
-  return (0, import_react26.createElement)("span", { className: "bt-brand-whale" }, (0, import_react26.createElement)(BotMark, { look: MAIN_LOOK, size }));
+  return (0, import_react26.createElement)("span", { className: "bt-brand-whale" }, (0, import_react26.createElement)(SealIcon, { size, mono: true, small: true }));
 }
 function BrandName() {
-  return (0, import_react26.createElement)("span", { style: { fontWeight: 600, fontSize: 14 } }, "DS Bot");
+  return (0, import_react26.createElement)("span", { style: { fontWeight: 600, fontSize: 14 } }, t("DeepSeek Bot"));
 }
 var SIDEBAR_CSS = `
 .bt-you-photo{overflow:hidden}
@@ -53097,6 +53101,7 @@ function listedOpener({ list, open, refresh, current }) {
 }
 
 // src/client/index.js
+var import_react57 = require("react");
 var inject = ["sessions", "uiWorkspace", "uiConversation", "slots", "theme", "layout"];
 function apply(ctx) {
   ctx.effect(() => installLocale(ctx.get("locale")), "ds-bot: interface copy");
@@ -54004,7 +54009,21 @@ function apply(ctx) {
     () => shadow("conversation.input.dock", { id: "bot-learning", order: 850, priority: BOT_PRIORITY, inject: face }, LearningDock)
   ];
   ctx.effect(() => installCompiledStyles(RETURN_CSS, "return"), "ds-bot: return styles");
-  shadow("sidebar.footer.action", { id: "bot-return", order: -300, inject: face }, BotReturn);
+  const CourtIcon = ({ size = 16 } = {}) => (0, import_react57.createElement)("span", { className: "bt-panel-icon" }, (0, import_react57.createElement)(SealIcon, { size, mono: true, small: true }));
+  const CourtLanding = () => {
+    (0, import_react57.useEffect)(() => {
+      ctx.layout.selectPanel(null);
+      actions.setSurface("bot");
+    }, []);
+    return null;
+  };
+  ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
+    name: "sidebar.panellist",
+    id: "deepseek-bot",
+    order: 8,
+    label: () => "DeepSeek Bot"
+  }, CourtIcon));
+  ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: "deepseek-bot" }, CourtLanding));
   ctx.effect(() => {
     let previous;
     const sync = () => {
