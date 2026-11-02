@@ -76,8 +76,18 @@ export function install(rt) {
     return standard ? { agentPreset: 'standard' } : {}
   }
 
-  // `dir` is a working folder outside the team workspace. Such a Session is made by cwd
-  // alone, so it joins no DSH workspace and the user's own project lists stay as they are.
+  // A folder the user already made a DSH workspace is named by that workspace, so a Session
+  // made in it joins the user's own project list instead of Ungrouped. Any other folder is
+  // still made by cwd alone, which leaves those project lists as they are.
+  async function placeIn(dir) {
+    const registry = ctx.workspaceRegistry
+    if (typeof registry?.resolveByPath !== 'function') return { cwd: dir }
+    const workspace = await Promise.resolve(registry.resolveByPath(dir)).catch(() => undefined)
+    return workspace === undefined ? { cwd: dir } : { workspaceId: workspace.id }
+  }
+
+  // `dir` is a working folder outside the team workspace: a DSH workspace when one owns it,
+  // else the folder itself.
   async function createSession(title, { dir } = {}) {
     // A Bot's tools run here too; while another dsh holds the team, a new Session would
     // belong to no saved Bot.
@@ -85,7 +95,7 @@ export function install(rt) {
     if (readOnly !== undefined) throw new Error(readOnly)
     const usable = dir !== undefined && await rt.isFolder(dir)
     if (dir !== undefined && !usable) rt.warn('ds-bot: the working folder %s is gone; %s starts in the team workspace', dir, title)
-    const place = usable ? { cwd: dir } : { workspaceId: await ensureWorkspace() }
+    const place = usable ? await placeIn(dir) : { workspaceId: await ensureWorkspace() }
     const { sessionId } = await ctx.sessionController.create({ ...place, ...await botPreset() })
     const agent = await rt.resolveAgent(sessionId)
     await ctx.sessionTitle.rename(agent.session, title)

@@ -30,7 +30,7 @@ const TEAM = {
 // starts in the team workspace unless it is made with a cwd. `services` are what
 // ctx.get finds, such as the sandbox policy and approvals.
 // `locked`: another dsh holds the team, so this one only shows it.
-async function start({ services = {}, workspaces = [], llm, team: saved = TEAM, locked = false } = {}) {
+async function start({ services = {}, workspaces = [], ownProject = false, llm, team: saved = TEAM, locked = false } = {}) {
   // The native realpath, as fs/promises uses: on Windows the JS one keeps 8.3 short names.
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ds-bot-work-dir-')))
   const dsh = join(root, 'dsh')
@@ -67,6 +67,8 @@ async function start({ services = {}, workspaces = [], llm, team: saved = TEAM, 
     return agents.get(sessionId)
   }
   const registry = new Map([['w1', { id: 'w1', path: team, title: 'DS Bot' }], ...workspaces.map(workspace => [workspace.id, workspace])])
+  // The user's own project list already holds the project folder, as a DSH workspace.
+  if (ownProject) registry.set('wp', { id: 'wp', path: project, title: 'Project' })
   Object.assign(ctx, {
     llm: llm ?? { listProviders: () => [], listModels: async () => [], resolveModelInfo: async () => ({}) },
     workspaceRegistry: {
@@ -202,6 +204,22 @@ test('a new Bot with a folder starts its Session there; others start in the team
   // A copy works in the same folder.
   await call('duplicate-bot', { id: made.id })
   assert.deepEqual(created.at(-1), { cwd: project })
+})
+
+test('a folder the user already made a workspace is named by that workspace', async (t) => {
+  const { call, created, project, stop } = await start({ ownProject: true })
+  t.after(stop)
+  // Named by the workspace, the Session joins the user's own project list; made by cwd
+  // alone it would land in Ungrouped.
+  const made = (await call('create-bot', { name: 'Builder', workDir: project })).value
+  assert.deepEqual(created.at(-1), { workspaceId: 'wp' })
+  // A copy works in the same folder, so it joins the same workspace.
+  await call('duplicate-bot', { id: made.id })
+  assert.deepEqual(created.at(-1), { workspaceId: 'wp' })
+  // A folder inside a workspace, not the workspace itself, stays a plain cwd.
+  mkdirSync(join(project, 'nested'))
+  await call('create-bot', { name: 'Nested', workDir: join(project, 'nested') })
+  assert.deepEqual(created.at(-1), { cwd: join(project, 'nested') })
 })
 
 test('an idle Bot\'s own chat moves to its new folder at once, and back', async (t) => {

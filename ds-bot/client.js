@@ -5472,7 +5472,7 @@ var HANDOFF_CSS = `
 .bt-handoff .bt-q-foot{flex-wrap:wrap}
 `;
 
-// node_modules/deep-view/src/react/ui.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/ui.js
 var import_react11 = require("react");
 var FallbackMarkdown = ({ text }) => (0, import_react11.createElement)("span", null, String(text ?? ""));
 var ViewUi = (0, import_react11.createContext)({ t: (key) => key, Markdown: FallbackMarkdown });
@@ -5539,7 +5539,7 @@ function useOptionKeys2(count, onPick, ownRef) {
   return count > 0 && listening <= 1;
 }
 
-// node_modules/deep-view/src/core/formula.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/core/formula.js
 var FUNCTIONS = {
   min: { args: [1, Infinity], run: (...values) => Math.min(...values.map(num)) },
   max: { args: [1, Infinity], run: (...values) => Math.max(...values.map(num)) },
@@ -5820,7 +5820,7 @@ function evaluate(tree, lookup) {
   }
 }
 
-// node_modules/deep-view/src/core/views.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/core/views.js
 var LAYOUT = ["stack", "row"];
 var DISPLAY = ["text", "metric", "table", "chart", "progress", "callout", "sources", "html"];
 var INPUT_TYPES = ["slider", "choice", "toggle", "number"];
@@ -6440,7 +6440,7 @@ function validateForm(node, values) {
   return { fields };
 }
 
-// node_modules/deep-view/src/react/chart.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/chart.js
 var import_react12 = require("react");
 var PALETTE = ["var(--dv-accent)", "var(--dv-ink-tangerine)", "var(--dv-ink-green)", "var(--dv-ink-violet)", "var(--dv-ink-sky)", "var(--dv-ink-rose)", "var(--dv-ink-yellow)", "var(--dv-ink-cyan)", "var(--dv-ink-magenta)"];
 var colorAt = (index) => PALETTE[index % PALETTE.length];
@@ -6879,7 +6879,7 @@ var CHART_CSS = `
 @media (prefers-reduced-motion:reduce){.dv-chart-mark,.dv-chart-dot{transition:none}.dv-chart-tip{animation:none}}
 `;
 
-// node_modules/deep-view/src/react/frame.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/frame.js
 var import_react13 = require("react");
 var THEME_VARS = [
   ["--view-ink", "--bt-ink", "--dv-ink"],
@@ -6961,7 +6961,7 @@ var HTML_CSS = `
 .dv-view-frame-stopped{margin:0;font-size:13px;line-height:18px;color:var(--dv-ink-2)}
 `;
 
-// node_modules/deep-view/src/react/card.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/card.js
 var import_react14 = require("react");
 var mdLabels = (ui2) => ({ code: { copyLabel: ui2.t("Copy"), copiedLabel: ui2.t("Copied") }, footnotes: ui2.t("Footnotes") });
 var TONES2 = ["good", "warn", "bad"];
@@ -7630,7 +7630,7 @@ ${CHART_CSS}
 ${HTML_CSS}
 `;
 
-// node_modules/deep-view/src/react/styles.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/styles.js
 var THEME_CSS = `
 body{
 --dv-ink:var(--dsw-alias-label-primary);
@@ -7727,10 +7727,10 @@ button.dv-q-opt:active{background:var(--dv-active)}
 @media (prefers-reduced-motion:reduce){.dv-q,.dv-view-bare,.dv-q-submit,.dv-menu,.dv-q-check{animation:none}}
 `;
 
-// node_modules/deep-view/src/react/index.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/react/index.js
 var DEEP_VIEW_CSS = THEME_CSS + QUESTION_CSS + WIDGET_CSS;
 
-// node_modules/deep-view/src/core/reply.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/deep-view/src/core/reply.js
 var REPLY_KIND = "user-question-reply";
 function viewCardText(args) {
   let card = args;
@@ -10446,7 +10446,7 @@ function decreeFor(assignments, mainBotId, playedAt = {}, now2 = Date.now()) {
   return { kind: "bots", from: mainBotId, to, at: newest.at };
 }
 
-// node_modules/three/build/three.module.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/three/build/three.module.js
 var REVISION = "128";
 var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
 var TOUCH = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 };
@@ -38324,7 +38324,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-// node_modules/three/examples/jsm/controls/OrbitControls.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/three/examples/jsm/controls/OrbitControls.js
 var _changeEvent = { type: "change" };
 var _startEvent = { type: "start" };
 var _endEvent = { type: "end" };
@@ -38985,7 +38985,7 @@ function yardSlots(count, yard) {
   }));
 }
 
-// node_modules/three/examples/jsm/utils/BufferGeometryUtils.js
+// ../../../../Users/yiqian_chen/DS-Bot/ds-bot/node_modules/three/examples/jsm/utils/BufferGeometryUtils.js
 var BufferGeometryUtils = class {
   static computeTangents(geometry) {
     geometry.computeTangents();
