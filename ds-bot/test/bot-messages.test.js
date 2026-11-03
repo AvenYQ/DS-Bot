@@ -594,9 +594,9 @@ test('the work payload carries the work just given, and nothing else changes', a
   const team = await start(threeBots())
   t.after(team.stop)
   const { call, home } = team
-  // A team that did nothing yet: the same six views, and an empty summary.
+  // A team that did nothing yet: the same six views, and empty summaries.
   assert.deepEqual((await call('state', {})).value.work, {
-    bots: {}, rooms: {}, approvals: [], waiting: {}, turns: {}, steered: {}, assignments: [],
+    bots: {}, rooms: {}, approvals: [], waiting: {}, turns: {}, steered: {}, assignments: [], sent: [],
   })
   await handedOn(team)
   const works = await worksIn(team)
@@ -607,6 +607,8 @@ test('the work payload carries the work just given, and nothing else changes', a
   const first = (await call('state', {})).value
   const second = (await call('state', {})).value
   assert.deepEqual(first.work.assignments, expected)
+  // Every message sent is listed too, whatever comes back of it.
+  for (const { from, to } of expected) assert.ok(first.work.sent.some(entry => entry.from === from && entry.to === to), `${from} → ${to} is not in sent`)
   // A poll only reads: the works stay as they were, and the other views answer the same.
   assert.equal(first.revision, second.revision)
   assert.deepEqual(JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).works, works)
