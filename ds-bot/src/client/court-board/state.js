@@ -92,6 +92,7 @@ export function castOf({ roster, live, hour, phrase, words }) {
       office: officeOf(bot, official),
       title: bot.name,
       section: group,
+      building: official?.b ?? null,
       robe: official?.robe ?? own.robe,
       hat: official?.hat ?? own.hat,
       side: official?.side ?? 'E',

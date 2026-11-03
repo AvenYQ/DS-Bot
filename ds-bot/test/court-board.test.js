@@ -146,6 +146,7 @@ test('the cast dresses a known official from the table and an unknown Bot from i
   assert.equal(first.side, OFFICIALS[0].side)
   assert.equal(first.office, '首辅')
   assert.equal(first.section, '内阁')
+  assert.equal(first.building, 'neige')
   const own = people.find(person => person.id === 'n1')
   assert.equal(own.robe, '#abcdef')
   const worded = people.find(person => person.id === 'n2')

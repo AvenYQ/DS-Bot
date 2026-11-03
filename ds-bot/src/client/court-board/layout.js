@@ -1,148 +1,120 @@
-// Where everything on the court's terrace stands, as plain numbers. The scene builds
-// from this and the tests check it, so nothing here touches three.js.
+// Where everything in the palace stands, as plain numbers: the 衙门 table, where each
+// official stands, the court's two ranks on the square, and the ways people walk. The
+// scene builds from this and the tests check it, so nothing here touches three.js.
 //
-// The terrace faces south (+z, toward the default camera). The 御道 runs down the
-// middle from the 议事亭 in the north. Every sidebar section is a 班 — a low slab beside
-// the 御道, west and east in turn, filled north to south — and every Bot has a seat on
-// its section's slab, facing south, with a desk in front of it.
+// The palace faces south (+z, toward the default camera). One wall runs round the whole
+// city — every 衙门 is inside it with the halls on the axis; the 午门 is in the south
+// wall, the 神武门 in the north, a moat runs round the other three sides.
 
-export const SEAT_X = 3.6
-export const SEAT_Z = 3.9
-const PAD_X = 1.9
-const PAD_N = 2.3
-const PAD_S = 1.5
-const MAX_COLUMNS = 3
-// Half the 御道's width, the gap between the 御道 and a slab, and between two slabs.
-export const LANE = 3.4
-const AISLE = 1.4
-const GAP = 1.6
-// The 议事亭 stands in the north; meetings gather on the round 月台 in front of it.
-export const PAVILION_R = 3.1
-export const MOON_R = 3.5
-const RIM = 3.2
+export const WALL = { x: 60, north: -74, south: 41.4 }
+// The open lanes either side of the axis, between the palace halls and the 衙门.
+export const LANE_X = 21
+// The cross street south of the 金水河, where a walker crosses from one side to the other.
+export const CROSS_Z = 37
 
-/** A slab's size for this many seats. */
-export function slabSize(count) {
-  const columns = Math.max(1, Math.min(MAX_COLUMNS, count))
-  const rows = Math.max(1, Math.ceil(count / columns))
-  return {
-    columns, rows,
-    w: 2 * PAD_X + (columns - 1) * SEAT_X,
-    d: PAD_N + PAD_S + (rows - 1) * SEAT_Z + 1.2,
-  }
+const Y = '#f2b630'
+const GREEN = '#3f9a6b'
+const SLATE = '#6f8aa6'
+const TEAL = '#3a8f95'
+const DARK = '#4b4c63'
+const RED = '#c4412e'
+
+/**
+ * The buildings. `type` is a plain hall unless it says oct (八角亭) or tower (观星台);
+ * `spare` buildings stand empty until a Bot with no 衙门 of its own moves in.
+ */
+export const BUILDINGS = [
+  { id: 'taihe', name: '太和殿', x: 0, z: -10, w: 22, d: 11, h: 4.2, roof: Y, tiers: 3, dbl: true, wall: RED, palace: true },
+  { id: 'taihemen', name: '太和门', x: 0, z: 24, w: 12, d: 5, h: 3.2, roof: Y, tiers: 1, wall: RED, palace: true },
+  { id: 'qianqing', name: '乾清宫', x: 0, z: -38, w: 15, d: 8, h: 3.6, roof: Y, tiers: 2, dbl: true, wall: RED, palace: true },
+  { id: 'neige', name: '文渊阁', x: 37, z: -6, w: 12, d: 7, h: 3.4, roof: GREEN },
+  { id: 'gongbu', name: '工部', x: 30, z: 14, roof: SLATE },
+  { id: 'hubu', name: '户部', x: 44, z: 14, roof: SLATE },
+  { id: 'xingbu', name: '刑部', x: 30, z: 30, roof: SLATE },
+  { id: 'libu', name: '礼部', x: 44, z: 30, roof: SLATE },
+  { id: 'nanshufang', name: '南书房', x: 30, z: -24, w: 8, d: 5.5, roof: Y, wall: RED },
+  { id: 'jingyan', name: '文华殿', x: 44, z: -24, roof: GREEN, wall: RED },
+  { id: 'neiwufu', name: '内承运库', x: 30, z: -44, roof: Y, wall: RED },
+  { id: 'duzhi', name: '都知监', x: 44, z: -44, roof: Y, wall: RED },
+  { id: 'zhenfu', name: '锦衣卫', x: -37, z: 30, w: 13, d: 7, roof: DARK },
+  { id: 'jinzou', name: '通政司', x: -30, z: -6, roof: TEAL },
+  { id: 'tongwen', name: '四夷馆', x: -44, z: -6, roof: GREEN },
+  { id: 'liju', name: '历局', x: -30, z: -24, roof: TEAL },
+  { id: 'sitian', name: '钦天监', x: -44, z: -24, type: 'tower' },
+  { id: 'hanlin', name: '翰林院', x: -30, z: 14, roof: GREEN },
+  { id: 'guozi', name: '国子监', x: -44, z: 14, roof: GREEN },
+  { id: 'taiyi', name: '太医院', x: -30, z: -44, roof: TEAL },
+  { id: 'taishi', name: '御用监', x: -44, z: -44, type: 'oct', roof: TEAL },
+  { id: 'spare1', name: '', x: 30, z: -60, roof: SLATE, spare: true },
+  { id: 'spare2', name: '', x: -30, z: -60, roof: GREEN, spare: true },
+  { id: 'spare3', name: '', x: 44, z: -60, roof: TEAL, spare: true },
+  { id: 'spare4', name: '', x: -44, z: -60, roof: SLATE, spare: true },
+].map(b => ({ w: 9, d: 6, h: 3, ...b }))
+
+export const BUILDING = Object.fromEntries(BUILDINGS.map(b => [b.id, b]))
+export const SPARES = BUILDINGS.filter(b => b.spare).map(b => b.id)
+
+/** How far a building reaches south of its middle: its terraces and front steps. */
+export function footOf(b) {
+  if (b.type === 'oct' || b.type === 'tower') return 9
+  const tiers = b.tiers ?? 1
+  const rise = tiers * 0.7
+  return b.d + 2 + tiers * 1.6 * 0.8 + rise * 1.7 * 0.3
+}
+
+/** Where an official stands at his own 衙门: before its steps, his desk in front of him. */
+export function homeOf(b, offset = 0) {
+  return { x: b.x + offset, z: b.z + footOf(b) / 2 + 3.2 }
+}
+
+/** The ground a building covers, with room for its eaves. */
+export function footprint(b) {
+  if (b.type === 'oct') return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 }
+  if (b.type === 'tower') return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 }
+  const tiers = b.tiers ?? 1
+  const w = b.w + 2 + tiers * 1.6
+  const foot = footOf(b)
+  return { minX: b.x - w / 2, maxX: b.x + w / 2, minZ: b.z - (b.d + 3) / 2, maxZ: b.z + foot / 2 }
 }
 
 /**
- * The whole terrace.
- * @param {{name: string, ids: string[]}[]} sections in sidebar order
- * @returns {{slabs: object[], seats: Map<string, {x: number, z: number, slab: number}>,
- *   pavilion: {x: number, z: number, r: number}, bounds: {minX: number, maxX: number, minZ: number, maxZ: number}}}
+ * Where a court member stands. The first meeting lines up on the square before the
+ * 太和殿, the second before the 乾清宫, civil officials east and the rest west, two
+ * abreast, facing north.
+ * @param {number} room the meeting's place in order of size, 0 first
+ * @param {'E'|'W'} side
+ * @param {number} index his place in his rank
  */
-export function planCourt(sections) {
-  const sizes = sections.map(section => slabSize(section.ids.length))
-  // Each column is as wide as its widest slab, so the 御道 stays straight.
-  const widest = { '-1': 0, '1': 0 }
-  const sides = []
-  const height = { '-1': 0, '1': 0 }
-  sizes.forEach((size, index) => {
-    const side = height['-1'] <= height['1'] ? -1 : 1
-    sides[index] = side
-    height[side] += size.d + GAP
-    widest[side] = Math.max(widest[side], size.w)
-  })
-
-  const moonZ = -MOON_R + 1
-  const pavZ = moonZ - MOON_R - 0.7 - PAVILION_R
-  const cursor = { '-1': 0, '1': 0 }
-  const slabs = []
-  const seats = new Map()
-  sections.forEach((section, index) => {
-    const size = sizes[index]
-    const side = sides[index]
-    const north = cursor[side]
-    cursor[side] += size.d + GAP
-    // Hug the 御道: a narrow slab sits against the lane, not out at the rim.
-    const inner = side * (LANE + AISLE)
-    const x = inner + side * size.w / 2
-    const z = north + size.d / 2
-    const slab = { name: section.name, index, side, x, z, w: size.w, d: size.d, seats: [] }
-    section.ids.forEach((id, at) => {
-      const row = Math.floor(at / size.columns)
-      const inRow = Math.min(size.columns, section.ids.length - row * size.columns)
-      const col = at % size.columns
-      // A short last row is centred under the full ones.
-      const sx = x + (col - (inRow - 1) / 2) * SEAT_X
-      const sz = north + PAD_N + row * SEAT_Z
-      const seat = { id, x: sx, z: sz, slab: index }
-      slab.seats.push(seat)
-      seats.set(id, seat)
-    })
-    slabs.push(slab)
-  })
-
-  const pavilion = { x: 0, z: pavZ, r: PAVILION_R, moon: { x: 0, z: moonZ, r: MOON_R } }
-  const south = Math.max(cursor['-1'], cursor['1'], 6) - GAP
-  const half = Math.max(LANE + AISLE + Math.max(widest['-1'], widest['1']), PAVILION_R + 4)
-  return {
-    slabs, seats, pavilion,
-    bounds: { minX: -half - RIM, maxX: half + RIM, minZ: pavZ - PAVILION_R - RIM, maxZ: south + RIM + 2 },
-  }
+export function courtSlot(room, side, index) {
+  const s = side === 'E' ? 1 : -1
+  const base = room % 2 === 0 ? 4.2 : -26
+  return { x: s * (4.6 + (index % 2) * 3.6), z: base + Math.floor(index / 2) * 3.4 }
 }
+
+/** The side of the axis a point is on: -1 west, 1 east, 0 on the axis or the square. */
+const sideOf = x => (Math.abs(x) < 12 ? 0 : Math.sign(x))
 
 /**
- * Where the members of one meeting stand: a ring on the 月台 for the first meeting, a
- * ring on the 御道 below it for each one after.
- * @returns {{x: number, z: number, face: number}[]} `face` is the angle each one turns to,
- *   toward the ring's middle
+ * The way from one spot to another without walking through a building: out in front of
+ * the 衙门, along the lane on its side, across by the street south of the 金水河 when
+ * the other end is on the other side, up the far lane and in.
+ * @returns {{x: number, z: number}[]} from `from` (included) to `to` (included)
  */
-export function meetingSpots(pavilion, roomIndex, count) {
-  const centre = meetingCentre(pavilion, roomIndex)
-  const r = roomIndex === 0 ? pavilion.moon.r * 0.66 : Math.max(1.6, 0.55 * count)
-  const spots = []
-  for (let i = 0; i < count; i += 1) {
-    // Start at the south so the first member faces north, toward the camera's back.
-    const a = Math.PI / 2 + (i / Math.max(1, count)) * Math.PI * 2
-    const x = centre.x + Math.cos(a) * r
-    const z = centre.z + Math.sin(a) * r
-    spots.push({ x, z, face: Math.atan2(centre.x - x, centre.z - z) })
-  }
-  return spots
+export function walkPath(from, to) {
+  const a = sideOf(from.x)
+  const b = sideOf(to.x)
+  const laneA = (a || b || 1) * LANE_X
+  const laneB = b === 0 ? laneA : b * LANE_X
+  const path = [{ x: from.x, z: from.z }, { x: from.x, z: from.z + 3 }, { x: laneA, z: from.z + 3 }]
+  if (laneA !== laneB) path.push({ x: laneA, z: CROSS_Z }, { x: laneB, z: CROSS_Z })
+  if (b === 0) path.push({ x: laneB, z: to.z })
+  else path.push({ x: laneB, z: to.z + 3 }, { x: to.x, z: to.z + 3 })
+  path.push({ x: to.x, z: to.z })
+  return path.filter((p, i, all) => i === 0 || Math.hypot(p.x - all[i - 1].x, p.z - all[i - 1].z) > 0.01)
 }
 
-/** The middle of a meeting's ring. */
-export function meetingCentre(pavilion, roomIndex) {
-  const { moon } = pavilion
-  if (roomIndex === 0) return { x: moon.x, z: moon.z }
-  return { x: 0, z: moon.z + moon.r + 3.4 + (roomIndex - 1) * 5.6 }
-}
-
-/**
- * The way from a seat to a spot by the 御道: out in front of the desk, along the slab's
- * front edge to the lane, up the lane, then straight to the spot. A walker never cuts
- * through another official's desk.
- * @returns {{x: number, z: number}[]}
- */
-export function walkPath(seat, spot) {
-  const side = Math.sign(seat.x) || 1
-  const front = seat.z + SEAT_Z / 2
-  const laneX = side * (LANE - 0.9)
-  return [
-    { x: seat.x, z: seat.z },
-    { x: seat.x, z: front },
-    { x: laneX, z: front },
-    { x: laneX, z: spot.z },
-    { x: spot.x, z: spot.z },
-  ]
-}
-
-/** The sections a cast fills, in the order its people come: sidebar order. */
-export function sectionsOf(people, unfiled = '') {
-  const order = []
-  const byName = new Map()
-  for (const person of people) {
-    const name = person.section || unfiled
-    if (!byName.has(name)) { byName.set(name, { name, ids: [] }); order.push(name) }
-    byName.get(name).ids.push(person.id)
-  }
-  return order.map(name => byName.get(name))
-}
+/** The guard's round on the wall top: down the west wall, along the north, up the east. */
+export const PATROL = [
+  { x: -WALL.x, z: WALL.south - 2 }, { x: -WALL.x, z: WALL.north }, { x: WALL.x, z: WALL.north }, { x: WALL.x, z: WALL.south - 2 },
+]
+export const WALL_TOP = 4.5

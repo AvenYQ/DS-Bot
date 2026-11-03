@@ -1,86 +1,74 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { LANE, meetingCentre, meetingSpots, planCourt, sectionsOf, walkPath } from '../src/client/court-board/layout.js'
+import { BUILDINGS, BUILDING, PATROL, SPARES, WALL, courtSlot, footprint, homeOf, walkPath } from '../src/client/court-board/layout.js'
+import { OFFICIALS } from '../src/client/court-board/data.js'
+import { weatherOf } from '../src/client/court-board/weather.js'
 
-// The court's real shape: 2, 4, 4, 3, 5 and 1 officials in six sections.
-const SIZES = [2, 4, 4, 3, 5, 1]
-const SECTIONS = SIZES.map((count, index) => ({ name: `s${index}`, ids: Array.from({ length: count }, (_, i) => `s${index}-${i}`) }))
-const DESK = { w: 1.9, d: 2.6 } // a seat's mat, figure and desk, with room to pass
+const overlaps = (a, b) => a.minX < b.maxX && b.minX < a.maxX && a.minZ < b.maxZ && b.minZ < a.maxZ
+const inside = (p, f, pad = 0) => p.x > f.minX + pad && p.x < f.maxX - pad && p.z > f.minZ + pad && p.z < f.maxZ - pad
 
-test('every official gets a seat, and no two seats crowd each other', () => {
-  const plan = planCourt(SECTIONS)
-  const seats = [...plan.seats.values()]
-  assert.equal(seats.length, SIZES.reduce((a, b) => a + b, 0))
-  for (let i = 0; i < seats.length; i += 1) {
-    for (let j = i + 1; j < seats.length; j += 1) {
-      const a = seats[i], b = seats[j]
-      assert.ok(Math.abs(a.x - b.x) >= DESK.w * 1.5 || Math.abs(a.z - b.z) >= DESK.d * 1.4, `seats ${i} and ${j} crowd each other`)
+test('no two buildings stand on each other', () => {
+  for (let i = 0; i < BUILDINGS.length; i += 1) {
+    for (let j = i + 1; j < BUILDINGS.length; j += 1) {
+      assert.ok(!overlaps(footprint(BUILDINGS[i]), footprint(BUILDINGS[j])), `${BUILDINGS[i].id} overlaps ${BUILDINGS[j].id}`)
     }
   }
 })
 
-test('a seat stands on its own section\'s slab and slabs do not overlap', () => {
-  const plan = planCourt(SECTIONS)
-  for (const slab of plan.slabs) {
-    for (const seat of slab.seats) {
-      assert.ok(Math.abs(seat.x - slab.x) < slab.w / 2 - 0.8, 'seat off its slab sideways')
-      assert.ok(Math.abs(seat.z - slab.z) < slab.d / 2 - 0.8, 'seat off its slab lengthways')
+test('every building, and everyone standing at one, is inside the one city wall', () => {
+  for (const b of BUILDINGS) {
+    const f = footprint(b)
+    assert.ok(f.minX > -WALL.x && f.maxX < WALL.x && f.minZ > WALL.north, `${b.id} pokes through the wall`)
+    const home = homeOf(b)
+    assert.ok(Math.abs(home.x) < WALL.x && home.z < WALL.south && home.z > WALL.north, `${b.id}'s official stands outside`)
+  }
+})
+
+test('every official in the table has a 衙门 of his own kind', () => {
+  for (const official of OFFICIALS) assert.ok(BUILDING[official.b], `${official.name} has no building`)
+  assert.ok(SPARES.length >= 4)
+})
+
+test('walking from any 衙门 to any other, or to the square, never cuts through a building', () => {
+  const homes = BUILDINGS.filter(b => !b.palace).map(b => ({ id: b.id, ...homeOf(b) }))
+  const targets = [...homes, { id: 'square-E', ...courtSlot(0, 'E', 5) }, { id: 'square-W', ...courtSlot(0, 'W', 3) }]
+  for (const from of homes) {
+    for (const to of targets) {
+      const path = walkPath(from, to)
+      assert.deepEqual(path[0], { x: from.x, z: from.z })
+      assert.deepEqual(path.at(-1), { x: to.x, z: to.z })
+      for (let i = 0; i < path.length - 1; i += 1) {
+        for (let k = 0.05; k < 1; k += 0.05) {
+          const p = { x: path[i].x + (path[i + 1].x - path[i].x) * k, z: path[i].z + (path[i + 1].z - path[i].z) * k }
+          for (const b of BUILDINGS) {
+            assert.ok(!inside(p, footprint(b), 0.6), `${from.id} → ${to.id} walks through ${b.id}`)
+          }
+        }
+      }
     }
   }
-  for (let i = 0; i < plan.slabs.length; i += 1) {
-    for (let j = i + 1; j < plan.slabs.length; j += 1) {
-      const a = plan.slabs[i], b = plan.slabs[j]
-      const apart = Math.abs(a.x - b.x) >= (a.w + b.w) / 2 || Math.abs(a.z - b.z) >= (a.d + b.d) / 2
-      assert.ok(apart, `slabs ${i} and ${j} overlap`)
-    }
+})
+
+test('the court stands in two ranks on the square, civil east and the rest west', () => {
+  const east = courtSlot(0, 'E', 0)
+  const west = courtSlot(0, 'W', 0)
+  assert.ok(east.x > 0 && west.x < 0)
+  assert.ok(courtSlot(0, 'E', 2).z > east.z, 'the ranks run south from the hall')
+  for (const slot of [east, west, courtSlot(0, 'E', 9)]) {
+    for (const b of BUILDINGS) assert.ok(!inside(slot, footprint(b)), `a court slot falls inside ${b.id}`)
   }
 })
 
-test('the 御道 stays clear: every slab keeps off the lane', () => {
-  const plan = planCourt(SECTIONS)
-  for (const slab of plan.slabs) assert.ok(Math.abs(slab.x) - slab.w / 2 >= LANE, `slab ${slab.name} sits on the lane`)
+test('the guard walks the wall top, round three sides', () => {
+  assert.equal(PATROL.length, 4)
+  for (const p of PATROL) assert.ok(Math.abs(Math.abs(p.x) - WALL.x) < 0.01 || Math.abs(p.z - WALL.north) < 0.01)
 })
 
-test('the 议事亭 and its 月台 lie north of every seat and inside the terrace', () => {
-  const plan = planCourt(SECTIONS)
-  const { pavilion, bounds } = plan
-  assert.ok(pavilion.z + pavilion.r < pavilion.moon.z - pavilion.moon.r + 0.01)
-  for (const seat of plan.seats.values()) assert.ok(seat.z > pavilion.z + pavilion.r)
-  assert.ok(pavilion.z - pavilion.r > bounds.minZ)
-  for (const slab of plan.slabs) {
-    assert.ok(slab.x - slab.w / 2 > bounds.minX && slab.x + slab.w / 2 < bounds.maxX)
-    assert.ok(slab.z + slab.d / 2 < bounds.maxZ)
-  }
-})
-
-test('a meeting stands in a ring facing its middle, on the 月台 first', () => {
-  const plan = planCourt(SECTIONS)
-  const spots = meetingSpots(plan.pavilion, 0, 5)
-  const centre = meetingCentre(plan.pavilion, 0)
-  assert.deepEqual(centre, { x: plan.pavilion.moon.x, z: plan.pavilion.moon.z })
-  for (const spot of spots) {
-    assert.ok(Math.hypot(spot.x - centre.x, spot.z - centre.z) < plan.pavilion.moon.r - 0.6, 'a member stands off the 月台')
-    // Facing the middle: a step forward brings him closer to it.
-    const ahead = { x: spot.x + Math.sin(spot.face) * 0.5, z: spot.z + Math.cos(spot.face) * 0.5 }
-    assert.ok(Math.hypot(ahead.x - centre.x, ahead.z - centre.z) < Math.hypot(spot.x - centre.x, spot.z - centre.z))
-  }
-  assert.ok(meetingCentre(plan.pavilion, 1).z > plan.pavilion.moon.z + plan.pavilion.moon.r, 'a second meeting gathers below the 月台')
-})
-
-test('the way to a meeting goes out in front of the desk and up the lane', () => {
-  const plan = planCourt(SECTIONS)
-  const seat = plan.seats.get('s4-4')
-  const spot = meetingSpots(plan.pavilion, 0, 3)[0]
-  const path = walkPath(seat, spot)
-  assert.deepEqual(path[0], { x: seat.x, z: seat.z })
-  assert.ok(path[1].z > seat.z, 'he steps out in front of his desk first')
-  assert.ok(Math.abs(path[2].x) < LANE, 'then onto the lane')
-  assert.deepEqual(path.at(-1), { x: spot.x, z: spot.z })
-})
-
-test('sections come in the order their people do, unfiled ones under one name', () => {
-  const people = [{ id: 'a', section: '内阁' }, { id: 'b', section: '' }, { id: 'c', section: '内阁' }, { id: 'd', section: '六部' }]
-  assert.deepEqual(sectionsOf(people, '编外'), [
-    { name: '内阁', ids: ['a', 'c'] }, { name: '编外', ids: ['b'] }, { name: '六部', ids: ['d'] },
-  ])
+test('weather codes become the sky the scene paints', () => {
+  assert.equal(weatherOf(0).kind, 'clear')
+  assert.equal(weatherOf(3).kind, 'cloudy')
+  assert.equal(weatherOf(61).kind, 'rain')
+  assert.equal(weatherOf(73).kind, 'snow')
+  assert.equal(weatherOf(95).kind, 'storm')
+  assert.equal(weatherOf(45).kind, 'fog')
 })

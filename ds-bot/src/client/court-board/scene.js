@@ -1,135 +1,47 @@
-// The 值房图: the court as a small white terrace floating over a sea of cloud. No palace
-// to wade through — a 议事亭 in the north, the 御道 down the middle, one pale slab per
-// sidebar section, and on it every official at his own desk. What each of them is doing
-// shows in light and small motions rather than in words: a turning ring while he works,
-// a raised 笏 when he waits on the Emperor, a seal stamped on his desk when he is done,
-// closed eyes at night, and the lamp on his desk lit while he is still at it after dark.
+// The 值房图: the whole Forbidden City as a toy model, every official at the door of his
+// own 衙门 inside one wall. What each of them is doing shows on him and around him: a
+// ring of colour at his feet, his head bent over the desk while he works, a hop when he
+// waits on the Emperor, a walk to the 太和殿 square when he is called to a meeting. Some
+// 衙门 show their own trade: the armillary on the 钦天监's tower turns, an easel stands
+// out before the 翰林院, the abacus on the 内承运库's desk clicks, the 锦衣卫 walks the
+// wall. When one official hands work to another a little eunuch runs the memorial over.
 //
 // The module owns the canvas, the sky behind it and the floating tags; the title bar,
 // the card, the feed and the roster are the React shell's. One factory call builds the
 // world; the returned object drives it and tears it down.
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { PALETTE as P, SEALS, glazeFor } from './data.js'
-import { LANE, meetingCentre, meetingSpots, planCourt, sectionsOf, walkPath } from './layout.js'
+import { SEALS } from './data.js'
+import { BUILDING, PATROL, SPARES, WALL_TOP, courtSlot, homeOf, walkPath } from './layout.js'
+import { CROWNS, ROOF_COLOURS, buildPalace, createMaterials, shade } from './palace.js'
 
 export const CEREMONY_MS = 5200
-const WALK = 4.4
-const FIG = 1.25
-const HEAD_Y = 2.25 * FIG
+const WALK = 7
+const RUN = 9
+const SKIN = '#fbe2c8'
+const INK = '#2b211d'
+const HAT = '#22201f'
 
-// The sky through the day: the page behind the canvas and the light on the terrace.
-const SKY = [
-  { h: 0, top: '#0f1630', bottom: '#27304f', haze: '#3a4468', sun: '#9fb2ff', sunI: 0.3, hemi: 0.42, night: 1 },
-  { h: 5.2, top: '#141c3a', bottom: '#333c60', haze: '#46507a', sun: '#9fb2ff', sunI: 0.3, hemi: 0.42, night: 1 },
-  { h: 6.4, top: '#8e9fc8', bottom: '#f3cdb2', haze: '#f0c0a0', sun: '#ffc08e', sunI: 0.56, hemi: 0.48, night: 0.35 },
-  { h: 8, top: '#c3d9e6', bottom: '#f5eee2', haze: '#efe6d6', sun: '#fff3df', sunI: 0.72, hemi: 0.54, night: 0 },
-  { h: 12.5, top: '#b8d5e4', bottom: '#f4efe6', haze: '#ece6da', sun: '#fffaf0', sunI: 0.76, hemi: 0.56, night: 0 },
-  { h: 16.6, top: '#bcd0df', bottom: '#f6e6cd', haze: '#f0dcc0', sun: '#ffe6bd', sunI: 0.72, hemi: 0.54, night: 0 },
-  { h: 18.1, top: '#727bb0', bottom: '#f0ad8a', haze: '#e7a080', sun: '#ffa06a', sunI: 0.52, hemi: 0.46, night: 0.45 },
-  { h: 19.5, top: '#18213f', bottom: '#38406a', haze: '#4a5280', sun: '#9fb2ff', sunI: 0.3, hemi: 0.42, night: 1 },
-  { h: 24, top: '#0f1630', bottom: '#27304f', haze: '#3a4468', sun: '#9fb2ff', sunI: 0.3, hemi: 0.42, night: 1 },
-]
-
-// What each state's ring under a figure looks like.
-const AURA = {
-  work: { color: '#e0962a', arc: true },
-  court: { color: '#c0392b' },
-  pending: { color: '#d9a21b', pulse: true },
-  question: { color: '#3f8fae', pulse: true },
-  done: { color: '#b83b2c' },
-  waiting: { color: '#8193b8', arc: true },
+// The ring at an official's feet, by what he is doing.
+const RING = {
+  work: '#e3a92a', pending: '#d9a21b', question: '#3f8fae', done: '#c8402f', court: '#d2452f',
+  waiting: '#7a8bb5', idle: '#c9bba8', sleep: '#5b6aa8',
 }
 
-// The trees at the terrace's corners wear the season.
-const SEASON = [
-  ['#f2b8c6', '#f7d3dc'], ['#f2b8c6', '#f7d3dc'], ['#f2b8c6', '#f7d3dc'], // 春: blossom
-  ['#7fb26a', '#9cc58a'], ['#7fb26a', '#9cc58a'], ['#7fb26a', '#9cc58a'], // 夏
-  ['#e6a93a', '#f0c45a'], ['#e6a93a', '#f0c45a'], ['#df8a3c', '#eeb04f'], // 秋: ginkgo
-  ['#e9eef2', '#ffffff'], ['#e9eef2', '#ffffff'], ['#e9eef2', '#ffffff'], // 冬: snow
-]
-// Months are 1..12 in the officials' time zone; the table above starts at 春 = 3.
-const seasonOf = () => {
-  const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', month: 'numeric' }).format(new Date()))
-  return SEASON[(month + 9) % 12]
-}
+// The 南书房's own man: not a Bot, so he keeps his own hours — he reads the officials'
+// memorials every evening at twenty past nine.
+const CLAUDE = { id: '__nanshufang', name: 'Claude', office: '南书房行走', robe: '#d97757', hat: 'fj', cap: '#3b2a24', building: 'nanshufang', side: 'W' }
 
-const clamp = (value, low, high) => Math.min(high, Math.max(low, value))
-const smooth = t => t * t * (3 - 2 * t)
-const ease = t => 1 - Math.pow(1 - t, 3)
-const mix = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t)
-const css = colour => `#${colour.getHexString()}`
+const smooth = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+const mixColour = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t)
+const angLerp = (a, b, k) => {
+  const d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+  return a + d * k
+}
 const prefersStill = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-const angleTo = (from, to) => {
-  let d = to - from
-  while (d > Math.PI) d -= Math.PI * 2
-  while (d < -Math.PI) d += Math.PI * 2
-  return d
-}
-
-function skyAt(hour) {
-  const h = ((hour % 24) + 24) % 24
-  let i = 0
-  while (i < SKY.length - 2 && SKY[i + 1].h <= h) i += 1
-  const a = SKY[i]
-  const b = SKY[i + 1]
-  const t = smooth(clamp((h - a.h) / (b.h - a.h), 0, 1))
-  const lerp = key => a[key] + (b[key] - a[key]) * t
-  return {
-    top: mix(a.top, b.top, t), bottom: mix(a.bottom, b.bottom, t), haze: mix(a.haze, b.haze, t), sun: mix(a.sun, b.sun, t),
-    sunI: lerp('sunI'), hemi: lerp('hemi'), night: lerp('night'),
-  }
-}
-
-function canvasTexture(width, height, draw) {
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  draw(canvas.getContext('2d'), width, height)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.anisotropy = 4
-  return texture
-}
-
-const SERIF = '"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",serif'
-
-// A rounded rectangle lying flat, `h` tall, its top at y = h.
-function slabGeometry(w, d, h, r) {
-  const shape = new THREE.Shape()
-  const x = -w / 2
-  const y = -d / 2
-  const radius = Math.min(r, w / 2, d / 2)
-  shape.moveTo(x + radius, y)
-  shape.lineTo(x + w - radius, y)
-  shape.quadraticCurveTo(x + w, y, x + w, y + radius)
-  shape.lineTo(x + w, y + d - radius)
-  shape.quadraticCurveTo(x + w, y + d, x + w - radius, y + d)
-  shape.lineTo(x + radius, y + d)
-  shape.quadraticCurveTo(x, y + d, x, y + d - radius)
-  shape.lineTo(x, y + radius)
-  shape.quadraticCurveTo(x, y, x + radius, y)
-  const bevel = Math.min(0.14, h / 3)
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: h - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10,
-  })
-  geometry.rotateX(-Math.PI / 2)
-  geometry.translate(0, bevel, 0)
-  return geometry
-}
-
-// A pavilion roof: a concave sweep from the eaves up to the finial, eight-sided.
-function roofGeometry(radius, height) {
-  const points = []
-  const steps = 10
-  for (let i = 0; i <= steps; i += 1) {
-    const t = i / steps
-    points.push(new THREE.Vector2(radius * (1 - t) + 0.05 * t, height * Math.pow(t, 1.8)))
-  }
-  points.unshift(new THREE.Vector2(radius * 0.92, -0.12))
-  const geometry = new THREE.LatheGeometry(points, 8)
-  geometry.computeVertexNormals()
-  return geometry
-}
 
 export function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rendererFactory = options => new THREE.WebGLRenderer(options) }) {
   const still = prefersStill()
@@ -142,335 +54,45 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   canvas.style.display = 'block'
   canvas.style.position = 'relative'
   canvas.style.touchAction = 'none'
+  canvas.style.outline = 'none'
   const containerBackground = container.style.background
-
-  // The sky is the page behind the canvas: a gradient, a sun or moon on its arc, stars.
-  const sky = document.createElement('div')
-  sky.className = 'cb-sky'
-  sky.setAttribute('aria-hidden', 'true')
-  const orb = document.createElement('i')
-  orb.className = 'cb-orb'
-  const stars = document.createElement('i')
-  stars.className = 'cb-stars'
-  sky.append(stars, orb)
-  container.append(sky, canvas)
+  container.appendChild(canvas)
+  const maxAniso = renderer.capabilities?.getMaxAnisotropy?.() ?? 4
 
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(22, 1, 1, 600)
+  scene.fog = new THREE.Fog(0xe9f4f2, 170, 380)
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 800)
   const controls = new OrbitControls(camera, canvas)
+  controls.target.set(0, 0, -14)
   controls.enableDamping = true
   controls.dampingFactor = 0.08
-  controls.minPolarAngle = 0.3
-  controls.maxPolarAngle = 1.25
+  controls.maxPolarAngle = 1.32
   controls.minDistance = 12
-  controls.maxDistance = 190
+  controls.maxDistance = 260
   controls.screenSpacePanning = false
-  controls.rotateSpeed = 0.5
-  controls.zoomSpeed = 0.9
+  controls.rotateSpeed = 0.6
 
-  const hemi = new THREE.HemisphereLight(0xf4f1ea, 0xc9bca4, 0.8)
+  const hemi = new THREE.HemisphereLight(0xdff2ff, 0xb9a782, 0.6)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight(0xfffaf0, 1)
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9)
+  sun.position.set(40, 80, 50)
+  sun.target.position.set(0, 0, -12)
+  scene.add(sun, sun.target)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.bias = -0.0005
-  sun.shadow.normalBias = 0.02
-  sun.shadow.radius = 3
-  scene.add(sun, sun.target)
+  Object.assign(sun.shadow.camera, { left: -95, right: 95, top: 95, bottom: -95, near: 1, far: 360 })
+  sun.shadow.bias = -0.0006
+  sun.shadow.normalBias = 0.03
 
-  // ---------------------------------------------------------------------------
-  // Materials, shared by colour so one pass at the end frees them all.
-  const materials = new Map()
-  const mat = (colour, extra = {}) => {
-    const key = `${colour}|${JSON.stringify(extra)}`
-    if (!materials.has(key)) materials.set(key, new THREE.MeshStandardMaterial({ color: colour, roughness: 0.82, metalness: 0, ...extra }))
-    return materials.get(key)
-  }
-  const own = (material) => { materials.set(`own-${materials.size}`, material); return material }
-  const geometries = new Map()
-  const geo = (key, make) => {
-    if (!geometries.has(key)) geometries.set(key, make())
-    return geometries.get(key)
-  }
-  const textures = []
-  const keep = texture => { textures.push(texture); return texture }
-  const blob = keep(canvasTexture(64, 64, (g, w, h) => {
-    const gradient = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
-    gradient.addColorStop(0, 'rgba(255,255,255,1)')
-    gradient.addColorStop(0.45, 'rgba(255,255,255,.55)')
-    gradient.addColorStop(1, 'rgba(255,255,255,0)')
-    g.fillStyle = gradient
-    g.fillRect(0, 0, w, h)
-  }))
-  const mesh = (geometry, material, { cast = true, receive = true } = {}) => {
-    const m = new THREE.Mesh(geometry, material)
-    m.castShadow = cast
-    m.receiveShadow = receive
-    return m
-  }
+  const kit = createMaterials()
+  const { mat } = kit
+  const owned = []
+  const keep = (thing) => { owned.push(thing); return thing }
 
-  // ---------------------------------------------------------------------------
-  // The fixed world: clouds round the terrace, rebuilt only when the terrace changes.
-  const world = new THREE.Group()
-  scene.add(world)
-  const clouds = new THREE.Group()
-  scene.add(clouds)
-  const cloudMat = own(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.94 }))
-  const cloudGeo = geo('cloud', () => new THREE.SphereGeometry(1, 18, 12))
-  const cloudList = []
-  {
-    const seededCloud = [0.1, 0.9, 1.7, 2.6, 3.3, 4.2, 5.0, 5.8]
-    seededCloud.forEach((angle, index) => {
-      const puff = new THREE.Group()
-      const parts = 3 + (index % 3)
-      for (let i = 0; i < parts; i += 1) {
-        const ball = mesh(cloudGeo, cloudMat, { cast: false, receive: false })
-        const s = 1.0 + ((index * 7 + i * 3) % 5) * 0.25
-        ball.scale.set(s * 1.35, s * 0.62, s)
-        ball.position.set((i - parts / 2) * 1.3, ((i * 5) % 3) * 0.25, ((i * 3) % 2) * 0.9)
-        puff.add(ball)
-      }
-      clouds.add(puff)
-      cloudList.push({ puff, angle, speed: 0.008 + (index % 3) * 0.003, lift: -2.6 - (index % 3) * 0.9, wobble: index })
-    })
-  }
-
-  // The lamplight pool and the glow sprites share one soft texture.
-  const glow = (colour, opacity = 0) => {
-    const material = own(new THREE.SpriteMaterial({ map: blob, color: new THREE.Color(colour), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }))
-    return new THREE.Sprite(material)
-  }
-
-  let plan = { slabs: [], seats: new Map(), pavilion: { x: 0, z: -11, r: 3.1, moon: { x: 0, z: -2.5, r: 3.5 } }, bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 } }
-  const nightBits = [] // emissive materials and sprites that light up after dark
-  const smoke = []
-  let meetingOn = false
-  let lastSky = skyAt(12)
-
-  function buildWorld() {
-    world.clear()
-    nightBits.length = 0
-    const { bounds, pavilion } = plan
-    const w = bounds.maxX - bounds.minX
-    const d = bounds.maxZ - bounds.minZ
-    const cx = (bounds.minX + bounds.maxX) / 2
-    const cz = (bounds.minZ + bounds.maxZ) / 2
-
-    // The terrace: a white slab on a narrower, darker plinth.
-    const top = mesh(slabGeometry(w, d, 1.3, 2.4), [mat('#eee6d6'), mat('#d8ccb6')])
-    top.position.set(cx, -1.3, cz)
-    world.add(top)
-    const plinth = mesh(slabGeometry(w - 3, d - 3, 1.4, 2), mat(P.plinth))
-    plinth.position.set(cx, -2.6, cz)
-    world.add(plinth)
-    // A faint shadow under the floating terrace, to set it in the air.
-    const under = new THREE.Mesh(geo('plane', () => new THREE.PlaneGeometry(1, 1)), own(new THREE.MeshBasicMaterial({ map: blob, color: 0x3a3226, transparent: true, opacity: 0.18, depthWrite: false })))
-    under.rotation.x = -Math.PI / 2
-    under.scale.set(w * 1.3, d * 1.3, 1)
-    under.position.set(cx, -7, cz)
-    world.add(under)
-
-    // The 御道: a pale strip edged in gold, from the 议事亭 to the south rim.
-    const { moon } = pavilion
-    const roadN = moon.z + moon.r - 0.2
-    const roadS = bounds.maxZ - 0.6
-    const road = mesh(new THREE.BoxGeometry(2.4, 0.04, roadS - roadN), mat('#e4d8c1'), { cast: false })
-    road.position.set(0, 0.02, (roadN + roadS) / 2)
-    world.add(road)
-    for (const side of [-1, 1]) {
-      const edge = mesh(new THREE.BoxGeometry(0.16, 0.05, roadS - roadN), mat(P.gold, { roughness: 0.4, metalness: 0.3 }), { cast: false })
-      edge.position.set(side * 1.28, 0.03, (roadN + roadS) / 2)
-      world.add(edge)
-    }
-    // Two 华表 at the south end of the 御道.
-    for (const side of [-1, 1]) {
-      const post = new THREE.Group()
-      post.add(mesh(geo('hb-base', () => new THREE.CylinderGeometry(0.42, 0.5, 0.3, 8)), mat(P.marbleShade)))
-      const shaft = mesh(geo('hb-shaft', () => new THREE.CylinderGeometry(0.17, 0.2, 3.2, 12)), mat(P.marble))
-      shaft.position.y = 1.75
-      post.add(shaft)
-      const plate = mesh(geo('hb-plate', () => new THREE.BoxGeometry(1.05, 0.12, 0.22)), mat(P.marble))
-      plate.position.y = 2.8
-      post.add(plate)
-      const cap = mesh(geo('hb-cap', () => new THREE.SphereGeometry(0.26, 14, 10)), mat(P.marble))
-      cap.position.y = 3.45
-      post.add(cap)
-      post.position.set(side * 2.4, 0, roadS - 1.6)
-      world.add(post)
-    }
-
-    // A 日晷 by the south gate. Its shadow is the sun's own, so it tells the real time.
-    {
-      const dial = new THREE.Group()
-      const stand = mesh(geo('dial-stand', () => new THREE.CylinderGeometry(0.42, 0.55, 0.9, 10)), mat(P.marbleShade))
-      stand.position.y = 0.45
-      dial.add(stand)
-      const face = mesh(geo('dial-face', () => new THREE.CylinderGeometry(0.85, 0.85, 0.12, 40)), mat('#f7f2e8'))
-      face.position.y = 1.15
-      face.rotation.x = 0.62
-      dial.add(face)
-      const gnomon = mesh(geo('dial-pin', () => new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6)), mat(P.ink))
-      gnomon.position.set(0, 1.15, 0)
-      gnomon.rotation.x = 0.62
-      dial.add(gnomon)
-      dial.position.set(LANE + 2.2, 0, roadS - 1.4)
-      dial.rotation.y = 0
-      world.add(dial)
-    }
-
-    // Trees at the four corners, in this month's colours.
-    const [leafDeep, leafLight] = seasonOf()
-    const corners = [[bounds.minX + 2.2, bounds.minZ + 2.2], [bounds.maxX - 2.2, bounds.minZ + 2.2], [bounds.minX + 2.2, bounds.maxZ - 2.2], [bounds.maxX - 2.2, bounds.maxZ - 2.2]]
-    corners.forEach(([x, z], index) => {
-      const tree = new THREE.Group()
-      const trunk = mesh(geo('trunk', () => new THREE.CylinderGeometry(0.12, 0.18, 1.6, 7)), mat(P.woodDark))
-      trunk.position.y = 0.8
-      tree.add(trunk)
-      const crowns = [[0, 2.1, 0, 1.05, leafDeep], [0.55, 2.5, 0.2, 0.75, leafLight], [-0.5, 2.35, -0.25, 0.7, leafLight]]
-      for (const [px, py, pz, r, colour] of crowns) {
-        const crown = mesh(geo('crown', () => new THREE.IcosahedronGeometry(1, 1)), mat(colour, { flatShading: true }))
-        crown.scale.setScalar(r)
-        crown.position.set(px, py, pz)
-        tree.add(crown)
-      }
-      tree.position.set(x, 0, z)
-      tree.rotation.y = index * 1.3
-      world.add(tree)
-    })
-
-    // The 议事亭: an eight-sided pavilion on a round dais.
-    const pav = new THREE.Group()
-    const step = mesh(geo('pav-step', () => new THREE.CylinderGeometry(pavilion.r + 0.5, pavilion.r + 0.7, 0.22, 8)), mat(P.marbleShade))
-    step.position.y = 0.11
-    pav.add(step)
-    const dais = mesh(geo('pav-dais', () => new THREE.CylinderGeometry(pavilion.r, pavilion.r + 0.15, 0.24, 8)), mat(P.marble))
-    dais.position.y = 0.34
-    pav.add(dais)
-    const pillarGeo = geo('pav-pillar', () => new THREE.CylinderGeometry(0.13, 0.15, 2.9, 10))
-    for (let i = 0; i < 8; i += 1) {
-      const a = (i / 8) * Math.PI * 2
-      const pillar = mesh(pillarGeo, mat(P.pillar))
-      pillar.position.set(Math.sin(a) * (pavilion.r - 0.45), 0.46 + 1.45, Math.cos(a) * (pavilion.r - 0.45))
-      pav.add(pillar)
-    }
-    const beam = mesh(geo('pav-beam', () => new THREE.CylinderGeometry(pavilion.r - 0.2, pavilion.r - 0.2, 0.32, 8, 1, true)), mat('#2f7f86', { side: THREE.DoubleSide }))
-    beam.position.y = 3.25
-    pav.add(beam)
-    const roof = mesh(geo('pav-roof', () => roofGeometry(pavilion.r + 0.7, 2.2)), mat(P.gold, { roughness: 0.45, metalness: 0.08, side: THREE.DoubleSide }))
-    roof.position.y = 3.45
-    pav.add(roof)
-    const finial = mesh(geo('pav-finial', () => new THREE.SphereGeometry(0.28, 16, 12)), mat(P.goldDeep, { roughness: 0.3, metalness: 0.5 }))
-    finial.position.y = 5.75
-    pav.add(finial)
-    // The 总册 on a round table in the middle.
-    const table = mesh(geo('pav-table', () => new THREE.CylinderGeometry(0.75, 0.6, 0.62, 20)), mat(P.woodDark))
-    table.position.y = 0.46 + 0.31
-    pav.add(table)
-    const book = mesh(geo('pav-book', () => new THREE.BoxGeometry(0.62, 0.1, 0.44)), mat('#2f5d8a'))
-    book.position.y = 1.13
-    book.rotation.y = 0.3
-    pav.add(book)
-    // A lantern under the eaves that lights at dusk.
-    const lamp = mesh(geo('pav-lamp', () => new THREE.SphereGeometry(0.32, 16, 12)), own(new THREE.MeshStandardMaterial({ color: P.lantern, emissive: new THREE.Color(P.lanternGlow), emissiveIntensity: 0, roughness: 0.6 })), { cast: false })
-    lamp.scale.y = 1.25
-    lamp.position.y = 2.9
-    pav.add(lamp)
-    const lampGlow = glow(P.lanternGlow)
-    lampGlow.scale.setScalar(5)
-    lampGlow.position.y = 2.9
-    pav.add(lampGlow)
-    nightBits.push({ material: lamp.material, sprite: lampGlow, always: true, strength: 0.8 })
-    pav.position.set(pavilion.x, 0, pavilion.z)
-    world.add(pav)
-    // A short flight of steps from the 月台 up to the pavilion.
-    const stair = mesh(new THREE.BoxGeometry(1.8, 0.36, 1.2), mat(P.marbleShade))
-    stair.position.set(pavilion.x, 0.18, pavilion.z + pavilion.r + 0.3)
-    world.add(stair)
-
-    // The 月台, where a meeting stands in a ring round the incense burner. Smoke rises
-    // from the burner only while a meeting is on.
-    const terrace = new THREE.Group()
-    const ring0 = mesh(geo('moon-step', () => new THREE.CylinderGeometry(moon.r + 0.45, moon.r + 0.6, 0.14, 64)), mat(P.marbleShade))
-    ring0.position.y = 0.07
-    terrace.add(ring0)
-    const disc = mesh(geo('moon-disc', () => new THREE.CylinderGeometry(moon.r, moon.r + 0.1, 0.18, 64)), mat(P.marble))
-    disc.position.y = 0.2
-    terrace.add(disc)
-    const inlay = mesh(geo('moon-inlay', () => new THREE.RingGeometry(moon.r - 0.42, moon.r - 0.32, 64)), mat(P.gold, { roughness: 0.4, metalness: 0.3 }), { cast: false })
-    inlay.rotation.x = -Math.PI / 2
-    inlay.position.y = 0.3
-    terrace.add(inlay)
-    const bronze = mat('#7d6038', { roughness: 0.45, metalness: 0.45 })
-    const pot = mesh(geo('ding-pot', () => new THREE.CylinderGeometry(0.42, 0.34, 0.42, 20)), bronze)
-    pot.position.y = 0.72
-    terrace.add(pot)
-    const lid = mesh(geo('ding-lid', () => new THREE.SphereGeometry(0.4, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)), bronze)
-    lid.scale.y = 0.6
-    lid.position.y = 0.93
-    terrace.add(lid)
-    const knob = mesh(geo('ding-knob', () => new THREE.SphereGeometry(0.09, 10, 8)), mat(P.goldDeep))
-    knob.position.y = 1.2
-    terrace.add(knob)
-    for (let i = 0; i < 3; i += 1) {
-      const a = (i / 3) * Math.PI * 2
-      const leg = mesh(geo('ding-leg', () => new THREE.CylinderGeometry(0.05, 0.04, 0.32, 6)), bronze)
-      leg.position.set(Math.sin(a) * 0.26, 0.42, Math.cos(a) * 0.26)
-      terrace.add(leg)
-    }
-    smoke.length = 0
-    for (let i = 0; i < 5; i += 1) {
-      const puff = new THREE.Sprite(own(new THREE.SpriteMaterial({ map: blob, color: 0xf3efe8, transparent: true, opacity: 0, depthWrite: false })))
-      puff.position.y = 1.3
-      terrace.add(puff)
-      smoke.push({ puff, phase: i / 5 })
-    }
-    terrace.position.set(moon.x, 0, moon.z)
-    world.add(terrace)
-
-    // The 班: one pale slab per section, a coloured lip along its front, its name written
-    // on the floor in front of its officials.
-    for (const slab of plan.slabs) {
-      const glaze = glazeFor(slab.name, slab.index)
-      const tint = css(mix('#eee6d6', glaze, 0.16))
-      const base = mesh(slabGeometry(slab.w, slab.d, 0.16, 0.9), [mat(tint), mat(css(mix(P.marbleShade, glaze, 0.2)))], { cast: false })
-      base.position.set(slab.x, 0, slab.z)
-      world.add(base)
-      const lip = mesh(new THREE.BoxGeometry(slab.w - 1.4, 0.04, 0.09), mat(glaze), { cast: false })
-      lip.position.set(slab.x, 0.17, slab.z + slab.d / 2 - 0.22)
-      world.add(lip)
-      if (slab.name) {
-        const ink = css(mix(glaze, P.ink, 0.35))
-        const text = String(slab.name)
-        const texture = keep(canvasTexture(64 + 120 * text.length, 160, (g, cw, ch) => {
-          g.fillStyle = ink
-          g.font = `700 104px ${SERIF}`
-          g.textBaseline = 'middle'
-          g.textAlign = 'center'
-          const step = (cw - 64) / text.length
-          ;[...text].forEach((char, i) => g.fillText(char, 32 + step * (i + 0.5), ch / 2 + 4))
-        }))
-        const height = 1.0
-        const width = height * (64 + 120 * text.length) / 160
-        const label = new THREE.Mesh(geo('plane', () => new THREE.PlaneGeometry(1, 1)), own(new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.9, depthWrite: false })))
-        label.rotation.x = -Math.PI / 2
-        label.scale.set(width, height, 1)
-        const outer = slab.side < 0 ? slab.x - slab.w / 2 + width / 2 + 0.5 : slab.x + slab.w / 2 - width / 2 - 0.5
-        label.position.set(outer, 0.17, slab.z + slab.d / 2 - 0.75)
-        world.add(label)
-      }
-    }
-
-    // The sun's shadow box follows the terrace.
-    const reach = Math.max(w, d) * 0.62
-    Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 1, far: 260 })
-    sun.shadow.camera.updateProjectionMatrix()
-    sun.target.position.set(cx, 0, cz)
-    applySky(lastSky)
-  }
-
-  // ---------------------------------------------------------------------------
-  // People.
+  let palace = null
+  let lastHour = 12
   const people = new Map()
+  const runners = []
   const tagLayer = tags ?? document.createElement('div')
   const proclaim = document.createElement('div')
   proclaim.className = 'cb-proclaim'
@@ -479,201 +101,132 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   const rooms = new Map()
   let selected = null
   let hovered = null
+  let proclaimUntil = 0
+  let greetUntil = 0
 
-  function buildFigure(person) {
-    const robe = person.robe
-    const dark = css(mix(robe, '#1d1712', 0.35))
-    const fig = new THREE.Group()
+  // ---------------------------------------------------------------------------
+  // Figures: the round-headed toy officials of the city.
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d)
+  const C = (rt, rb, h, s = 10) => new THREE.CylinderGeometry(rt, rb, h, s)
+  function add(parent, geometry, colour, x = 0, y = 0, z = 0, o = {}) {
+    const m = new THREE.Mesh(geometry, colour && colour.isMaterial ? colour : mat(colour))
+    m.position.set(x, y, z)
+    if (o.rx) m.rotation.x = o.rx
+    if (o.ry) m.rotation.y = o.ry
+    if (o.rz) m.rotation.z = o.rz
+    if (o.s) m.scale.set(o.s[0], o.s[1], o.s[2])
+    m.castShadow = o.cast !== false
+    m.receiveShadow = true
+    parent.add(m)
+    return m
+  }
+
+  function makeFigure(look) {
+    const g = new THREE.Group()
+    g.scale.setScalar(look.scale ?? 1.08)
     const body = new THREE.Group()
-    fig.add(body)
-    const robeGeo = geo('robe', () => new THREE.LatheGeometry([
-      [0, 0], [0.56, 0], [0.56, 0.08], [0.48, 0.45], [0.38, 0.86], [0.3, 1.02], [0.16, 1.1], [0, 1.12],
-    ].map(([x, y]) => new THREE.Vector2(x, y)), 28))
-    body.add(mesh(robeGeo, mat(robe, { roughness: 0.7 })))
-    // The 补子 on the chest marks the rank; the 首辅's is gold.
-    const badge = mesh(geo('badge', () => new THREE.BoxGeometry(0.3, 0.28, 0.03)), mat(person.main ? P.gold : css(mix(robe, '#fff6e2', 0.55))), { cast: false })
-    badge.position.set(0, 0.72, 0.4)
-    badge.rotation.x = -0.18
-    body.add(badge)
-    const belt = mesh(geo('belt', () => new THREE.TorusGeometry(0.45, 0.04, 6, 28)), mat(person.main ? P.goldDeep : dark))
-    belt.rotation.x = Math.PI / 2
-    belt.position.y = 0.48
-    body.add(belt)
-    const hands = mesh(geo('hands', () => new THREE.SphereGeometry(0.14, 14, 10)), mat(dark))
-    hands.scale.set(1.5, 1, 1)
-    hands.position.set(0, 0.62, 0.44)
-    body.add(hands)
-    // The 笏 he holds before him, raised over his head when he waits on the Emperor.
-    const plank = mesh(geo('plank', () => new THREE.BoxGeometry(0.13, 0.52, 0.035)), mat('#f4ead2'))
-    plank.position.set(0, 0.86, 0.52)
-    plank.rotation.x = -0.25
-    body.add(plank)
-
+    g.add(body)
+    const robe = mat(look.robe)
+    add(body, C(0.48, 0.9, 1.35, 14), robe, 0, 0.675, 0)
+    add(body, C(0.53, 0.53, 0.14, 14), look.main ? '#f2c443' : '#e3a92a', 0, 0.98, 0)
+    add(body, B(0.5, 0.42, 0.06), look.main ? '#f2c443' : '#f3d27a', 0, 0.66, 0.66, { rx: -0.31 })
+    add(body, B(0.3, 0.24, 0.07), shade(look.robe, 0.1), 0, 0.66, 0.69, { rx: -0.31 })
+    const armL = add(body, new THREE.SphereGeometry(0.3, 10, 8), robe, -0.62, 0.95, 0.08, { s: [0.9, 1.25, 0.9] })
+    const armR = add(body, new THREE.SphereGeometry(0.3, 10, 8), robe, 0.62, 0.95, 0.08, { s: [0.9, 1.25, 0.9] })
     const head = new THREE.Group()
-    head.position.y = 1.42
+    head.position.y = 1.38
     body.add(head)
-    head.add(mesh(geo('head', () => new THREE.SphereGeometry(0.34, 24, 18)), mat(P.skin, { roughness: 0.65 })))
+    add(head, new THREE.SphereGeometry(0.62, 20, 16), SKIN, 0, 0.45, 0)
     const eyes = []
-    for (const side of [-1, 1]) {
-      const eye = mesh(geo('eye', () => new THREE.SphereGeometry(0.038, 10, 8)), mat(P.ink, { roughness: 0.3 }), { cast: false })
-      eye.position.set(side * 0.115, 0.02, 0.31)
-      head.add(eye)
-      eyes.push(eye)
-      const cheek = mesh(geo('cheek', () => new THREE.SphereGeometry(0.06, 10, 8)), own(new THREE.MeshBasicMaterial({ color: P.blush, transparent: true, opacity: 0.55 })), { cast: false })
-      cheek.scale.set(1, 0.6, 0.4)
-      cheek.position.set(side * 0.2, -0.07, 0.28)
-      head.add(cheek)
+    for (const s of [-1, 1]) {
+      eyes.push(add(head, new THREE.SphereGeometry(0.075, 8, 6), INK, s * 0.21, 0.5, 0.55))
+      add(head, new THREE.SphereGeometry(0.12, 8, 6), '#f4a3a0', s * 0.36, 0.33, 0.47, { s: [1, 0.55, 0.5], cast: false })
     }
-    // Hair on the back of the head, so a figure seen from behind reads as his back.
-    const hair = mesh(geo('hair', () => new THREE.SphereGeometry(0.352, 24, 14, Math.PI * 1.08, Math.PI * 0.84, 0, Math.PI * 0.68)), mat(P.hatInk, { roughness: 0.6 }), { cast: false })
-    head.add(hair)
-    head.add(hatFor(person.hat, robe))
-
-    // The thought he is turning over: a small warm light above his head.
-    const thought = glow('#ffd28a')
-    thought.scale.setScalar(0.9)
-    thought.position.y = 2.08
-    fig.add(thought)
-
-    fig.scale.setScalar(FIG)
-    return { fig, body, head, eyes, plank, thought }
-  }
-
-  function hatFor(kind, robe) {
-    const hat = new THREE.Group()
-    const ink = mat(P.hatInk, { roughness: 0.45 })
-    if (kind === 'nei') {
-      const cap = mesh(geo('nei-cap', () => new THREE.CylinderGeometry(0.3, 0.27, 0.36, 20)), ink)
-      cap.position.y = 0.3
-      hat.add(cap)
-      const band = mesh(geo('nei-band', () => new THREE.CylinderGeometry(0.305, 0.305, 0.07, 20)), mat(robe))
-      band.position.y = 0.16
-      hat.add(band)
-    } else if (kind === 'jyw') {
-      const brim = mesh(geo('jyw-brim', () => new THREE.CylinderGeometry(0.56, 0.56, 0.04, 28)), ink)
-      brim.position.y = 0.2
-      hat.add(brim)
-      const dome = mesh(geo('jyw-dome', () => new THREE.SphereGeometry(0.27, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2)), ink)
-      dome.position.y = 0.2
-      hat.add(dome)
-      const tassel = mesh(geo('jyw-tassel', () => new THREE.SphereGeometry(0.07, 10, 8)), mat('#c0392b'))
-      tassel.position.y = 0.5
-      hat.add(tassel)
-    } else if (kind === 'fj') {
-      const cap = mesh(geo('fj-cap', () => new THREE.BoxGeometry(0.5, 0.3, 0.5)), ink)
-      cap.position.y = 0.3
-      cap.rotation.y = Math.PI / 4
-      hat.add(cap)
-    } else if (kind === 'dao') {
-      const hair = mesh(geo('dao-hair', () => new THREE.SphereGeometry(0.35, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2.2)), ink)
-      hair.position.y = 0.02
-      hat.add(hair)
-      const bun = mesh(geo('dao-bun', () => new THREE.SphereGeometry(0.15, 14, 10)), ink)
-      bun.position.y = 0.4
-      hat.add(bun)
-      const pin = mesh(geo('dao-pin', () => new THREE.CylinderGeometry(0.02, 0.02, 0.55, 6)), mat(P.gold))
-      pin.position.y = 0.42
-      pin.rotation.z = Math.PI / 2
-      hat.add(pin)
+    add(head, B(0.14, 0.035, 0.03), '#b5524a', 0, 0.3, 0.6)
+    if (look.hat === 'nei') {
+      add(head, C(0.4, 0.58, 0.62, 18), '#2c3550', 0, 1.02, 0)
+      add(head, B(0.26, 0.2, 0.05), '#e3a92a', 0, 0.98, 0.5)
+    } else if (look.hat === 'jyw') {
+      add(head, C(0.9, 0.9, 0.06, 20), HAT, 0, 0.84, 0)
+      add(head, C(0.36, 0.46, 0.46, 16), HAT, 0, 1.08, 0)
+      add(head, new THREE.SphereGeometry(0.13, 8, 6), '#d2452f', 0, 1.35, 0)
+    } else if (look.hat === 'fj') {
+      const cap = look.cap ?? '#33405a'
+      add(head, B(0.82, 0.5, 0.82), cap, 0, 1.0, -0.02, { ry: Math.PI / 4, s: [1, 1, 0.8] })
+      for (const s of [-1, 1]) add(head, B(0.08, 0.55, 0.04), cap, s * 0.18, 0.75, -0.62, { rz: s * 0.15 })
+    } else if (look.hat === 'dao') {
+      add(head, new THREE.SphereGeometry(0.4, 14, 10), HAT, 0, 0.82, -0.1, { s: [1.05, 0.7, 1.05] })
+      add(head, new THREE.SphereGeometry(0.22, 10, 8), HAT, 0, 1.18, -0.05)
+      add(head, C(0.03, 0.03, 0.8, 5), '#e3a92a', 0, 1.2, -0.05, { rz: Math.PI / 2 })
     } else {
-      // 乌纱帽: a round crown, a raised back and two wings.
-      const crown = mesh(geo('ws-crown', () => new THREE.CylinderGeometry(0.29, 0.31, 0.24, 22)), ink)
-      crown.position.y = 0.24
-      hat.add(crown)
-      const back = mesh(geo('ws-back', () => new THREE.SphereGeometry(0.21, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2)), ink)
-      back.position.set(0, 0.35, -0.08)
-      hat.add(back)
-      for (const side of [-1, 1]) {
-        const wing = mesh(geo('ws-wing', () => new THREE.BoxGeometry(0.46, 0.035, 0.11)), ink)
-        wing.position.set(side * 0.47, 0.28, -0.14)
-        wing.rotation.z = side * 0.1
-        hat.add(wing)
-      }
+      add(head, C(0.5, 0.54, 0.42, 18), HAT, 0, 0.98, -0.02)
+      add(head, new THREE.SphereGeometry(0.3, 10, 8), HAT, 0, 1.12, -0.2)
+      for (const s of [-1, 1]) add(head, B(0.95, 0.06, 0.22), HAT, s * 0.82, 1.0, -0.24, { ry: s * 0.08 })
     }
-    return hat
-  }
-
-  // The desk, the mat and the lamp at a seat; they stay when the official walks away.
-  function buildDesk(person, seat) {
-    const desk = new THREE.Group()
-    const matTile = mesh(slabGeometry(1.7, 1.6, 0.07, 0.3), mat(person.main ? '#f1dfae' : '#e8dcc4'), { cast: false })
-    desk.add(matTile)
-    const top = mesh(slabGeometry(1.75, 0.68, 0.1, 0.12), mat('#4a2f22', { roughness: 0.55 }))
-    top.position.set(0, 0.46, 1.05)
-    desk.add(top)
-    for (const side of [-1, 1]) {
-      const leg = mesh(geo('desk-leg', () => new THREE.BoxGeometry(0.12, 0.46, 0.5)), mat('#3a241a'))
-      leg.position.set(side * 0.72, 0.23, 1.05)
-      desk.add(leg)
-    }
-    const paper = mesh(geo('desk-paper', () => new THREE.BoxGeometry(0.62, 0.02, 0.42)), mat(P.paper), { cast: false })
-    paper.position.set(-0.12, 0.57, 1.05)
-    paper.rotation.y = 0.08
-    desk.add(paper)
-    const inkstone = mesh(geo('desk-ink', () => new THREE.BoxGeometry(0.26, 0.06, 0.2)), mat('#2c2a2a'))
-    inkstone.position.set(0.42, 0.59, 0.98)
-    desk.add(inkstone)
-    const brush = new THREE.Group()
-    const shaft = mesh(geo('desk-brush', () => new THREE.CylinderGeometry(0.022, 0.022, 0.46, 6)), mat(P.wood))
-    shaft.rotation.z = Math.PI / 2
-    brush.add(shaft)
-    const tip = mesh(geo('desk-tip', () => new THREE.ConeGeometry(0.035, 0.1, 6)), mat(P.ink))
-    tip.rotation.z = Math.PI / 2
-    tip.position.x = -0.27
-    brush.add(tip)
-    brush.position.set(-0.1, 0.6, 1.24)
-    desk.add(brush)
-    // The lamp: a paper shade that lights at night while its official is awake.
-    const shade = own(new THREE.MeshStandardMaterial({ color: '#fff4dc', emissive: new THREE.Color(P.lanternGlow), emissiveIntensity: 0, roughness: 0.8 }))
-    const lamp = mesh(geo('desk-lamp', () => new THREE.CylinderGeometry(0.11, 0.13, 0.26, 12)), shade, { cast: false })
-    lamp.position.set(0.72, 0.68, 0.9)
-    desk.add(lamp)
-    const lampGlow = glow(P.lanternGlow)
-    lampGlow.scale.setScalar(2.4)
-    lampGlow.position.set(0.72, 0.7, 0.9)
-    desk.add(lampGlow)
-    // The seal that comes down on his paper when the work is done.
-    const stamp = new THREE.Group()
-    const block = mesh(geo('stamp-block', () => new THREE.BoxGeometry(0.22, 0.2, 0.22)), mat(P.vermilion))
-    stamp.add(block)
-    const knob = mesh(geo('stamp-knob', () => new THREE.SphereGeometry(0.09, 10, 8)), mat(P.goldDeep))
-    knob.position.y = 0.14
-    stamp.add(knob)
-    stamp.position.set(-0.12, 0.69, 1.05)
-    stamp.visible = false
-    desk.add(stamp)
-    const mark = mesh(geo('stamp-mark', () => new THREE.PlaneGeometry(0.2, 0.2)), own(new THREE.MeshBasicMaterial({ color: P.vermilion, transparent: true, opacity: 0, depthWrite: false })), { cast: false })
-    mark.rotation.x = -Math.PI / 2
-    mark.rotation.z = 0.12
-    mark.position.set(0.04, 0.585, 1.12)
-    desk.add(mark)
-    // Sheets that rise from the desk while he sends things off.
-    const sheets = []
-    for (let i = 0; i < 3; i += 1) {
-      const sheet = mesh(geo('sheet', () => new THREE.PlaneGeometry(0.26, 0.34)), own(new THREE.MeshBasicMaterial({ color: P.paper, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })), { cast: false })
-      sheet.position.set(0, 0.6, 1.05)
-      desk.add(sheet)
-      sheets.push({ sheet, phase: i / 3 })
-    }
-    desk.position.set(seat.x, 0.16, seat.z)
-    nightBits.push({ material: shade, sprite: lampGlow, person: person.id, strength: 0.75 })
-    return { desk, brush, stamp, mark, sheets }
-  }
-
-  const ringGeo = geo('ring', () => new THREE.RingGeometry(0.92, 1.06, 56))
-  const arcGeo = geo('arc', () => new THREE.RingGeometry(0.92, 1.06, 56, 1, 0, Math.PI * 1.35))
-  function buildAura() {
-    const material = own(new THREE.MeshBasicMaterial({ color: '#e0962a', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }))
-    const ring = new THREE.Mesh(ringGeo, material)
+    const ringMat = keep(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false }))
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.2, 32), ringMat)
     ring.rotation.x = -Math.PI / 2
-    const arc = new THREE.Mesh(arcGeo, material)
-    arc.rotation.x = -Math.PI / 2
-    const select = new THREE.Mesh(geo('sel-ring', () => new THREE.RingGeometry(1.18, 1.26, 64)), own(new THREE.MeshBasicMaterial({ color: P.vermilion, transparent: true, opacity: 0, depthWrite: false })))
-    select.rotation.x = -Math.PI / 2
-    return { ring, arc, material, select }
+    ring.position.y = 0.09
+    g.add(ring)
+    return { g, body, head, armL, armR, eyes, ring, ringMat }
   }
 
-  function buildTag(person) {
+  // A desk before each official; the 内承运库's carries an abacus.
+  function makeDesk(home, abacus) {
+    const d = new THREE.Group()
+    d.position.set(home.x, 0, home.z + 1.35)
+    add(d, B(1.7, 0.12, 0.85), '#8b5a3c', 0, 0.82, 0)
+    for (const sx of [-0.7, 0.7]) for (const sz of [-0.3, 0.3]) add(d, B(0.1, 0.78, 0.1), '#6b432c', sx, 0.39, sz)
+    add(d, B(0.3, 0.08, 0.22), '#2b2b2b', 0.5, 0.92, 0)
+    add(d, C(0.04, 0.04, 0.5, 5), '#5a3a2a', 0.25, 0.95, -0.05, { rz: 1.3 })
+    const beads = []
+    if (abacus) {
+      add(d, B(0.9, 0.06, 0.46), '#5a3a24', -0.25, 0.9, 0)
+      for (let i = 0; i < 6; i += 1) {
+        for (let j = 0; j < 4; j += 1) {
+          const bead = add(d, new THREE.SphereGeometry(0.045, 8, 6), j ? '#7a3b23' : '#e3a92a', -0.61 + i * 0.145, 0.97, -0.15 + j * 0.1, { s: [1, 0.7, 1], cast: false })
+          beads.push({ bead, i, j, z0: bead.position.z })
+        }
+      }
+    } else add(d, B(0.75, 0.03, 0.5), '#fbf6e8', -0.15, 0.9, 0)
+    return { group: d, beads }
+  }
+
+  // 翰林院's easel, put out while the 学士 paints.
+  function makeEasel(home) {
+    const g = new THREE.Group()
+    g.position.set(home.x + 2.1, 0, home.z + 0.4)
+    g.rotation.y = -0.35
+    for (const [x, rz] of [[-0.45, 0.12], [0.45, -0.12]]) add(g, C(0.05, 0.05, 2.4, 5), '#8b5a3c', x, 1.15, 0, { rz })
+    add(g, C(0.05, 0.05, 2.3, 5), '#8b5a3c', 0, 1.1, -0.4, { rx: -0.35 })
+    const cv = document.createElement('canvas')
+    cv.width = 256
+    cv.height = 320
+    const c = cv.getContext('2d')
+    c.fillStyle = '#f6eedb'
+    c.fillRect(0, 0, 256, 320)
+    c.fillStyle = '#d2452f'
+    c.beginPath(); c.arc(190, 70, 22, 0, 7); c.fill()
+    c.fillStyle = 'rgba(40,40,45,.85)'
+    c.beginPath(); c.moveTo(0, 250); c.lineTo(60, 120); c.lineTo(110, 200); c.lineTo(160, 90); c.lineTo(256, 240); c.lineTo(256, 320); c.lineTo(0, 320); c.fill()
+    c.fillStyle = 'rgba(40,40,45,.45)'
+    c.beginPath(); c.moveTo(0, 280); c.lineTo(90, 190); c.lineTo(200, 270); c.lineTo(256, 250); c.lineTo(256, 320); c.lineTo(0, 320); c.fill()
+    c.strokeStyle = '#8b5a3c'
+    c.lineWidth = 10
+    c.strokeRect(5, 5, 246, 310)
+    const texture = keep(new THREE.CanvasTexture(cv))
+    const canvasMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.45), keep(new THREE.MeshBasicMaterial({ map: texture })))
+    canvasMesh.position.set(0, 1.55, 0.06)
+    canvasMesh.rotation.x = -0.12
+    g.add(canvasMesh)
+    g.visible = false
+    g.scale.set(1, 0.01, 1)
+    return g
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tags.
+  function buildTag(id, selectable = true) {
     const el = document.createElement('button')
     el.type = 'button'
     el.className = 'cb-tag'
@@ -696,12 +249,22 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     zz.className = 'cb-zz'
     zz.textContent = 'z z'
     el.append(bub, zz, nm)
-    el.addEventListener('click', (event) => { event.stopPropagation(); onSelect?.(person.id) })
-    el.addEventListener('dblclick', (event) => { event.stopPropagation(); onOpen?.(person.id) })
-    el.addEventListener('pointerenter', () => setHover(person.id))
+    if (selectable) {
+      el.addEventListener('click', (event) => { event.stopPropagation(); onSelect?.(id) })
+      el.addEventListener('dblclick', (event) => { event.stopPropagation(); onOpen?.(id) })
+    } else el.classList.add('cb-ambient')
+    el.addEventListener('pointerenter', () => setHover(id))
     el.addEventListener('pointerleave', () => setHover(null))
     tagLayer.appendChild(el)
     return { el, bub, seal, txt, time, office, name, w: 0, h: 0 }
+  }
+
+  const clock = (since) => {
+    if (!since) return ''
+    const seconds = Math.max(0, Math.floor((Date.now() - since) / 1000))
+    const m = Math.floor(seconds / 60)
+    if (m >= 60) return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+    return `${m}:${String(seconds % 60).padStart(2, '0')}`
   }
 
   function paintTag(p) {
@@ -709,7 +272,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     const kind = state.kind ?? 'idle'
     const seal = SEALS[kind]
     tag.el.dataset.kind = kind
-    tag.el.dataset.motion = state.motion ?? ''
     tag.el.classList.toggle('main', data.main === true)
     tag.office.textContent = data.office && data.office !== data.name ? data.office : ''
     tag.name.textContent = data.name
@@ -724,107 +286,119 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
                 : ''
     tag.txt.textContent = line ?? ''
     tag.bub.hidden = !line && !seal
-    tag.time.textContent = kind === 'work' ? clock(state.since) : ''
+    tag.time.textContent = kind === 'work' && !p.ambient ? clock(state.since) : ''
     tag.w = 0
   }
 
-  const clock = (since) => {
-    if (!since) return ''
-    const seconds = Math.max(0, Math.floor((Date.now() - since) / 1000))
-    const m = Math.floor(seconds / 60)
-    if (m >= 60) return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-    return `${m}:${String(seconds % 60).padStart(2, '0')}`
-  }
+  // ---------------------------------------------------------------------------
+  // The cast.
+  const pickGeo = keep(new THREE.CylinderGeometry(1, 1, 3.6, 8))
+  const pickMat = keep(new THREE.MeshBasicMaterial({ visible: false }))
 
+  function disposeTree(object) {
+    object.traverse((o) => { if (o.geometry && o.geometry !== pickGeo) o.geometry.dispose() })
+  }
   function removePerson(p) {
-    scene.remove(p.fig)
-    world.remove(p.deskParts.desk)
-    scene.remove(p.aura.ring, p.aura.arc, p.aura.select, p.pick)
+    scene.remove(p.fig.g, p.desk.group, p.pick)
+    disposeTree(p.fig.g)
+    disposeTree(p.desk.group)
+    if (p.easel) { scene.remove(p.easel); disposeTree(p.easel) }
     p.tag.el.remove()
-    if (p.line) { scene.remove(p.line); p.line.geometry.dispose() }
   }
 
-  const pickGeo = geo('pick', () => new THREE.CylinderGeometry(0.8, 0.8, 2.6, 8))
-  const pickMat = own(new THREE.MeshBasicMaterial({ visible: false }))
+  // Which 衙门 each Bot works in: its official's own, else the first spare one free.
+  function assignBuildings(list) {
+    const spares = new Map()
+    const placed = new Map()
+    const free = [...SPARES]
+    const extra = []
+    for (const data of list) {
+      if (data.building && BUILDING[data.building]) { placed.set(data.id, data.building); continue }
+      const spare = free.shift()
+      if (spare) { placed.set(data.id, spare); spares.set(spare, data.office || data.name); continue }
+      extra.push(data.id)
+    }
+    return { spares, placed, extra }
+  }
 
   function setPeople(list) {
     const cast = Array.isArray(list) ? list : []
     const before = new Map([...people].map(([id, p]) => [id, p.state]))
     for (const p of people.values()) removePerson(p)
     people.clear()
-    nightBits.length = 0
-    plan = planCourt(sectionsOf(cast, words.unfiled ?? ''))
-    buildWorld()
-    for (const data of cast) {
-      const seat = plan.seats.get(data.id)
-      if (!seat) continue
-      const parts = buildFigure(data)
-      const deskParts = buildDesk(data, seat)
-      world.add(deskParts.desk)
-      const aura = buildAura()
-      scene.add(parts.fig, aura.ring, aura.arc, aura.select)
+    const { spares, placed, extra } = assignBuildings(cast)
+    palace?.dispose()
+    palace = buildPalace(scene, kit, { spares, maxAniso })
+    roofOriginals.clear()
+    applyWeather()
+    // Bots past the spare 衙门 wait in a row before the 太和门.
+    const homes = new Map()
+    extra.forEach((id, i) => homes.set(id, { x: (i % 2 ? 1 : -1) * (10 + Math.floor(i / 2) * 3.4), z: 34 }))
+    // Officials sharing a 衙门 stand side by side.
+    const shared = new Map()
+    for (const data of [...cast, CLAUDE]) {
+      const building = data === CLAUDE ? 'nanshufang' : placed.get(data.id)
+      if (!building) continue
+      if (!shared.has(building)) shared.set(building, [])
+      shared.get(building).push(data.id)
+    }
+    for (const [building, ids] of shared) {
+      ids.forEach((id, i) => {
+        const offset = ids.length === 1 ? 0 : (i - (ids.length - 1) / 2) * 3.6
+        homes.set(id, homeOf(BUILDING[building], offset))
+      })
+    }
+    for (const data of [...cast, CLAUDE]) {
+      const home = homes.get(data.id)
+      if (!home) continue
+      const building = data === CLAUDE ? 'nanshufang' : placed.get(data.id) ?? null
+      const fig = makeFigure(data)
+      fig.g.position.set(home.x, 0, home.z)
+      scene.add(fig.g)
+      const desk = makeDesk(home, building === 'neiwufu')
+      scene.add(desk.group)
+      const easel = building === 'hanlin' ? makeEasel(home) : null
+      if (easel) scene.add(easel)
       const pick = new THREE.Mesh(pickGeo, pickMat)
       pick.userData.id = data.id
       scene.add(pick)
+      const ambient = data === CLAUDE
       const p = {
-        id: data.id, data, seat, ...parts, deskParts, aura, pick,
-        tag: buildTag(data),
+        id: data.id, data, building, fig, desk, easel, pick, ambient,
+        home: new THREE.Vector3(home.x, 0, home.z),
+        tag: buildTag(data.id, !ambient),
         state: before.get(data.id) ?? data.state ?? { kind: 'idle', text: '' },
-        pos: new THREE.Vector3(seat.x, 0.16, seat.z),
-        yaw: 0, goalYaw: 0, path: [], away: false, spot: null,
-        blink: 2 + Math.random() * 4, hop: 0, stampT: -1, line: null, seed: Math.random() * 10,
+        path: [], mode: 'home', slot: null, rot: 0, phase: Math.random() * 6, wander: null, wt: Math.random() * 3,
+        hop: 0, patrol: null,
       }
+      if (ambient) p.state = claudeState(lastHour)
       people.set(p.id, p)
       paintTag(p)
     }
-    // A Bot already away in a meeting is placed there at once, not walked from his desk.
     placeMeetings(true)
-    for (const p of people.values()) applyState(p, null, true)
     select(selected)
-    frame(true)
   }
 
   // ---------------------------------------------------------------------------
   // States.
   function setPersonState(id, state) {
     const p = people.get(id)
-    if (!p || !state) return
+    if (!p || !state || p.ambient) return
     const was = p.state
     p.state = state
-    if (was && was.kind === state.kind && was.text === state.text && was.room === state.room && was.speaking === state.speaking && was.towards === state.towards && was.since === state.since && was.motion === state.motion) return
+    if (was && was.kind === state.kind && was.text === state.text && was.room === state.room && was.speaking === state.speaking && was.towards === state.towards && was.since === state.since) return
     paintTag(p)
     if (!was || was.kind !== state.kind || was.room !== state.room) placeMeetings(false)
-    applyState(p, was, false)
   }
 
-  function applyState(p, was, instant) {
-    const kind = p.state.kind
-    const aura = AURA[kind]
-    if (aura) p.aura.material.color.set(aura.color)
-    // A new seal comes down when the work is done.
-    if (kind === 'done' && was?.kind !== 'done') p.stampT = instant || still ? 1 : 0
-    if (kind !== 'done') { p.stampT = -1; p.deskParts.stamp.visible = false; p.deskParts.mark.material.opacity = 0 }
-    if (!instant && was && was.kind !== kind && aura) ripple(p.pos.x, p.pos.z, aura.color)
-    // A waiting official looks toward the one he waits on, and a faint thread joins them.
-    if (p.line) { scene.remove(p.line); p.line.geometry.dispose(); p.line = null }
-    if (kind === 'waiting' && p.state.towards && people.has(p.state.towards)) p.line = threadBetween(p, people.get(p.state.towards))
+  function claudeState(hour) {
+    if (hour >= 21 + 20 / 60 && hour < 21 + 45 / 60) return { kind: 'work', text: words.memorials ?? '' }
+    if (hour < 6.5 || hour >= 22.5) return { kind: 'sleep', text: '' }
+    return { kind: 'idle', text: '' }
   }
 
-  const threadMat = own(new THREE.LineDashedMaterial({ color: '#8193b8', dashSize: 0.35, gapSize: 0.25, transparent: true, opacity: 0.75 }))
-  function threadBetween(a, b) {
-    const from = new THREE.Vector3(a.seat.x, 2.4, a.seat.z)
-    const to = new THREE.Vector3(b.seat.x, 2.4, b.seat.z)
-    const mid = from.clone().lerp(to, 0.5)
-    mid.y += 1.5 + from.distanceTo(to) * 0.18
-    const curve = new THREE.QuadraticBezierCurve3(from, mid, to)
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), threadMat)
-    line.computeLineDistances()
-    scene.add(line)
-    return line
-  }
-
-  // Who stands where in each meeting. Rooms take the 议事亭 in the order their first
-  // member comes in the sidebar.
+  // Who stands where on the square. Meetings take their place in the order their first
+  // member comes in the sidebar: the first before the 太和殿, the next before the 乾清宫.
   function placeMeetings(instant) {
     const order = []
     const members = new Map()
@@ -835,29 +409,34 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       members.get(room).push(p)
     }
     for (const p of people.values()) {
-      if (p.state.kind === 'court') continue
-      if (p.away) goHome(p, instant)
+      if (p.state.kind === 'court' || (p.mode !== 'court' && p.mode !== 'toCourt')) continue
+      p.slot = null
+      if (instant || still) { p.fig.g.position.copy(p.home); p.path = []; p.mode = 'home'; continue }
+      p.path = walkPath({ x: p.fig.g.position.x, z: p.fig.g.position.z }, p.home).slice(1)
+      p.mode = 'toHome'
     }
     order.forEach((room, index) => {
-      const list = members.get(room)
-      const spots = meetingSpots(plan.pavilion, index, list.length)
-      list.forEach((p, i) => {
-        const spot = spots[i]
-        if (p.spot && Math.hypot(p.spot.x - spot.x, p.spot.z - spot.z) < 0.05) return
-        p.spot = spot
+      const ranks = { E: 0, W: 0 }
+      for (const p of members.get(room)) {
+        const side = p.data.side === 'W' ? 'W' : 'E'
+        const slot = courtSlot(index, side, ranks[side])
+        ranks[side] += 1
+        if (p.slot && Math.hypot(p.slot.x - slot.x, p.slot.z - slot.z) < 0.05) continue
+        if (p.patrol) { p.patrol = null; p.fig.g.position.copy(p.home) }
         if (instant || still) {
-          p.pos.set(spot.x, index === 0 ? 0.29 : 0.04, spot.z)
-          p.yaw = p.goalYaw = spot.face
+          p.slot = slot
+          p.fig.g.position.set(slot.x, 0, slot.z)
           p.path = []
-        } else if (p.away) {
-          p.path = [{ x: spot.x, z: spot.z }]
-        } else {
-          p.path = walkPath(p.seat, spot).slice(1)
+          p.mode = 'court'
+          p.rot = Math.PI
+          continue
         }
-        p.away = true
-      })
+        const from = { x: p.fig.g.position.x, z: p.fig.g.position.z }
+        p.path = p.slot ? [slot] : walkPath(from, slot).slice(1)
+        p.slot = slot
+        p.mode = 'toCourt'
+      }
     })
-    meetingOn = order.length > 0
     rooms.forEach((label, room) => { if (!members.has(room)) { label.el.remove(); rooms.delete(room) } })
     order.forEach((room, index) => {
       const list = members.get(room)
@@ -869,200 +448,281 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
         label = { el }
         rooms.set(room, label)
       }
-      const centre = meetingCentre(plan.pavilion, index)
-      label.x = centre.x
-      label.z = centre.z
-      label.y = 0.3
-      label.z = centre.z + (index === 0 ? plan.pavilion.moon.r + 0.9 : 2.4)
+      const head = courtSlot(index, 'E', 0)
+      label.x = 0
+      label.z = head.z - 2.4
+      label.y = 0.4
       const name = list[0].state.text ?? ''
       label.el.textContent = `${words.court ?? ''}${name ? ` · ${name}` : ''} · ${list.length}${words.people ?? ''}`
     })
   }
 
-  function goHome(p, instant) {
-    p.spot = null
-    p.away = false
-    if (instant || still) {
-      p.pos.set(p.seat.x, 0.16, p.seat.z)
-      p.path = []
-      p.yaw = p.goalYaw = 0
-      return
+  // ---------------------------------------------------------------------------
+  // Runners: a little eunuch carrying a memorial from one official to another, or to the
+  // square when the work goes to a meeting.
+  function send({ from, to, room }) {
+    const giver = people.get(from)
+    const taker = to ? people.get(to) : null
+    if (!giver || (!taker && !room) || still || runners.length >= 6) return
+    const start = { x: giver.home.x + 1.6, z: giver.home.z }
+    const end = taker ? { x: taker.home.x + 1.6, z: taker.home.z } : { x: 0, z: 2 }
+    const fig = makeFigure({ robe: '#6d7fa3', hat: 'nei', scale: 0.9 })
+    add(fig.body, B(0.55, 0.12, 0.38), '#f2c443', 0, 1.25, 0.72)
+    fig.ring.visible = false
+    fig.g.position.set(start.x, 0, start.z)
+    scene.add(fig.g)
+    const tag = document.createElement('div')
+    tag.className = 'cb-run'
+    tag.textContent = `${words.memorial ?? ''} · ${giver.data.name} → ${taker ? taker.data.name : words.square ?? ''}`
+    tagLayer.appendChild(tag)
+    const dotGeo = new THREE.CircleGeometry(0.16, 10)
+    const dots = [...Array(14)].map(() => {
+      const d = new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color: '#e3a92a', transparent: true, opacity: 0, depthWrite: false }))
+      d.rotation.x = -Math.PI / 2
+      scene.add(d)
+      return d
+    })
+    runners.push({ fig, tag, dots, dotGeo, path: walkPath(start, end).slice(1), hist: [], acc: 0, taker, done: 0 })
+    giver.hop = 1
+  }
+
+  function removeRunner(r) {
+    scene.remove(r.fig.g)
+    r.tag.remove()
+    for (const d of r.dots) { scene.remove(d); d.material.dispose() }
+    r.dotGeo.dispose()
+    disposeTree(r.fig.g)
+  }
+
+  function stepRunner(r, dt, t) {
+    const g = r.fig.g
+    if (r.path.length > 0) {
+      const next = r.path[0]
+      const dx = next.x - g.position.x
+      const dz = next.z - g.position.z
+      const dist = Math.hypot(dx, dz)
+      const step = RUN * dt
+      if (dist <= step) {
+        g.position.x = next.x
+        g.position.z = next.z
+        r.path.shift()
+      } else {
+        g.position.x += dx / dist * step
+        g.position.z += dz / dist * step
+      }
+      if (dist > 0.01) g.rotation.y = Math.atan2(dx, dz)
+      r.fig.body.position.y = Math.abs(Math.sin(t * 12)) * 0.16
+      r.fig.armR.position.z = 0.5
+      r.fig.armL.position.z = 0.5
+      r.acc += dt
+      if (r.acc > 0.12) { r.acc = 0; r.hist.unshift(g.position.clone()); r.hist.length = Math.min(r.hist.length, 14) }
+      if (r.path.length === 0 && r.taker) r.taker.hop = 1
+    } else {
+      // Delivered: he is gone.
+      r.done += dt
+      g.scale.setScalar(0.97 * Math.max(0.01, 1 - r.done / 0.6))
     }
-    const path = walkPath(p.seat, { x: p.pos.x, z: p.pos.z }).reverse().slice(1)
-    p.path = path
+    r.dots.forEach((d, i) => {
+      const h = r.hist[i]
+      if (!h) { d.material.opacity = 0; return }
+      d.position.set(h.x, 0.12, h.z)
+      d.material.opacity = 0.55 * (1 - i / 14) * (r.done > 0 ? Math.max(0, 1 - r.done / 0.6) : 1)
+    })
+    return r.done < 0.6
   }
 
   // ---------------------------------------------------------------------------
-  // Passing effects: a ring of light spreading on the floor, and the 宣旨 scrolls.
-  const effects = []
-  const rippleGeo = geo('ripple', () => new THREE.RingGeometry(0.9, 1.05, 56))
-  function ripple(x, z, colour, size = 1.5) {
-    if (still) return
-    const material = new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.7, depthWrite: false })
-    const ring = new THREE.Mesh(rippleGeo, material)
-    ring.rotation.x = -Math.PI / 2
-    ring.position.set(x, 0.2, z)
-    scene.add(ring)
-    effects.push({ t: 0, duration: 1.1, tick: (k) => {
-      ring.scale.setScalar(1 + size * ease(k))
-      material.opacity = 0.7 * (1 - k)
-    }, end: () => { scene.remove(ring); material.dispose() } })
+  // Ceremonies.
+  function banner(text, ms) {
+    proclaim.textContent = text
+    proclaim.hidden = false
+    proclaim.style.animation = 'none'
+    void proclaim.offsetWidth
+    proclaim.style.animation = ''
+    proclaimUntil = performance.now() + ms
   }
 
-  let proclaimUntil = 0
-  function decree({ from, to, room }) {
+  function decree({ from }) {
+    banner(words.decree ?? '', CEREMONY_MS)
     const giver = people.get(from)
-    if (!giver) return
-    const targets = room
-      ? [{ x: plan.pavilion.moon.x, z: plan.pavilion.moon.z, y: 1.3, id: null }]
-      : (to ?? []).map(id => people.get(id)).filter(Boolean).map(p => ({ x: p.pos.x, z: p.pos.z, y: HEAD_Y, id: p.id }))
-    const names = room ? '' : (to ?? []).map(id => people.get(id)?.data.name).filter(Boolean).join('、')
-    proclaim.textContent = `${words.decree ?? ''}${names ? ` · ${names}` : ''}`
-    proclaim.hidden = false
-    proclaimUntil = performance.now() + CEREMONY_MS
-    giver.hop = 1
-    if (still) return
-    targets.forEach((target, index) => {
-      const scroll = new THREE.Group()
-      const roll = mesh(geo('scroll', () => new THREE.CylinderGeometry(0.13, 0.13, 0.8, 14)), mat(P.gold, { roughness: 0.35, metalness: 0.3 }), { cast: false })
-      roll.rotation.z = Math.PI / 2
-      scroll.add(roll)
-      for (const side of [-1, 1]) {
-        const end = mesh(geo('scroll-end', () => new THREE.CylinderGeometry(0.16, 0.16, 0.08, 14)), mat(P.vermilion), { cast: false })
-        end.rotation.z = Math.PI / 2
-        end.position.x = side * 0.42
-        scroll.add(end)
-      }
-      const shine = new THREE.Sprite(new THREE.SpriteMaterial({ map: blob, color: new THREE.Color(P.gold), transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }))
-      shine.scale.setScalar(1.6)
-      scroll.add(shine)
-      scroll.visible = false
-      scene.add(scroll)
-      const start = new THREE.Vector3(giver.pos.x, HEAD_Y + 0.4, giver.pos.z)
-      const end = new THREE.Vector3(target.x, target.y, target.z)
-      const mid = start.clone().lerp(end, 0.5)
-      mid.y += 4 + start.distanceTo(end) * 0.25
-      const curve = new THREE.QuadraticBezierCurve3(start, mid, end)
-      effects.push({ t: -0.22 * index - 0.35, duration: 1.5, tick: (k) => {
-        scroll.visible = true
-        scroll.position.copy(curve.getPoint(ease(k)))
-        scroll.rotation.y = k * 6
-      }, end: () => {
-        scene.remove(scroll)
-        shine.material.dispose()
-        ripple(target.x, target.z, P.gold, 2.2)
-        if (target.id) { const p = people.get(target.id); if (p) p.hop = 1 }
-      } })
-    })
+    if (giver) giver.hop = 1
   }
+
+  // 皇上驾到: the officials with nothing in hand turn to the Emperor and bow.
+  function greet() {
+    banner(words.arrive ?? '', 2800)
+    greetUntil = performance.now() + 3600
+  }
+
+  // ---------------------------------------------------------------------------
+  // Weather: rain or snow over the city; snow lies white on the roofs and the trees.
+  let weather = { kind: 'clear' }
+  let fall = null
+  const roofOriginals = new Map()
+  function setWeather(next) {
+    weather = next ?? { kind: 'clear' }
+    applyWeather()
+  }
+  function applyWeather() {
+    const kind = weather.kind
+    const want = kind === 'rain' || kind === 'storm' ? 'rain' : kind === 'snow' ? 'snow' : null
+    if (fall && fall.kind !== want) { scene.remove(fall.obj); fall.obj.geometry.dispose(); fall.obj.material.dispose(); fall = null }
+    if (want && !fall && !still) {
+      const snow = want === 'snow'
+      const n = snow ? 3000 : 2400
+      const positions = new Float32Array(n * (snow ? 3 : 6))
+      for (let i = 0; i < n; i += 1) {
+        const x = (Math.random() - 0.5) * 170
+        const y = Math.random() * 50
+        const z = (Math.random() - 0.5) * 160 - 14
+        if (snow) positions.set([x, y, z], i * 3)
+        else positions.set([x, y, z, x + 0.25, y - 1.6, z + 0.15], i * 6)
+      }
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      const obj = snow
+        ? new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.45, transparent: true, opacity: 0.95, depthWrite: false }))
+        : new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xc4d6e6, transparent: true, opacity: 0.6 }))
+      scene.add(obj)
+      fall = { kind: want, obj, n }
+    }
+    // Snow on the roofs and the leaves, put back when it melts.
+    const keys = new Set()
+    for (const c of ROOF_COLOURS) { keys.add(new THREE.Color(c).getHex()); keys.add(shade(c, -0.16)) }
+    for (const c of CROWNS) { keys.add(new THREE.Color(c).getHex()); keys.add(shade(c, 0.06)) }
+    for (const [key, material] of kit.byColour) {
+      if (!keys.has(key)) continue
+      if (!roofOriginals.has(key)) roofOriginals.set(key, material.color.clone())
+      material.color.copy(roofOriginals.get(key))
+      if (kind === 'snow') material.color.lerp(new THREE.Color('#ffffff'), 0.72)
+    }
+    if (palace) {
+      palace.grass.material.color.set(kind === 'snow' ? '#e9eef1' : '#a9cf87')
+      palace.pave.material.color.set(kind === 'snow' ? '#f1f3f5' : '#ffffff')
+    }
+    applySky(lastHour)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sky and light by the hour, dimmed under cloud.
+  function applySky(hour) {
+    lastHour = hour
+    const day = smooth(5.6, 7.2, hour) * (1 - smooth(17.2, 18.9, hour))
+    const dusk = Math.max(Math.exp(-((hour - 6.4) ** 2) / 0.5), Math.exp(-((hour - 17.9) ** 2) / 0.5))
+    const overcast = { rain: 0.75, storm: 0.9, snow: 0.55, cloudy: 0.35, fog: 0.5 }[weather.kind] ?? 0
+    let top = mixColour('#18213f', '#7fc3ea', day).lerp(new THREE.Color('#f0a98a'), dusk * 0.55 * (1 - overcast))
+    let bottom = mixColour('#33406e', '#eaf5f1', day).lerp(new THREE.Color('#fcd9ae'), dusk * 0.7 * (1 - overcast))
+    const grey = weather.kind === 'snow' ? ['#aeb9c6', '#e9edf1'] : ['#7d8b9b', '#c5cdd3']
+    top = top.lerp(mixColour('#1d2333', grey[0], day), overcast)
+    bottom = bottom.lerp(mixColour('#2f3548', grey[1], day), overcast)
+    container.style.background = `linear-gradient(#${top.getHexString()},#${bottom.getHexString()})`
+    scene.fog.color.copy(bottom)
+    scene.fog.near = weather.kind === 'fog' ? 60 : 170
+    scene.fog.far = weather.kind === 'fog' ? 220 : 380
+    sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55)
+    sun.color.copy(mixColour('#8ea4e0', '#ffffff', day).lerp(new THREE.Color('#ffb27a'), dusk * 0.6 * (1 - overcast)))
+    hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2)
+    hemi.color.copy(mixColour('#6d7bb3', '#dff2ff', day))
+    const a = Math.min(1, Math.max(0, (hour - 6) / 12)) * Math.PI
+    if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50)
+    else sun.position.set(-30, 80, 40)
+    const night = Math.max(1 - day, overcast * 0.4)
+    if (palace) {
+      palace.glowWin.emissiveIntensity = 0.12 + 0.9 * night
+      palace.glowLan.emissiveIntensity = 0.25 + 1.1 * night
+      palace.cloudMat.emissiveIntensity = 0.25 - 0.15 * (1 - day)
+      palace.cloudMat.color.set(overcast > 0.3 ? (weather.kind === 'snow' ? '#e4e8ee' : '#9aa6b2') : '#ffffff')
+    }
+  }
+  const setTime = minutes => applySky(minutes / 60)
 
   // ---------------------------------------------------------------------------
   // Selection, hover, picking.
+  const markerMat = keep(kit.toon({ color: 0xd2452f, emissive: 0xd2452f, emissiveIntensity: 0.3 }))
+  const marker = new THREE.Mesh(keep(new THREE.ConeGeometry(0.35, 0.7, 4)), markerMat)
+  marker.rotation.x = Math.PI
+  marker.visible = false
+  scene.add(marker)
+
   function setHover(id) {
     if (hovered === id) return
     if (hovered) people.get(hovered)?.tag.el.classList.remove('hover')
     hovered = id
     if (id) people.get(id)?.tag.el.classList.add('hover')
-    canvas.style.cursor = id ? 'pointer' : ''
+    canvas.style.cursor = id && !people.get(id)?.ambient ? 'pointer' : ''
   }
 
   function select(id) {
-    selected = id && people.has(id) ? id : null
+    selected = id && people.has(id) && !people.get(id).ambient ? id : null
     for (const p of people.values()) p.tag.el.classList.toggle('sel', p.id === selected)
   }
 
   const raycaster = new THREE.Raycaster()
   const pointer = new THREE.Vector2()
-  const pickAt = (event) => {
+  function pickAt(event) {
     const rect = canvas.getBoundingClientRect()
     pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
     raycaster.setFromCamera(pointer, camera)
-    const hit = raycaster.intersectObjects([...people.values()].map(p => p.pick), false)[0]
-    return hit?.object.userData.id ?? null
+    const targets = [...[...people.values()].filter(p => !p.ambient).map(p => p.pick), ...(palace?.pickables ?? [])]
+    const hit = raycaster.intersectObjects(targets, false)[0]
+    if (!hit) return null
+    if (hit.object.userData.id) return hit.object.userData.id
+    const bid = hit.object.userData.bid
+    return [...people.values()].find(p => p.building === bid && !p.ambient)?.id ?? null
   }
   let down = null
-  const onDown = (event) => { down = { x: event.clientX, y: event.clientY }; flight = null }
+  const onDown = (event) => { down = { x: event.clientX, y: event.clientY }; fly = null }
   const onUp = (event) => {
     if (!down) return
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y)
     down = null
-    if (moved > 5 || event.button !== 0) return
+    if (moved > 6 || event.button !== 0) return
     onSelect?.(pickAt(event))
   }
   const onMove = (event) => { if (event.buttons === 0) setHover(pickAt(event)) }
   const onDouble = (event) => { const id = pickAt(event); if (id) onOpen?.(id) }
+  const onLeave = () => setHover(null)
   canvas.addEventListener('pointerdown', onDown)
   canvas.addEventListener('pointerup', onUp)
   canvas.addEventListener('pointermove', onMove)
   canvas.addEventListener('dblclick', onDouble)
-  canvas.addEventListener('pointerleave', () => setHover(null))
-  controls.addEventListener('start', () => { flight = null })
+  canvas.addEventListener('pointerleave', onLeave)
+  controls.addEventListener('start', () => { fly = null })
 
   // ---------------------------------------------------------------------------
   // Camera.
-  let flight = null
-  const view = { azimuth: -0.14, polar: 0.84 }
-  function aim(target, distance, instant, keepAngles = false) {
-    const offset = new THREE.Vector3().setFromSphericalCoords(distance, view.polar, view.azimuth)
-    if (!instant && keepAngles && camera.position.lengthSq() > 0) {
-      const keepAngle = camera.position.clone().sub(controls.target)
-      const spherical = new THREE.Spherical().setFromVector3(keepAngle)
-      offset.setFromSphericalCoords(distance, clamp(spherical.phi, 0.55, 1.1), spherical.theta)
-    }
-    const position = target.clone().add(offset)
-    if (instant || still) {
+  let fly = null
+  function glide(target, position, duration = 1.1) {
+    if (still) {
       controls.target.copy(target)
       camera.position.copy(position)
       controls.update()
       return
     }
-    flight = { t: 0, fromTarget: controls.target.clone(), fromPos: camera.position.clone(), toTarget: target, toPos: position }
+    fly = { t: 0, duration, fromTarget: controls.target.clone(), toTarget: target, fromPos: camera.position.clone(), toPos: position }
   }
-
-  // The view that just holds the whole terrace: the camera backs off until every corner
-  // of the terrace's box falls inside the frame.
+  // The whole city from the south-east, a little further back in a narrow pane.
+  function overview() {
+    const far = camera.aspect < 1.25 ? 1.6 : 1.14
+    return { target: new THREE.Vector3(0, 0, -14), position: new THREE.Vector3(92 * far, 96 * far, 112 * far) }
+  }
   function frame(instant) {
-    const { bounds } = plan
-    const target = new THREE.Vector3((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2 + 0.5)
-    const corners = []
-    for (const x of [bounds.minX, bounds.maxX]) for (const y of [-1.3, 6]) for (const z of [bounds.minZ, bounds.maxZ]) corners.push(new THREE.Vector3(x, y, z))
-    const probe = camera.clone()
-    probe.clearViewOffset()
-    probe.aspect = camera.aspect
-    probe.updateProjectionMatrix()
-    const offset = new THREE.Vector3()
-    const fits = (distance) => {
-      offset.setFromSphericalCoords(distance, view.polar, view.azimuth)
-      probe.position.copy(target).add(offset)
-      probe.lookAt(target)
-      probe.updateMatrixWorld()
-      return corners.every(c => {
-        const v = c.clone().project(probe)
-        return Math.abs(v.x) < 0.94 && Math.abs(v.y) < 0.9 && v.z < 1
-      })
-    }
-    let low = 10
-    let high = 400
-    for (let i = 0; i < 24; i += 1) {
-      const mid = (low + high) / 2
-      if (fits(mid)) high = mid
-      else low = mid
-    }
-    const saved = { ...view }
-    aim(target, high, instant)
-    Object.assign(view, saved)
+    const { target, position } = overview()
+    if (instant) { controls.target.copy(target); camera.position.copy(position); controls.update(); return }
+    glide(target, position, 1.4)
   }
-
   function flyTo(id) {
     const p = people.get(id)
     if (!p) return
-    aim(new THREE.Vector3(p.pos.x, 1.2, p.pos.z + 0.6), 24, false, true)
+    const target = p.fig.g.position.clone().add(new THREE.Vector3(0, 1.5, 0))
+    const dir = camera.position.clone().sub(controls.target).normalize()
+    if (dir.y < 0.5) { dir.y = 0.5; dir.normalize() }
+    glide(target, target.clone().add(dir.multiplyScalar(28)))
   }
 
   let inset = 0
   let insetNow = 0
   const setInset = (px) => { inset = px }
-
   let width = 1
   let height = 1
   function resize() {
@@ -1084,259 +744,248 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   resize()
 
   // ---------------------------------------------------------------------------
-  // Time of day.
-  let minutesNow = 12 * 60
-  function setTime(minutes) {
-    minutesNow = minutes
-    lastSky = skyAt(minutes / 60)
-    applySky(lastSky)
-  }
-
-  function applySky(s) {
-    const hour = minutesNow / 60
-    container.style.background = `radial-gradient(120% 70% at 50% 108%, ${css(s.haze)} 0%, transparent 62%), linear-gradient(180deg, ${css(s.top)} 0%, ${css(s.bottom)} 100%)`
-    sky.style.setProperty('--cb-night', s.night.toFixed(3))
-    // The sun climbs from the left of the frame at six to the right at six; the moon
-    // takes the night shift on the same arc.
-    const day = hour >= 6 && hour < 18
-    const k = day ? (hour - 6) / 12 : (((hour - 18) % 24 + 24) % 24) / 12
-    orb.style.left = `${8 + k * 84}%`
-    orb.style.top = `${30 - Math.sin(k * Math.PI) * 22}%`
-    orb.dataset.moon = day ? 'false' : 'true'
-
-    const sunAngle = clamp((hour - 6) / 12, -0.1, 1.1) * Math.PI
-    const r = 80
-    if (day) sun.position.set(Math.cos(sunAngle) * r, Math.max(0.25, Math.sin(sunAngle)) * r, 30 + Math.sin(sunAngle) * 30)
-    else sun.position.set(-40, 70, 50)
-    sun.position.add(sun.target.position)
-    sun.color.copy(s.sun)
-    sun.intensity = s.sunI
-    hemi.intensity = s.hemi
-    hemi.color.copy(mix('#f4f1ea', '#8ea0d8', s.night))
-    hemi.groundColor.copy(mix('#c9bca4', '#3a3a52', s.night))
-    cloudMat.color.copy(mix('#ffffff', '#9aa6cc', s.night * 0.8))
-    lightLamps()
-  }
-
-  function lightLamps() {
-    const night = lastSky.night
-    for (const bit of nightBits) {
-      let on = bit.always ? 1 : 0
-      if (bit.person) {
-        const kind = people.get(bit.person)?.state.kind
-        on = kind === 'sleep' || kind === 'idle' ? 0.08 : 1
-      }
-      const level = night * on * bit.strength
-      bit.material.emissiveIntensity = level * 1.4
-      bit.sprite.material.opacity = level * 0.9
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // The loop.
   let running = false
   let frameId = 0
   let last = 0
+  let tick = 0
   let clockTick = 0
-  const projected = new THREE.Vector3()
+  const tmp = new THREE.Vector3()
+  const legs = []
+  let patrolLength = 0
+  for (let i = 0; i < PATROL.length - 1; i += 1) {
+    const l = Math.hypot(PATROL[i + 1].x - PATROL[i].x, PATROL[i + 1].z - PATROL[i].z)
+    legs.push(l)
+    patrolLength += l
+  }
 
-  function tick(now) {
+  function patrolStep(p, dt) {
+    p.patrol.s = (p.patrol.s + dt * 2.6) % (patrolLength * 2)
+    let d = p.patrol.s < patrolLength ? p.patrol.s : 2 * patrolLength - p.patrol.s
+    const dir = p.patrol.s < patrolLength ? 1 : -1
+    for (let i = 0; i < legs.length; i += 1) {
+      if (d <= legs[i] || i === legs.length - 1) {
+        const a = PATROL[i]
+        const b = PATROL[i + 1]
+        const k = Math.min(1, d / legs[i])
+        p.fig.g.position.set(a.x + (b.x - a.x) * k, WALL_TOP, a.z + (b.z - a.z) * k)
+        p.rot = Math.atan2((b.x - a.x) * dir, (b.z - a.z) * dir)
+        return
+      }
+      d -= legs[i]
+    }
+  }
+
+  function animatePerson(p, dt, now) {
+    if (p.ambient) {
+      const next = claudeState(lastHour)
+      if (next.kind !== p.state.kind) { p.state = next; paintTag(p) }
+    }
+    const st = p.state
+    const kind = st.kind ?? 'idle'
+    const g = p.fig.g
+    const T2 = tick + p.phase
+    const bowing = now < greetUntil && kind === 'idle' && p.mode === 'home'
+    // The 锦衣卫 walks the wall while he is on his round.
+    const patrolling = p.building === 'zhenfu' && kind === 'work' && p.mode === 'home' && !still
+    if (patrolling && !p.patrol) p.patrol = { s: 4 }
+    if (!patrolling && p.patrol) { p.patrol = null; g.position.copy(p.home) }
+
+    let target = null
+    let speed = 0
+    if (p.patrol) patrolStep(p, dt)
+    else if (p.path.length > 0) { target = p.path[0]; speed = WALK }
+    else if (p.mode === 'home') {
+      if (kind === 'idle' && !bowing && !still) {
+        p.wt -= dt
+        if (!p.wander || p.wt <= 0) {
+          const a = Math.random() * Math.PI * 2
+          const r = 0.8 + Math.random() * 1.6
+          p.wander = p.home.clone().add(new THREE.Vector3(Math.cos(a) * r, 0, -Math.abs(Math.sin(a)) * r * 0.8))
+          p.wt = 3 + Math.random() * 4
+        }
+        target = p.wander
+        speed = 1.3
+      } else { target = p.home; speed = 2 }
+    }
+    let moving = !!p.patrol
+    if (target) {
+      tmp.set(target.x - g.position.x, 0, target.z - g.position.z)
+      const dl = tmp.length()
+      if (dl > 0.05) {
+        const step = Math.min(dl, speed * dt)
+        g.position.addScaledVector(tmp.normalize(), step)
+        g.position.y = 0
+        moving = speed > 3 || dl > 0.3
+        p.rot = angLerp(p.rot, Math.atan2(tmp.x, tmp.z), Math.min(1, dt * 10))
+      } else if (p.path.length > 0) {
+        p.path.shift()
+        if (p.path.length === 0) p.mode = p.mode === 'toCourt' ? 'court' : 'home'
+      }
+    }
+    if (!moving) {
+      let face = null
+      if (p.mode === 'court') face = Math.PI
+      else if (bowing || kind === 'work' || kind === 'pending' || kind === 'question' || kind === 'sleep' || kind === 'done') face = 0
+      else if (kind === 'waiting' && st.towards && people.has(st.towards)) {
+        const other = people.get(st.towards).fig.g.position
+        face = Math.atan2(other.x - g.position.x, other.z - g.position.z)
+      }
+      if (face !== null) p.rot = angLerp(p.rot, face, Math.min(1, dt * 5))
+    }
+    g.rotation.y = p.rot
+
+    const { body, head, armL, armR, eyes, ring, ringMat } = p.fig
+    const run = moving && speed > 3
+    let by = 0
+    let hx = 0
+    let hz = 0
+    let rz = 0
+    let arz = 0.08
+    if (moving && !still) {
+      by = Math.abs(Math.sin(T2 * (run ? 12 : 7))) * (run ? 0.16 : 0.08)
+      rz = Math.sin(T2 * (run ? 12 : 7)) * 0.06
+    } else if (kind === 'work') {
+      hx = 0.22 + Math.sin(T2 * 2.5) * 0.05
+      arz = 0.35 + Math.sin(T2 * 9) * 0.08
+    } else if (kind === 'pending' || kind === 'question') {
+      by = still ? 0 : Math.abs(Math.sin(T2 * 5)) * 0.18
+      hz = Math.sin(T2 * 5) * 0.08
+    } else if (kind === 'sleep') {
+      hx = 0.38
+      hz = 0.18
+    } else if (p.mode === 'court') {
+      hx = 0.12
+      if (st.speaking && !still) by = Math.abs(Math.sin(T2 * 6)) * 0.1
+    } else hz = Math.sin(T2 * 1.1) * 0.07
+    if (p.hop > 0) {
+      p.hop = Math.max(0, p.hop - dt * 1.8)
+      by += Math.sin((1 - p.hop) * Math.PI) * 0.6
+    }
+    body.scale.y = kind === 'sleep' && !moving ? 1 + Math.sin(T2 * 1.4) * 0.025 : 1
+    body.position.y = by
+    body.rotation.z = rz
+    body.rotation.x += ((bowing && !moving ? 0.5 : 0) - body.rotation.x) * Math.min(1, dt * 4)
+    head.rotation.x += (hx - head.rotation.x) * Math.min(1, dt * 6)
+    head.rotation.z += (hz - head.rotation.z) * Math.min(1, dt * 6)
+    armR.position.z = bowing ? 0.4 : arz
+    armR.position.y = 0.95 + (kind === 'work' && !moving ? Math.sin(T2 * 9) * 0.05 : 0)
+    if (moving) {
+      armR.position.z = 0.08 + Math.sin(T2 * 12) * 0.18
+      armL.position.z = 0.08 - Math.sin(T2 * 12) * 0.18
+    } else armL.position.z = bowing ? 0.4 : 0.08
+    // Eyes shut in sleep, a blink now and then.
+    const blink = (T2 % 4.3) < 0.12
+    for (const e of eyes) e.scale.y = kind === 'sleep' ? 0.2 : blink ? 0.15 : 1
+    const colour = RING[p.mode === 'court' || p.mode === 'toCourt' ? 'court' : kind] ?? RING.idle
+    ringMat.color.set(colour)
+    const pulse = kind === 'pending' || kind === 'question'
+    ringMat.opacity = pulse ? 0.55 + Math.sin(tick * 6) * 0.35 : kind === 'work' || kind === 'done' ? 0.85 : p.mode !== 'home' ? 0.6 : 0.35
+    ring.scale.setScalar(pulse ? 1 + Math.sin(tick * 6) * 0.12 : 1)
+    p.pick.position.set(g.position.x, g.position.y + 1.8, g.position.z)
+
+    // The 衙门's own trades.
+    if (p.easel) {
+      const want = kind === 'work' && p.mode === 'home'
+      const s = p.easel.scale.y + ((want ? 1 : 0.01) - p.easel.scale.y) * Math.min(1, dt * 6)
+      p.easel.scale.set(1, s, 1)
+      p.easel.visible = s > 0.05
+    }
+    if (p.desk.beads.length > 0) {
+      const on = kind === 'work' && !still
+      for (const b of p.desk.beads) b.bead.position.z = b.z0 + (on && b.j === 1 && (b.i + Math.floor(tick * 3)) % 3 === 0 ? Math.sin(tick * 12 + b.i) * 0.05 : 0)
+    }
+    if (p.building === 'sitian' && palace && !still) {
+      const on = kind === 'work'
+      const arm = palace.armillary
+      arm.rotation.y += dt * (on ? 1.4 : 0.08)
+      arm.children[1].rotation.z += dt * (on ? 2 : 0)
+      arm.children[3].rotation.y += dt * (on ? 1.3 : 0)
+    }
+  }
+
+  function tickFrame(time) {
     if (!running) return
-    frameId = requestAnimationFrame(tick)
-    const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016)
-    last = now
-    const t = now / 1000
-
-    if (flight) {
-      flight.t = Math.min(1, flight.t + dt / 0.9)
-      const k = ease(flight.t)
-      controls.target.lerpVectors(flight.fromTarget, flight.toTarget, k)
-      camera.position.lerpVectors(flight.fromPos, flight.toPos, k)
-      if (flight.t >= 1) flight = null
+    frameId = requestAnimationFrame(tickFrame)
+    const dt = Math.min(0.05, last ? (time - last) / 1000 : 0.016)
+    last = time
+    tick += dt
+    if (fly) {
+      fly.t += dt
+      const k = Math.min(1, fly.t / fly.duration)
+      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2
+      controls.target.lerpVectors(fly.fromTarget, fly.toTarget, e)
+      camera.position.lerpVectors(fly.fromPos, fly.toPos, e)
+      if (k >= 1) fly = null
     }
     if (Math.abs(insetNow - inset) > 0.5) {
       insetNow += (inset - insetNow) * Math.min(1, dt * 8)
       applyInset()
     }
+    controls.target.x = Math.max(-80, Math.min(80, controls.target.x))
+    controls.target.z = Math.max(-90, Math.min(70, controls.target.z))
+    controls.target.y = Math.max(0, Math.min(12, controls.target.y))
     controls.update()
-
-    for (const c of cloudList) {
-      if (!still) c.angle += c.speed * dt
-      const { bounds } = plan
-      const rx = (bounds.maxX - bounds.minX) / 2 + 6
-      const rz = (bounds.maxZ - bounds.minZ) / 2 + 6
-      c.puff.position.set(Math.cos(c.angle) * rx, c.lift + Math.sin(t * 0.3 + c.wobble) * 0.3, (bounds.minZ + bounds.maxZ) / 2 + Math.sin(c.angle) * rz)
-      c.puff.rotation.y = -c.angle
+    if (palace) {
+      let court = false
+      for (const p of people.values()) if (p.mode === 'court' || p.mode === 'toCourt') { court = true; break }
+      const halo = palace.halo
+      halo.material.opacity += ((court || time < proclaimUntil ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3)
+      halo.rotation.z += dt * 0.4
+      if (!still) for (const c of palace.clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 190) c.position.x = -190 }
     }
-
-    lightLamps()
-    for (const s of smoke) {
-      if (!still) s.phase = (s.phase + dt * 0.22) % 1
-      const k = s.phase
-      s.puff.position.set(Math.sin(k * 7 + s.phase * 3) * 0.25 * k, 1.3 + k * 3.2, Math.cos(k * 5) * 0.15 * k)
-      s.puff.scale.setScalar(0.5 + k * 1.6)
-      const target = meetingOn ? Math.sin(k * Math.PI) * 0.55 : 0
-      s.puff.material.opacity += (target - s.puff.material.opacity) * Math.min(1, dt * 3)
+    if (fall) {
+      const pos = fall.obj.geometry.attributes.position
+      if (fall.kind === 'snow') {
+        for (let i = 0; i < fall.n; i += 1) {
+          let y = pos.getY(i) - dt * 3
+          if (y < 0) y += 50
+          pos.setY(i, y)
+          pos.setX(i, pos.getX(i) + Math.sin(y * 0.3 + i) * dt * 0.4)
+        }
+      } else {
+        for (let i = 0; i < fall.n; i += 1) {
+          let y = pos.getY(i * 2) - dt * 38
+          if (y < 1.6) y += 48
+          pos.setY(i * 2, y)
+          pos.setY(i * 2 + 1, y - 1.6)
+        }
+      }
+      pos.needsUpdate = true
     }
-    for (const p of people.values()) animatePerson(p, dt, t)
-
-    for (let i = effects.length - 1; i >= 0; i -= 1) {
-      const e = effects[i]
-      e.t += dt / e.duration
-      if (e.t < 0) continue
-      e.tick(Math.min(1, e.t))
-      if (e.t >= 1) { e.end?.(); effects.splice(i, 1) }
+    for (const p of people.values()) animatePerson(p, dt, time)
+    for (let i = runners.length - 1; i >= 0; i -= 1) {
+      if (!stepRunner(runners[i], dt, tick)) { removeRunner(runners[i]); runners.splice(i, 1) }
     }
-    if (!proclaim.hidden && now > proclaimUntil) proclaim.hidden = true
-
+    if (selected && people.has(selected)) {
+      const g = people.get(selected).fig.g.position
+      marker.visible = true
+      marker.position.set(g.x, g.y + 4.4 + Math.sin(tick * 3) * 0.2, g.z)
+      marker.rotation.y += dt * 2
+    } else marker.visible = false
+    if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true
     renderer.render(scene, camera)
     placeTags()
-    if (now - clockTick > 1000) {
-      clockTick = now
-      for (const p of people.values()) if (p.state.kind === 'work') p.tag.time.textContent = clock(p.state.since)
+    if (time - clockTick > 1000) {
+      clockTick = time
+      for (const p of people.values()) if (p.state.kind === 'work' && !p.ambient) p.tag.time.textContent = clock(p.state.since)
     }
   }
 
-  function animatePerson(p, dt, t) {
-    const kind = p.state.kind
-    const motion = p.state.motion
-    // Walking.
-    if (p.path.length > 0) {
-      const next = p.path[0]
-      const dx = next.x - p.pos.x
-      const dz = next.z - p.pos.z
-      const dist = Math.hypot(dx, dz)
-      const stepLen = WALK * dt
-      if (dist <= stepLen) {
-        p.pos.x = next.x
-        p.pos.z = next.z
-        p.path.shift()
-      } else {
-        p.pos.x += (dx / dist) * stepLen
-        p.pos.z += (dz / dist) * stepLen
-      }
-      if (dist > 0.01) p.goalYaw = Math.atan2(dx, dz)
-      const onDais = Math.hypot(p.pos.x - plan.pavilion.moon.x, p.pos.z - plan.pavilion.moon.z) < plan.pavilion.moon.r
-      const onSlab = !p.away || Math.hypot(p.pos.x - p.seat.x, p.pos.z - p.seat.z) < 1.4
-      p.pos.y = onDais ? 0.29 : onSlab && !p.away ? 0.16 : 0.04
-      p.body.position.y = Math.abs(Math.sin(t * 11)) * 0.12
-      p.body.rotation.z = Math.sin(t * 11) * 0.06
-    } else {
-      p.body.rotation.z *= 0.8
-      // Facing: south at the desk, the ring's middle in a meeting, the one he waits on.
-      if (p.away && p.spot) p.goalYaw = p.spot.face
-      else if (kind === 'waiting' && p.state.towards && people.has(p.state.towards)) {
-        const other = people.get(p.state.towards)
-        p.goalYaw = clamp(Math.atan2(other.pos.x - p.pos.x, other.pos.z - p.pos.z), -1.1, 1.1)
-      } else p.goalYaw = 0
-      if (!p.away && Math.hypot(p.pos.x - p.seat.x, p.pos.z - p.seat.z) < 0.01) p.pos.y = 0.16
-      // Breathing, and a little more life for some states.
-      const breath = Math.sin(t * 1.6 + p.seed) * 0.012
-      p.body.scale.set(1, 1 + breath, 1)
-      let bob = 0
-      if (kind === 'court' && p.state.speaking) bob = Math.abs(Math.sin(t * 6)) * 0.08
-      if (kind === 'pending' || kind === 'question') bob = Math.abs(Math.sin(t * 2.6)) * 0.05
-      p.body.position.y = bob
-    }
-    if (p.hop > 0) {
-      p.hop = Math.max(0, p.hop - dt * 1.6)
-      p.body.position.y += Math.sin((1 - p.hop) * Math.PI) * 0.5
-    }
-    p.yaw += angleTo(p.yaw, p.goalYaw) * Math.min(1, dt * 7)
-    p.fig.position.copy(p.pos)
-    p.fig.rotation.y = p.yaw
-
-    // Leaning to the desk while working; a nod while asleep.
-    const working = kind === 'work' && !p.away
-    const lean = working ? 0.12 : kind === 'sleep' ? 0.22 : 0
-    p.body.rotation.x += (lean - p.body.rotation.x) * Math.min(1, dt * 4)
-    p.head.rotation.y = working && motion === 'searching' ? Math.sin(t * 2.4 + p.seed) * 0.55 : p.head.rotation.y * 0.9
-    p.head.rotation.x = kind === 'sleep' ? 0.18 + Math.sin(t * 1.2 + p.seed) * 0.04 : p.head.rotation.x * 0.9
-
-    // Eyes: closed asleep, a blink now and then otherwise.
-    p.blink -= dt
-    let eye = kind === 'sleep' ? 0.15 : 1
-    if (kind !== 'sleep' && p.blink < 0.12) eye = 0.12
-    if (p.blink < 0) p.blink = 2.5 + Math.random() * 4
-    for (const e of p.eyes) e.scale.y = eye
-
-    // The 笏: before him, or held high when he waits on the Emperor.
-    const raised = kind === 'pending' || kind === 'question'
-    const plankY = raised ? 2.15 : 0.86
-    p.plank.position.y += (plankY - p.plank.position.y) * Math.min(1, dt * 6)
-    p.plank.position.z += ((raised ? 0.3 : 0.52) - p.plank.position.z) * Math.min(1, dt * 6)
-    p.plank.rotation.x += ((raised ? 0 : -0.25) - p.plank.rotation.x) * Math.min(1, dt * 6)
-
-    // A thinking light above him.
-    const thinking = working && (motion === 'thinking' || motion === 'working')
-    const thoughtTarget = thinking ? 0.55 + Math.sin(t * 2.2 + p.seed) * 0.25 : 0
-    p.thought.material.opacity += (thoughtTarget - p.thought.material.opacity) * Math.min(1, dt * 4)
-    p.thought.position.y = 2.1 + Math.sin(t * 1.4 + p.seed) * 0.06
-
-    // The brush writes while he works.
-    const { brush, sheets, stamp, mark } = p.deskParts
-    brush.rotation.y = working ? Math.sin(t * 9 + p.seed) * 0.35 : brush.rotation.y * 0.9
-    brush.position.y = working ? 0.62 + Math.abs(Math.sin(t * 9 + p.seed)) * 0.04 : 0.6
-    for (const s of sheets) {
-      if (working && motion === 'sending' && !still) {
-        s.phase = (s.phase + dt * 0.45) % 1
-        const k = s.phase
-        s.sheet.position.set(-0.1 + Math.sin(k * 6 + p.seed) * 0.25, 0.7 + k * 2.4, 1.05 - k * 0.6)
-        s.sheet.rotation.set(k * 2, k * 4, k)
-        s.sheet.material.opacity = Math.sin(k * Math.PI) * 0.95
-      } else {
-        s.sheet.material.opacity *= 0.85
-      }
-    }
-
-    // The seal: it drops, presses, and leaves its mark.
-    if (p.stampT >= 0 && p.stampT < 1.6) {
-      p.stampT = Math.min(1.6, p.stampT + dt)
-      const k = p.stampT
-      stamp.visible = true
-      if (k < 0.45) stamp.position.y = 0.69 + (1 - ease(k / 0.45)) * 1.4
-      else if (k < 0.6) { stamp.position.y = 0.66; mark.material.opacity = 0.9 }
-      else stamp.position.y = 0.69 + Math.min(1, (k - 0.6) / 0.4) * 0.12
-      stamp.scale.y = k > 0.42 && k < 0.6 ? 0.82 : 1
-      stamp.position.x = k < 0.6 ? -0.12 : -0.12 + Math.min(1, (k - 0.6) / 0.4) * 0.18
-    }
-
-    // The ring under him.
-    const aura = AURA[kind]
-    const { ring, arc, material, select: sel } = p.aura
-    ring.position.set(p.pos.x, p.pos.y + 0.02, p.pos.z)
-    arc.position.copy(ring.position)
-    sel.position.copy(ring.position)
-    ring.visible = !!aura && !aura.arc
-    arc.visible = !!aura && aura.arc
-    const speed = motion === 'searching' ? 3.2 : 1.4
-    if (arc.visible && !still) arc.rotation.z -= dt * (kind === 'waiting' ? 0.6 : speed)
-    let alpha = aura ? 0.85 : 0
-    if (aura?.pulse) alpha = 0.45 + Math.abs(Math.sin(t * 2.6)) * 0.5
-    material.opacity += (alpha - material.opacity) * Math.min(1, dt * 6)
-    sel.material.opacity += ((p.id === selected ? 0.9 : p.id === hovered ? 0.35 : 0) - sel.material.opacity) * Math.min(1, dt * 10)
-
-    p.pick.position.set(p.pos.x, 1.3, p.pos.z + 0.3)
-  }
-
-  // Which tag keeps its place when two meet: the one the Emperor is looking at, then the
-  // one waiting on him, then the busy, then the rest.
+  // Tags follow their heads; one that falls behind a more urgent one steps back.
   const RANK = { pending: 1, question: 1, done: 2, work: 2, court: 2, waiting: 3 }
   const rank = p => (p.id === selected || p.id === hovered ? 0 : RANK[p.state.kind] ?? 4)
-
-  // Tags follow their heads. A tag that would cover a nearer one is lifted above it.
   const placed = []
   function placeTags() {
-    const far = camera.position.distanceTo(controls.target) > 120
-    tagLayer.classList.toggle('cb-far', far)
+    const camDist = camera.position.distanceTo(controls.target)
+    tagLayer.classList.toggle('cb-far', camDist > 150)
     placed.length = 0
     const list = []
     for (const p of people.values()) {
-      projected.set(p.pos.x, p.pos.y + HEAD_Y + 0.15, p.pos.z).project(camera)
-      const visible = projected.z < 1 && Math.abs(projected.x) < 1.3 && Math.abs(projected.y) < 1.3
-      const x = (projected.x * 0.5 + 0.5) * width
-      const y = (-projected.y * 0.5 + 0.5) * height
-      list.push({ p, x, y, depth: projected.z, visible })
+      const g = p.fig.g.position
+      tmp.set(g.x, g.y + 3.7, g.z).project(camera)
+      const visible = tmp.z < 1 && Math.abs(tmp.x) < 1.2 && Math.abs(tmp.y) < 1.2
+      list.push({ p, x: (tmp.x * 0.5 + 0.5) * width, y: (-tmp.y * 0.5 + 0.5) * height, depth: tmp.z, visible })
     }
     list.sort((a, b) => rank(a.p) - rank(b.p) || a.depth - b.depth)
     for (const item of list) {
@@ -1345,23 +994,25 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       if (!item.visible) { el.style.visibility = 'hidden'; continue }
       el.style.visibility = ''
       if (p.tag.w === 0) { p.tag.w = el.offsetWidth; p.tag.h = el.offsetHeight }
-      const y = item.y
-      const w = p.tag.w
-      const h = p.tag.h
+      const { w, h } = p.tag
       const important = p.id === selected || p.id === hovered
-      // A tag that falls behind a nearer one steps back instead of moving off its head.
-      const covered = !important && placed.some(r => Math.abs(r.x - item.x) < (r.w + w) / 2 - 20 && y > r.y - r.h + 8 && y - h < r.y - 8)
+      const covered = !important && placed.some(r => Math.abs(r.x - item.x) < (r.w + w) / 2 - 20 && item.y > r.y - r.h + 8 && item.y - h < r.y - 8)
       el.classList.toggle('cb-behind', covered)
-      if (!covered) placed.push({ x: item.x, y, w, h })
-      el.style.transform = `translate(${Math.round(item.x - w / 2)}px, ${Math.round(y - h)}px)`
-      el.style.zIndex = important ? 1000 : String(Math.round((1 - item.depth) * 900))
+      if (!covered) placed.push({ x: item.x, y: item.y, w, h })
+      el.style.transform = `translate(${Math.round(item.x - w / 2)}px, ${Math.round(item.y - h)}px)`
+      el.style.zIndex = important ? '1000' : String(Math.round((1 - item.depth) * 900))
+    }
+    for (const r of runners) {
+      tmp.copy(r.fig.g.position)
+      tmp.y += 3.2
+      tmp.project(camera)
+      r.tag.style.transform = `translate(${Math.round((tmp.x * 0.5 + 0.5) * width)}px, ${Math.round((-tmp.y * 0.5 + 0.5) * height)}px) translate(-50%, -100%)`
+      r.tag.style.visibility = tmp.z < 1 && r.done === 0 ? '' : 'hidden'
     }
     rooms.forEach((label) => {
-      projected.set(label.x, label.y, label.z).project(camera)
-      const x = (projected.x * 0.5 + 0.5) * width
-      const y = (-projected.y * 0.5 + 0.5) * height
-      label.el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`
-      label.el.style.visibility = projected.z < 1 ? '' : 'hidden'
+      tmp.set(label.x, label.y, label.z).project(camera)
+      label.el.style.transform = `translate(${Math.round((tmp.x * 0.5 + 0.5) * width)}px, ${Math.round((-tmp.y * 0.5 + 0.5) * height)}px) translate(-50%, -50%)`
+      label.el.style.visibility = tmp.z < 1 ? '' : 'hidden'
     })
   }
 
@@ -1369,7 +1020,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (running) return
     running = true
     last = 0
-    frameId = requestAnimationFrame(tick)
+    frameId = requestAnimationFrame(tickFrame)
   }
   function stop() {
     running = false
@@ -1383,35 +1034,35 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     canvas.removeEventListener('pointerup', onUp)
     canvas.removeEventListener('pointermove', onMove)
     canvas.removeEventListener('dblclick', onDouble)
+    canvas.removeEventListener('pointerleave', onLeave)
     controls.dispose()
     for (const p of people.values()) removePerson(p)
     people.clear()
+    for (const r of runners) removeRunner(r)
+    runners.length = 0
     for (const label of rooms.values()) label.el.remove()
     rooms.clear()
     proclaim.remove()
-    for (const e of effects) e.end?.()
-    effects.length = 0
-    const owned = new Set()
-    scene.traverse((object) => { if (object.geometry) owned.add(object.geometry) })
-    for (const g of owned) g.dispose()
-    for (const g of geometries.values()) g.dispose()
-    for (const m of materials.values()) m.dispose()
-    for (const texture of textures) texture.dispose()
+    if (fall) { fall.obj.geometry.dispose(); fall.obj.material.dispose() }
+    palace?.dispose()
+    for (const m of kit.byColour.values()) m.dispose()
+    kit.ramp.dispose()
+    for (const thing of owned) thing.dispose?.()
     scene.clear()
     renderer.dispose()
     renderer.forceContextLoss?.()
     canvas.remove()
-    sky.remove()
     container.style.background = containerBackground
   }
 
-  setTime(minutesNow)
   frame(true)
+  applySky(lastHour)
 
   return {
     setPeople,
     setPersonState,
     setTime,
+    setWeather,
     select,
     flyTo,
     frame: () => frame(false),
@@ -1419,6 +1070,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     start,
     stop,
     decree,
+    send,
+    greet,
     resize,
     dispose,
     isRunning: () => running,

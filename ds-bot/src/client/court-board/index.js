@@ -18,6 +18,7 @@ import { courtTheme } from '../sources.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
+import { fetchWeather } from './weather.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
 // React sees a new snapshot.
@@ -192,6 +193,18 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return value
   }, [roster, heldStates, hour])
 
+  // Nanjing's weather, checked while the board is open.
+  const [weather, setWeather] = useState(null)
+  useEffect(() => {
+    if (!state.open) return undefined
+    let stopped = false
+    const load = () => fetchWeather().then((next) => { if (!stopped && next) setWeather(next) })
+    load()
+    const timer = setInterval(load, 30 * 60 * 1000)
+    return () => { stopped = true; clearInterval(timer) }
+  }, [state.open])
+  useEffect(() => { if (weather) scene.current?.setWeather(weather) }, [weather])
+
   // The 奏事簿 notes every change of state, open or not.
   const seen = useRef(null)
   useEffect(() => {
@@ -224,7 +237,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
         onOpen: id => { closeCourtBoard(); actions.openSession(id) },
         words: {
           pending: t('等皇上定夺'), question: t('等皇上答话'), done: t('已办，待阅'), court: t('议事'), speaking: t('发言中'),
-          decree: t('宣旨'), unfiled: t('编外'), people: t(' 人'),
+          decree: t('宣旨'), unfiled: t('编外'), people: t(' 人'), arrive: t('皇上驾到'),
+          memorial: t('奏折'), square: t('太和殿广场'), memorials: t('看奏报'),
         },
       })
     } catch (error) {
@@ -236,7 +250,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     scene.current.setTime(hour * 60)
     scene.current.setPeople(cast.people)
     scene.current.select(board.selected)
+    if (weather) scene.current.setWeather(weather)
     scene.current.start()
+    scene.current.greet()
     setHint(true)
     const timer = setTimeout(() => setHint(false), 7000)
     const world = scene.current
@@ -249,7 +265,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
 
   // Feed the world while it is open. The city is rebuilt only when the team's shape
   // changes; states go one at a time, so a Bot starting work does not rebuild anything.
-  const shape = cast.people.map(person => `${person.id}|${person.section}|${person.office}|${person.robe}`).join(',')
+  const shape = cast.people.map(person => `${person.id}|${person.section}|${person.office}|${person.robe}|${person.building}`).join(',')
   useEffect(() => {
     const world = scene.current
     if (world === null || !state.open) return
@@ -313,6 +329,21 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return undefined
   }, [assignments, state.open, roster.mainBotId, decreeWake])
 
+  // Every piece of work handed over while the board is open gets a runner with the
+  // memorial: from the giver to the taker, or to the square for a group.
+  const sent = useRef(new Set())
+  useEffect(() => {
+    if (!state.open || scene.current === null) return
+    const now = Date.now()
+    for (const entry of assignments) {
+      if (!entry || typeof entry.at !== 'number' || now - entry.at > 15_000) continue
+      const key = `${entry.from}>${entry.to ?? entry.room}@${entry.at}`
+      if (sent.current.has(key)) continue
+      sent.current.add(key)
+      scene.current.send({ from: entry.from, to: entry.to, room: entry.room })
+    }
+  }, [assignments, state.open])
+
   useEffect(() => {
     if (!state.open) return undefined
     const onKey = (event) => {
@@ -346,7 +377,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       h('span', { className: 'bt-cb-mark' }, h(SealIcon, { size: 22 })),
       h('div', { className: 'bt-cb-heading' },
         h('span', { className: 'bt-cb-title' }, t('小朝廷值房')),
-        h('span', { className: 'bt-cb-sub' }, `${dateLine()} · ${shichen(hour)}`)),
+        h('span', { className: 'bt-cb-sub' }, `${dateLine()} · ${shichen(hour)}${weather?.word ? ` · ${t('南京')} ${weather.word} ${weather.temp}°C` : ''}`)),
       h('div', { className: 'bt-cb-tallies', role: 'group', 'aria-label': t('朝堂态势') },
         tallies.map(({ kind, ids }) => h('button', {
           key: kind, type: 'button', className: 'bt-cb-tally', 'data-kind': kind, disabled: ids.length === 0,
