@@ -41792,7 +41792,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     scene.current?.dispose();
     scene.current = null;
   }, []);
-  const assignments = work?.assignments ?? [];
+  const assignments = work?.sent ?? work?.assignments ?? [];
   (0, import_react23.useEffect)(() => {
     if (!state.open || scene.current === null) return void 0;
     const now2 = Date.now();
@@ -41810,18 +41810,19 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     addFeed([{ at: now2, id: next.from, name: main, kind: "decree", text: `${t("宣旨")}${named ? ` · ${named}` : ""}` }]);
     return void 0;
   }, [assignments, state.open, roster.mainBotId, decreeWake]);
+  const messages = assignments;
   const sent = (0, import_react23.useRef)(/* @__PURE__ */ new Set());
   (0, import_react23.useEffect)(() => {
     if (!state.open || scene.current === null) return;
     const now2 = Date.now();
-    for (const entry of assignments) {
+    for (const entry of messages) {
       if (!entry || typeof entry.at !== "number" || now2 - entry.at > 15e3) continue;
       const key = `${entry.from}>${entry.to ?? entry.room}@${entry.at}`;
       if (sent.current.has(key)) continue;
       sent.current.add(key);
       scene.current.send({ from: entry.from, to: entry.to, room: entry.room });
     }
-  }, [assignments, state.open]);
+  }, [messages, state.open]);
   (0, import_react23.useEffect)(() => {
     if (!state.open) return void 0;
     const onKey = (event) => {

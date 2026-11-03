@@ -306,7 +306,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   // A 宣旨 while the board is open: the Main Bot takes the square when it handed work to
   // several officials at once, or gave it to a group. One ceremony at a time: a batch that
   // arrives during one waits for it to end, then plays.
-  const assignments = work?.assignments ?? []
+  // What the Main Bot and the others just sent each other: every message when the host
+  // keeps that list, else only the work handed over with an answer expected.
+  const assignments = work?.sent ?? work?.assignments ?? []
   useEffect(() => {
     if (!state.open || scene.current === null) return undefined
     const now = Date.now()
@@ -329,20 +331,21 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return undefined
   }, [assignments, state.open, roster.mainBotId, decreeWake])
 
-  // Every piece of work handed over while the board is open gets a runner with the
-  // memorial: from the giver to the taker, or to the square for a group.
+  // Every message one Bot sends another while the board is open gets a runner with the
+  // memorial: from the sender to the receiver, or to the square for a group.
+  const messages = assignments
   const sent = useRef(new Set())
   useEffect(() => {
     if (!state.open || scene.current === null) return
     const now = Date.now()
-    for (const entry of assignments) {
+    for (const entry of messages) {
       if (!entry || typeof entry.at !== 'number' || now - entry.at > 15_000) continue
       const key = `${entry.from}>${entry.to ?? entry.room}@${entry.at}`
       if (sent.current.has(key)) continue
       sent.current.add(key)
       scene.current.send({ from: entry.from, to: entry.to, room: entry.room })
     }
-  }, [assignments, state.open])
+  }, [messages, state.open])
 
   useEffect(() => {
     if (!state.open) return undefined

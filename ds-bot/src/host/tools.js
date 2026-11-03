@@ -203,7 +203,11 @@ export function install(rt) {
       if (room !== undefined) {
         const refusal = groupRefusal(room, sender, target)
         if (refusal !== undefined) refuse(refusal)
-        const send = () => callInGroup(exec, room, sender, target, text.trim())
+        const send = async () => {
+          const result = await callInGroup(exec, room, sender, target, text.trim())
+          rt.noteSent?.({ from: sender.id, to: target.id })
+          return result
+        }
         return request === undefined ? await send() : answer(await rt.admitRequest(request, send))
       }
       const posted = calledInPosts.get(exec.agent?.id)
@@ -245,6 +249,7 @@ export function install(rt) {
           if (!joins) rt.dropWork(exchangeId)
           throw error
         }
+        rt.noteSent?.({ from: sender.id, to: target.id })
         const sent = toUser
           ? `Delivered to ${target.name}. It will answer the user in its own chat; nothing comes back to you, so point the user to ${target.name}'s chat instead of relaying.`
           : working && steer
@@ -597,6 +602,7 @@ export function install(rt) {
         if (sub !== undefined) rt.dropWork(sub)
         return `Could not post in "${room.name}": ${failure.message}`
       }
+      rt.noteSent?.({ from: self, room: room.id })
       if (member && named.length === 0) return `Posted in "${room.name}", where the user and its members read it. Nobody answers it: your post only calls the members you name with @Name.`
       if (named.length > 0) {
         const turn = turnOf(exec)

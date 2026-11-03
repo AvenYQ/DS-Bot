@@ -225,6 +225,17 @@ export function install(rt) {
     return given.sort((one, other) => other.at - one.at).slice(0, ASSIGNMENT_LIMIT)
   }
 
+  // Every message one Bot just sent another, or posted to a group, whether or not an
+  // answer comes back to it: the court board's runners carry these. Kept in memory only,
+  // for a minute, newest first.
+  const sent = []
+  function noteSent({ from, to, room }, at = Date.now()) {
+    if (from === undefined || from === to || (to === undefined && room === undefined)) return
+    sent.unshift(to === undefined ? { from, room, at } : { from, to, at })
+    sent.length = Math.min(sent.length, ASSIGNMENT_LIMIT)
+  }
+  const sentView = (now = Date.now()) => sent.filter(entry => now - entry.at <= ASSIGNMENT_KEPT_MS)
+
   // A deleted Bot answers no more work and waits for none.
   function forgetBot(botId) {
     const waiting = Object.entries(works()).filter(([, work]) => work.to === botId).map(([id]) => askedBy(id))
@@ -279,5 +290,5 @@ export function install(rt) {
     return lines.join('; ')
   }
 
-  Object.assign(rt, { workOf, openWork, closeWork, dropWork, takenWork: taken, ownsWork: owns, waitsWork: waits, holdWork: hold, workAsker: askedBy, answerText, upstreamOf, sameWork, forgetBotWork: forgetBot, statusOf, waitingView, assignmentsView })
+  Object.assign(rt, { workOf, openWork, closeWork, dropWork, takenWork: taken, ownsWork: owns, waitsWork: waits, holdWork: hold, workAsker: askedBy, answerText, upstreamOf, sameWork, forgetBotWork: forgetBot, statusOf, waitingView, assignmentsView, noteSent, sentView })
 }

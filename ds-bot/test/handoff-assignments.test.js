@@ -86,3 +86,18 @@ test('work leaves the summary when it comes back', async () => {
   await Promise.resolve()
   assert.deepEqual(rt.assignmentsView(), [])
 })
+
+// Every message, not only work with an answer coming back: a Main Bot that passes an
+// order on with reply_to "user" still sends a runner across the court board.
+test('every message one Bot sends another is listed for a minute, newest first', () => {
+  const rt = host()
+  rt.noteSent({ from: 'main', to: 'a' }, NOW - 70_000)
+  rt.noteSent({ from: 'main', to: 'b' }, NOW - 20_000)
+  rt.noteSent({ from: 'main', room: 'g1' }, NOW - 10_000)
+  rt.noteSent({ from: 'main', to: 'main' }, NOW - 5_000)
+  rt.noteSent({ from: 'main' }, NOW - 4_000)
+  assert.deepEqual(rt.sentView(NOW), [
+    { from: 'main', room: 'g1', at: NOW - 10_000 },
+    { from: 'main', to: 'b', at: NOW - 20_000 },
+  ])
+})
