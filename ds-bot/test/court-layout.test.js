@@ -1,97 +1,86 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { DOOR_GAP, doorSpot, planYards, yardSlots } from '../src/client/court-board/layout.js'
+import { LANE, meetingCentre, meetingSpots, planCourt, sectionsOf, walkPath } from '../src/client/court-board/layout.js'
 
-const hall = (w, d, foot) => ({ w, d, foot })
-const inside = (spot, h) => Math.abs(spot.x - h.x) < (h.w ?? 9) / 2 && Math.abs(spot.z - h.z) < (h.d ?? 6) / 2
+// The court's real shape: 2, 4, 4, 3, 5 and 1 officials in six sections.
+const SIZES = [2, 4, 4, 3, 5, 1]
+const SECTIONS = SIZES.map((count, index) => ({ name: `s${index}`, ids: Array.from({ length: count }, (_, i) => `s${index}-${i}`) }))
+const DESK = { w: 1.9, d: 2.6 } // a seat's mat, figure and desk, with room to pass
 
-// The court's real shape: 2, 4, 4, 3, 5 and 1 hall in six sections.
-const SECTIONS = [
-  [hall(12, 7, 11), hall(9, 6, 10)],
-  [hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10)],
-  [hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10)],
-  [hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10)],
-  [hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10), hall(9, 6, 10)],
-  [hall(13, 7, 12)],
-]
-
-const place = sections => planYards(sections).flatMap((block, index) => block.halls.map((spot, i) => ({
-  ...sections[index][i], ...spot, section: index,
-})))
-
-test('no two halls overlap, however many halls the sections have', () => {
-  const halls = place(SECTIONS)
-  assert.equal(halls.length, SECTIONS.flat().length)
-  for (let i = 0; i < halls.length; i += 1) {
-    for (let j = i + 1; j < halls.length; j += 1) {
-      const a = halls[i], b = halls[j]
-      const apartX = Math.abs(a.x - b.x) >= (a.w / 2 + b.w / 2)
-      const apartZ = Math.abs(a.z - b.z) >= (a.foot / 2 + b.foot / 2)
-      assert.ok(apartX || apartZ, `halls ${i} and ${j} overlap (sections ${a.section} and ${b.section})`)
+test('every official gets a seat, and no two seats crowd each other', () => {
+  const plan = planCourt(SECTIONS)
+  const seats = [...plan.seats.values()]
+  assert.equal(seats.length, SIZES.reduce((a, b) => a + b, 0))
+  for (let i = 0; i < seats.length; i += 1) {
+    for (let j = i + 1; j < seats.length; j += 1) {
+      const a = seats[i], b = seats[j]
+      assert.ok(Math.abs(a.x - b.x) >= DESK.w * 1.5 || Math.abs(a.z - b.z) >= DESK.d * 1.4, `seats ${i} and ${j} crowd each other`)
     }
   }
 })
 
-test('a section stays in its own block: nobody stands in another section\'s yard', () => {
-  const plan = planYards(SECTIONS)
-  plan.forEach((block, index) => {
-    const mine = SECTIONS[index].map((own, i) => ({ ...own, ...block.halls[i] }))
-    mine.forEach(own => {
-      for (const offset of [0, -2, 2]) {
-        const spot = doorSpot(own, offset)
-        assert.equal(Math.round((spot.z - own.z) * 10) / 10, Math.round((own.foot / 2 + DOOR_GAP) * 10) / 10)
-        plan.forEach((other, otherIndex) => {
-          if (otherIndex === index) return
-          for (const h of SECTIONS[otherIndex].map((entry, i) => ({ ...entry, ...other.halls[i] }))) {
-            assert.ok(!inside(spot, h), `the door of section ${index} falls inside a hall of section ${otherIndex}`)
-          }
-        })
-      }
-    })
-  })
-})
-
-test('sections do not share a yard, in either column', () => {
-  const plan = planYards(SECTIONS)
-  for (let i = 0; i < plan.length; i += 1) {
-    for (let j = i + 1; j < plan.length; j += 1) {
-      if (Math.sign(plan[i].x) !== Math.sign(plan[j].x)) continue
-      assert.ok(Math.abs(plan[i].z - plan[j].z) > 20, `sections ${i} and ${j} sit in the same spot`)
+test('a seat stands on its own section\'s slab and slabs do not overlap', () => {
+  const plan = planCourt(SECTIONS)
+  for (const slab of plan.slabs) {
+    for (const seat of slab.seats) {
+      assert.ok(Math.abs(seat.x - slab.x) < slab.w / 2 - 0.8, 'seat off its slab sideways')
+      assert.ok(Math.abs(seat.z - slab.z) < slab.d / 2 - 0.8, 'seat off its slab lengthways')
+    }
+  }
+  for (let i = 0; i < plan.slabs.length; i += 1) {
+    for (let j = i + 1; j < plan.slabs.length; j += 1) {
+      const a = plan.slabs[i], b = plan.slabs[j]
+      const apart = Math.abs(a.x - b.x) >= (a.w + b.w) / 2 || Math.abs(a.z - b.z) >= (a.d + b.d) / 2
+      assert.ok(apart, `slabs ${i} and ${j} overlap`)
     }
   }
 })
 
-test('every official is nearest to his own hall, not to the one next door', () => {
-  const plan = planYards(SECTIONS)
-  const halls = SECTIONS.flatMap((own, index) => own.map((entry, i) => ({ ...entry, ...plan[index].halls[i] })))
-  for (const own of halls) {
-    const home = doorSpot(own, 0)
-    const nearest = halls.reduce((best, hall) => {
-      const d = Math.hypot(hall.x - home.x, hall.z - home.z)
-      return d < best.d ? { d, hall } : best
-    }, { d: Infinity, hall: null }).hall
-    assert.equal(nearest, own, 'a door spot must be nearest its own hall')
+test('the 御道 stays clear: every slab keeps off the lane', () => {
+  const plan = planCourt(SECTIONS)
+  for (const slab of plan.slabs) assert.ok(Math.abs(slab.x) - slab.w / 2 >= LANE, `slab ${slab.name} sits on the lane`)
+})
+
+test('the 议事亭 and its 月台 lie north of every seat and inside the terrace', () => {
+  const plan = planCourt(SECTIONS)
+  const { pavilion, bounds } = plan
+  assert.ok(pavilion.z + pavilion.r < pavilion.moon.z - pavilion.moon.r + 0.01)
+  for (const seat of plan.seats.values()) assert.ok(seat.z > pavilion.z + pavilion.r)
+  assert.ok(pavilion.z - pavilion.r > bounds.minZ)
+  for (const slab of plan.slabs) {
+    assert.ok(slab.x - slab.w / 2 > bounds.minX && slab.x + slab.w / 2 < bounds.maxX)
+    assert.ok(slab.z + slab.d / 2 < bounds.maxZ)
   }
 })
 
-test('a 朝会 row stands in front of its yard and clear of its halls', () => {
-  const plan = planYards(SECTIONS)
-  const [own] = SECTIONS[4].map((entry, i) => ({ ...entry, ...plan[4].halls[i] }))
-  const slots = yardSlots(7, plan[4])
-  assert.equal(slots.length, 7)
-  for (const slot of slots) {
-    assert.ok(Math.abs(slot.x) < 23)
-    assert.ok(!inside(slot, own))
+test('a meeting stands in a ring facing its middle, on the 月台 first', () => {
+  const plan = planCourt(SECTIONS)
+  const spots = meetingSpots(plan.pavilion, 0, 5)
+  const centre = meetingCentre(plan.pavilion, 0)
+  assert.deepEqual(centre, { x: plan.pavilion.moon.x, z: plan.pavilion.moon.z })
+  for (const spot of spots) {
+    assert.ok(Math.hypot(spot.x - centre.x, spot.z - centre.z) < plan.pavilion.moon.r - 0.6, 'a member stands off the 月台')
+    // Facing the middle: a step forward brings him closer to it.
+    const ahead = { x: spot.x + Math.sin(spot.face) * 0.5, z: spot.z + Math.cos(spot.face) * 0.5 }
+    assert.ok(Math.hypot(ahead.x - centre.x, ahead.z - centre.z) < Math.hypot(spot.x - centre.x, spot.z - centre.z))
   }
+  assert.ok(meetingCentre(plan.pavilion, 1).z > plan.pavilion.moon.z + plan.pavilion.moon.r, 'a second meeting gathers below the 月台')
 })
 
+test('the way to a meeting goes out in front of the desk and up the lane', () => {
+  const plan = planCourt(SECTIONS)
+  const seat = plan.seats.get('s4-4')
+  const spot = meetingSpots(plan.pavilion, 0, 3)[0]
+  const path = walkPath(seat, spot)
+  assert.deepEqual(path[0], { x: seat.x, z: seat.z })
+  assert.ok(path[1].z > seat.z, 'he steps out in front of his desk first')
+  assert.ok(Math.abs(path[2].x) < LANE, 'then onto the lane')
+  assert.deepEqual(path.at(-1), { x: spot.x, z: spot.z })
+})
 
-test('the nineteen-official layout stays compact and empty sections take no space', () => {
-  const halls = place(SECTIONS)
-  const width = Math.max(...halls.map(h => h.x + h.w / 2)) - Math.min(...halls.map(h => h.x - h.w / 2))
-  const depth = Math.max(...halls.map(h => h.z + h.foot / 2 + DOOR_GAP)) - Math.min(...halls.map(h => h.z - h.foot / 2))
-  assert.ok(width < 150, `city width ${width}`)
-  assert.ok(depth < 115, `city depth ${depth}`)
-  const withEmpty = planYards([[], ...SECTIONS]).slice(1)
-  assert.deepEqual(withEmpty, planYards(SECTIONS))
+test('sections come in the order their people do, unfiled ones under one name', () => {
+  const people = [{ id: 'a', section: '内阁' }, { id: 'b', section: '' }, { id: 'c', section: '内阁' }, { id: 'd', section: '六部' }]
+  assert.deepEqual(sectionsOf(people, '编外'), [
+    { name: '内阁', ids: ['a', 'c'] }, { name: '编外', ids: ['b'] }, { name: '六部', ids: ['d'] },
+  ])
 })

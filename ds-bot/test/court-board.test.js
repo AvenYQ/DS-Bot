@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { build } from 'esbuild'
 import { runInNewContext } from 'node:vm'
-import { OFFICIALS, buildingFor } from '../src/client/court-board/data.js'
-import { castOf, castOrder, courtStateOf, officialFor, sleepsAt } from '../src/client/court-board/state.js'
+import { OFFICIALS, glazeFor } from '../src/client/court-board/data.js'
+import { castOf, castOrder, courtStateOf, officeOf, officialFor, sleepsAt } from '../src/client/court-board/state.js'
 import { decreeFor } from '../src/client/court-board/decree.js'
 
 const { outputFiles } = await build({
@@ -34,10 +34,16 @@ test('a Bot is matched to the official whose name it carries', () => {
   assert.equal(officialFor(bot({ name: 'Chief' })), null)
 })
 
-test('an unknown Bot lodges by the words in its name, then by its group', () => {
-  assert.equal(buildingFor({ name: '工部·某某' }, ''), 'gongbu')
-  assert.equal(buildingFor({ name: '无名', role: '' }, '内阁'), 'neige')
-  assert.equal(buildingFor({ name: '无名', role: '' }, '编外'), null)
+test("a hall plaque carries the office in the Bot's name, else the table's title", () => {
+  assert.equal(officeOf({ name: '工部尚书·曾国藩' }, null), '工部尚书')
+  assert.equal(officeOf({ name: '张居正' }, OFFICIALS[0]), '首辅')
+  assert.equal(officeOf({ name: 'Chief', role: '' }, null), 'Chief')
+})
+
+test("a section's slab takes its glaze from its name, the rest take turns", () => {
+  assert.equal(glazeFor('内廷'), glazeFor('内廷·二'))
+  assert.notEqual(glazeFor('内阁'), glazeFor('锦衣卫'))
+  assert.equal(typeof glazeFor('', 3), 'string')
 })
 
 test('the cast follows the sidebar: each section in its order, unfiled Bots last', () => {
@@ -136,14 +142,15 @@ test('the cast dresses a known official from the table and an unknown Bot from i
   const { people, bots } = castOf({ roster, live, hour: 12 })
   assert.equal(people.length, 3)
   const first = people.find(person => person.id === 'b1')
-  assert.equal(first.building, 'neige')
   assert.equal(first.robe, OFFICIALS[0].robe)
   assert.equal(first.side, OFFICIALS[0].side)
+  assert.equal(first.office, '首辅')
+  assert.equal(first.section, '内阁')
   const own = people.find(person => person.id === 'n1')
   assert.equal(own.robe, '#abcdef')
-  assert.equal(own.building, 'neige')
   const worded = people.find(person => person.id === 'n2')
-  assert.equal(worded.building, 'gongbu')
+  assert.equal(worded.name, '新来的')
+  assert.equal(worded.office, '工部')
   assert.equal(bots.length, 3)
 })
 
