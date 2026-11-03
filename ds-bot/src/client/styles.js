@@ -20,6 +20,10 @@ body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-
    still moves it. The shell's two smallest text sizes (11 and 12px) step up one px too, so
    no label is left thin and grainy, settings included. */
 html body{--bt-text-size:calc(var(--dsh-content-font-size,14px) + 1px);--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 13px)!important;--dsw-font-markdown-base:var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-markdown-base-strong:600 var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-xxs-12:13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-12-font-size:13px!important;--dsw-font-xxs-12-line-height:19px!important;--dsw-font-xxs-strong-12:500 13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-strong-12-font-size:13px!important;--dsw-font-xxs-strong-12-line-height:19px!important;--dsw-font-xxxs-11:12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-11-font-size:12px!important;--dsw-font-xxxs-11-line-height:16px!important;--dsw-font-xxxs-strong-11:500 12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-strong-11-font-size:12px!important;--dsw-font-xxxs-strong-11-line-height:16px!important;-webkit-font-smoothing:auto!important}
+/* A shell skin can set its own weight on the shell's message text, user bubbles and
+   composer, which the Bot chat reuses; on the Bot surface they keep the regular weight
+   (bold and headings inside keep theirs). */
+html[data-bt-surface] body :is(.dsr_text,.dsr_text :is(p,li)):not(:is(h1,h2,h3,h4,h5,h6,strong,b,th)),html[data-bt-surface] body [class*="_userStack"]>[class*="_bubble"],html[data-bt-surface] body [data-composer-input]{font-weight:400}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
 body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-paper:#f4e7cf;--bt-seal-ink:#d9d6cf}
@@ -122,10 +126,24 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:var(--bt-font)}
-.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0}
-.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
+.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0;min-width:0;container-type:inline-size}
+.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;overflow:hidden;max-width:240px;transition:max-width .26s cubic-bezier(.32,.72,0,1),opacity .18s ease,transform .26s cubic-bezier(.32,.72,0,1),padding .26s cubic-bezier(.32,.72,0,1);padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
 .bt-brand-whale{display:inline-flex;color:var(--bt-accent)}
-.bt-round{width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
+/* A narrow column folds the name and mark away, never the round buttons: the row's
+   content needs about 268px for the name and the three buttons. */
+@container (max-width:268px){.bt-side .bt-side-top>.bt-brand{max-width:0;opacity:0;transform:translateX(-6px);padding-left:0;padding-right:0;pointer-events:none}}
+/* macOS: the open column's top row shares the band of the window's lights, one row with
+   the lights on its left, instead of a row of its own under them. The row moves the
+   window; its buttons stay clickable. In fullscreen the lights are gone. */
+html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]){padding-top:calc(var(--bt-lc-clear) - 48px)}
+html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{padding-left:72px;-webkit-app-region:drag}
+html[data-platform=darwin] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
+/* The shell's own sidebar switch and new-session button wait beside the lights while its
+   sidebar is collapsed, as it always is under the Bot column. The Bot column has its own
+   pair (the rail's foot, the open column's top row), so the shell's pair stays hidden. */
+[class*="_frame"] [class*="_leadingSeat"]{display:none!important}
+@media (prefers-reduced-motion:reduce){.bt-side-top>.bt-brand{transition:none}}
+.bt-round{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
 .bt-round:hover{background:var(--bt-hover)}
 .bt-round:active{transform:scale(.94)}
 .bt-list{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0;flex:1 1 auto}
@@ -170,6 +188,11 @@ html[data-windows-titlebar] .bt-leftcol,html[data-platform=darwin] .bt-leftcol{b
    own geometry). Our own collapse of it lands without the shell's slide. */
 [class*="_frame"][data-sidebar-collapsed][data-rightbar-collapsed]:has(>[class*="_sidebarCol"]){grid-template-columns:0px minmax(0,1fr) 0px!important}
 html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transition:none!important}
+/* Under the Bot column the shell's frame shows only where the column has just left and
+   the conversation has not yet arrived, as the column narrows. It wears the
+   conversation's own color there, so the conversation reads as widening into the room
+   instead of a band of sidebar color opening and closing. */
+[class*="_frame"]:has(>[class*="_sidebarCol"]){background:var(--bt-main)!important}
 .bt-leftcol[data-left=drawer]{background:var(--bt-sidebar);box-shadow:8px 0 24px rgba(0,0,0,.14)}
 .bt-leftcol>.bt-side{width:100%}
 .bt-leftcol-foot{display:flex;align-items:center;gap:9px;padding-top:8px;flex:none}

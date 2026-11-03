@@ -17,7 +17,7 @@ import { Shimmer, workPhrase } from './cells.js'
 import { springEasing, SPRING_POP, SPRING_SHAPE, SPRING_TAP, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
 import { showsDshRow } from './dsh-offer.js'
-import { frameLayout, dragColumn, RAIL_WIDTH, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
+import { frameLayout, dragColumn, RAIL_WIDTH, RAIL_SNAP, SIDEBAR_MIN, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
 import { chatRoom, dshCollapsed } from './frame-watch.js'
 
 // -------------------------------------------------------------------------
@@ -284,10 +284,39 @@ function useListGlide(listRef, layout, key, handoff) {
 // collapsed sidebar: the open column or the avatar rail push the conversation
 // over, the drawer floats above it. Its right edge drags the open width, and
 // down to the rail.
-function LeftColumn({ mode, width, onGrip, children }) {
-  return createPortal(h('div', { className: 'bt-leftcol', 'data-left': mode, style: { width: `${width}px` } },
+function LeftColumn({ mode, width, pull = 0, onGrip, children }) {
+  return createPortal(h('div', { className: 'bt-leftcol', 'data-left': mode, style: { width: `${width}px`, ...(pull > 0 ? { '--bt-pull': pull.toFixed(3) } : {}) } },
     children,
     h('div', { className: 'bt-leftcol-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': t('Resize sidebar'), title: t('Resize sidebar'), onPointerDown: onGrip })), document.body)
+}
+
+// Between the open column and the rail the width glides on a spring, the conversation
+// beside it on the same curve, instead of jumping. Only the snap and the release glide:
+// while the edge follows the pointer it stays under it.
+let glideTimer = 0
+function glide() {
+  if (typeof document === 'undefined' || reducedMotion()) return
+  document.documentElement.setAttribute('data-bt-glide', '')
+  clearTimeout(glideTimer)
+  glideTimer = setTimeout(() => document.documentElement.removeAttribute('data-bt-glide'), SPRING_SHAPE.duration + 80)
+}
+// Past the point where the column stops (the open column's least width, the rail's own
+// width) the edge still gives a little under the pointer, so the snap that follows reads
+// as the end of the pull rather than a jump. `pull` is how far toward the snap, 0 to 1.
+// Only the side the drag started on gives: once it snaps over, the column lands where a
+// release leaves it, so letting go never moves it again.
+const GIVE = 0.4
+function stretched(drag) {
+  if (drag?.x === undefined) return null
+  if (drag.left === 'open' && drag.from !== 'rail' && drag.x < SIDEBAR_MIN) {
+    const reach = Math.min(SIDEBAR_MIN - drag.x, SIDEBAR_MIN - RAIL_SNAP)
+    return { width: SIDEBAR_MIN - reach * GIVE, pull: reach / (SIDEBAR_MIN - RAIL_SNAP) }
+  }
+  if (drag.left === 'rail' && drag.from === 'rail' && drag.x > RAIL_WIDTH) {
+    const reach = Math.min(drag.x - RAIL_WIDTH, RAIL_SNAP - RAIL_WIDTH)
+    return { width: RAIL_WIDTH + reach * GIVE, pull: reach / (RAIL_SNAP - RAIL_WIDTH) }
+  }
+  return null
 }
 
 // The top-left switch hides the whole column and brings it back. Under a
@@ -349,9 +378,18 @@ export function TeamSidebar(props) {
   // Our column pushes the conversation over by what it takes beyond the shell's
   // collapsed track; a drawer floats over the rail's place, so it pushes as much
   // as the rail and the chat stays put when it opens or closes.
-  const openWidth = drag?.width ?? frameSnap.sidebarWidth
-  const ourWidth = mode === 'rail' ? RAIL_WIDTH : openWidth
-  const pushed = mode === 'open' ? openWidth : mode === 'hidden' ? 0 : RAIL_WIDTH
+  const stretch = stretched(drag)
+  const openWidth = stretch?.width ?? drag?.width ?? frameSnap.sidebarWidth
+  const railWidth = stretch?.width ?? RAIL_WIDTH
+  const ourWidth = mode === 'rail' ? railWidth : openWidth
+  const pushed = mode === 'open' ? openWidth : mode === 'hidden' ? 0 : railWidth
+  // A change between the open column and the rail, by drag, switch or shortcut, glides.
+  const shownMode = useRef(mode)
+  useLayoutEffect(() => {
+    const before = shownMode.current
+    shownMode.current = mode
+    if (before !== mode && (before === 'rail' || mode === 'rail')) glide()
+  }, [mode])
   useLayoutEffect(() => {
     if (typeof document === 'undefined') return
     chatRoom.setLeft(Math.max(0, pushed - (frameSnap.collapsedWidth ?? 0)))
@@ -365,9 +403,10 @@ export function TeamSidebar(props) {
     const grip = event.currentTarget
     grip.setPointerCapture?.(event.pointerId)
     chatRoom.hold(true)
+    const from = mode
     let last = null
     let done = false
-    const onMove = (move) => { last = dragColumn(move.clientX, window.innerWidth); setDrag(last) }
+    const onMove = (move) => { last = dragColumn(move.clientX, window.innerWidth); setDrag({ ...last, x: move.clientX, from }) }
     const ends = ['pointerup', 'pointercancel', 'lostpointercapture']
     const onEnd = (end) => {
       if (done) return
@@ -375,6 +414,8 @@ export function TeamSidebar(props) {
       if (end.type === 'pointerup') last = dragColumn(end.clientX, window.innerWidth)
       grip.removeEventListener('pointermove', onMove)
       for (const name of ends) grip.removeEventListener(name, onEnd)
+      // A release inside the give settles back to where the column stops.
+      glide()
       setDrag(null)
       chatRoom.hold(false)
       if (last === null) return
@@ -506,7 +547,6 @@ export function TeamSidebar(props) {
   const top = wideContent
     ? h('div', { className: 'bt-side-top' },
         h('span', { className: 'bt-brand' }, h(BrandMark, { size: 22 }), h(BrandName)),
-        h(UpdateButton, { useUpdate: props.useUpdate, actions }),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('Search'), title: t('Search'), onClick: () => actions.openPalette() }, h(SearchIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
         h('button', { type: 'button', className: 'bt-round bt-side-collapse', 'aria-label': t('Collapse sidebar'), title: t('Collapse sidebar'), onClick: onToggle }, h(SidebarIcon)))
@@ -523,7 +563,9 @@ export function TeamSidebar(props) {
     ? h(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork })
     : null
   const foot = wideContent
-    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), courtEntry)
+    // The open column's update button waits in the foot, so the top row keeps room for the
+    // window's lights beside its three buttons however narrow the column gets.
+    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), h(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry)
     : h('div', { className: 'bt-leftcol-foot bt-leftcol-foot-rail' },
         h('button', { type: 'button', className: 'bt-round bt-rail-toggle', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: onToggle }, h(SidebarIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
@@ -546,7 +588,7 @@ export function TeamSidebar(props) {
     foot)
   return h(Fragment, null,
     h(TitleToggle, { hidden: mode === 'hidden', onToggle: () => actions.toggleLeftHidden?.() }),
-    mode === 'hidden' ? null : h(LeftColumn, { mode, width: ourWidth, onGrip: startDrag }, content))
+    mode === 'hidden' ? null : h(LeftColumn, { mode, width: ourWidth, pull: stretch?.pull ?? 0, onGrip: startDrag }, content))
 
   function rowOf(entry, folded = false) {
     const marked = markedUnread[entry.item.id] === true
@@ -630,7 +672,10 @@ function UpdateButton({ useUpdate, actions }) {
   useLayoutEffect(() => {
     if (!open) return
     const rect = button.current?.getBoundingClientRect()
-    if (rect) setBox({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 288)), top: rect.bottom + 6 })
+    if (!rect) return
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 288))
+    // In the foot the card opens upward; on the rail's top, downward.
+    setBox(rect.top > window.innerHeight / 2 ? { left, bottom: window.innerHeight - rect.top + 6 } : { left, top: rect.bottom + 6 })
   }, [open, tick])
   if (!update?.available && !dshRow && phase === 'idle' && dshPhase === 'idle') return null
   const cloudPhase = phase === 'installing' || dshPhase === 'installing' ? 'installing' : phase !== 'idle' ? phase : dshPhase
@@ -1027,9 +1072,19 @@ export const SIDEBAR_CSS = `
 /* Opening the sidebar: its rows ease in from the left while the column widens, a beat after
    the top row, instead of being uncovered as the column grows. */
 @keyframes bt-wide-in{from{opacity:0;transform:translateX(-10px)}}
+/* The glide between the open column and the rail: the column's width and the
+   conversation's margin on one spring. */
+html[data-bt-glide] .bt-leftcol{transition:width ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},margin-right ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}!important}
+/* Pulled past where it stops, the column's content dims toward the snap. */
+.bt-leftcol>.bt-side{opacity:calc(1 - var(--bt-pull,0) * .45)}
+/* The rail's avatars arrive as the column narrows onto them. */
+@keyframes bt-rail-in{from{opacity:0;transform:scale(.9)}}
+.bt-side.bt-rail>:is(.bt-rail-top,.bt-list){animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .04s backwards}
+.bt-leftcol-foot-rail{animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .08s backwards}
 .bt-side:not(.bt-rail)>.bt-side-top{animation:bt-wide-in .3s cubic-bezier(.32,.72,0,1) backwards}
 .bt-side:not(.bt-rail)>.bt-list{animation:bt-wide-in .34s cubic-bezier(.32,.72,0,1) .04s backwards}
-@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list{animation:none}}
+@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list,.bt-side.bt-rail>.bt-rail-top,.bt-leftcol-foot-rail{animation:none}}
 .bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
 .bt-menu .bt-profile-row>.bt-you{flex:none}
 .bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}
@@ -1105,6 +1160,7 @@ export const SIDEBAR_CSS = `
    loop while the install runs. */
 .bt-round.bt-update{position:relative;color:var(--bt-accent,#4D6BFE);animation:bt-update-in ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
 .bt-round.bt-update svg{width:17px;height:17px}
+.bt-leftcol-foot>.bt-round.bt-update{width:32px;height:32px}
 .bt-round.bt-update[data-phase=installed]{color:var(--bt-ink-2)}
 @keyframes bt-update-in{from{opacity:0;transform:scale(.6);filter:blur(4px)}}
 .bt-update[data-phase=installing] .bt-cloud-arrow{animation:bt-cloud-drop 1.1s cubic-bezier(.45,0,.55,1) infinite}

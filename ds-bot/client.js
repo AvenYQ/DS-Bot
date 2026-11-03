@@ -1916,8 +1916,46 @@ var darkAccent = (accent) => {
   const ink = ACCENT_INKS.find((id) => INKS[id][0] === accent);
   return ink === void 0 ? accent : INKS[ink][1];
 };
-var themeCss = (theme, accent) => `html body{${declarations(themeVars(theme.light, false, accent ?? theme.light.accent))}}
-html body[data-ds-dark-theme]{${declarations(themeVars(theme.dark, true, darkAccent(accent) ?? theme.dark.accent))}}
+var stock = (name) => `var(--dsw-static-${name})`;
+var STOCK_TOKENS = {
+  "--dsw-alias-bg-layer-1": [stock("neutral-bluish-00"), stock("neutral-bluish-875")],
+  "--dsw-alias-bg-layer-2": [stock("neutral-bluish-00"), stock("neutral-bluish-850")],
+  "--dsw-alias-bg-layer-3": [stock("neutral-bluish-00"), stock("neutral-bluish-800")],
+  "--dsw-alias-bg-overlay": [stock("neutral-bluish-150"), stock("neutral-bluish-700")],
+  "--dsw-alias-bg-document-selection": ["color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent)", "color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent)"],
+  "--dsw-alias-label-caption": [stock("neutral-bluish-400"), stock("neutral-bluish-600")],
+  "--dsw-alias-label-primary-bluish": [stock("blue-900"), stock("neutral-bluish-50")],
+  "--dsw-alias-label-deep-diving": ["color-mix(in srgb, var(--dsw-static-deepseek-500) 70%, var(--dsw-static-blue-950))", "color-mix(in srgb, var(--dsw-static-deepseek-450) 55%, var(--dsw-static-neutral-bluish-400))"],
+  "--dsw-alias-label-deep-diving-shimmer": ["color-mix(in srgb, var(--dsw-static-deepseek-500) 30%, var(--dsw-static-blue-950))", "color-mix(in srgb, var(--dsw-static-blue-300) 65%, var(--dsw-static-deepseek-400))"],
+  "--dsw-alias-border-l1": ["#0000000a", "#ffffff0f"],
+  "--dsw-alias-border-l2": ["#0000001a", "#ffffff1f"],
+  "--dsw-alias-border-l3": ["#0000001f", "#ffffff29"],
+  "--dsw-alias-border-l4": ["#00000029", "#fff3"],
+  "--dsw-alias-interactive-bg-hover": ["#2631480f", "#ffffff14"],
+  "--dsw-alias-brand-primary": [stock("neutral-bluish-1000"), stock("neutral-bluish-50")],
+  "--dsw-alias-brand-primary-new-colorprimary-new-color": ["#4176e6", stock("deepseek-450")],
+  "--dsw-alias-link": [stock("deepseek-500"), stock("deepseek-400")],
+  "--dsw-alias-button-info-fill": [stock("deepseek-500"), stock("deepseek-400")],
+  "--dsw-alias-button-info-hover": [stock("deepseek-400"), stock("deepseek-500")],
+  "--dsw-alias-state-business-primary": [stock("deepseek-500"), stock("deepseek-400")],
+  "--dsw-alias-state-business-tertiary": [stock("deepseek-100"), stock("deepseek-800")],
+  "--dsw-alias-state-error-primary": [stock("red-600"), stock("red-400")],
+  "--dsw-alias-state-warn-primary": [stock("amber-500"), stock("amber-500")],
+  "--dsw-alias-state-success-primary": [stock("green-500"), stock("green-500")],
+  "--dsw-alias-state-idle-primary": [stock("neutral-300"), stock("neutral-600")],
+  "--dsw-specific-sidebar-nav-item-active-accent": [stock("deepseek-100"), stock("neutral-bluish-800")]
+};
+var STOCK_FONT = "var(--dsh-font-family-text-default)";
+var pinned = (vars) => Object.entries(vars).map(([name, value]) => `${name}:${value}!important`).join(";");
+function surfaceVars(mode, dark) {
+  const vars = { "--dsw-font-family": STOCK_FONT, "--dsh-font-family-text": STOCK_FONT };
+  for (const [name, [light, night]] of Object.entries(STOCK_TOKENS)) vars[name] = dark ? night : light;
+  for (const [name, value] of Object.entries(shellTokens({ light: mode, dark: mode }))) vars[name] = value.light;
+  if (dark) vars["--dsw-specific-input-major"] = mode.sidebar;
+  return vars;
+}
+var themeCss = (theme, accent) => `html body{${declarations(themeVars(theme.light, false, accent ?? theme.light.accent))};${pinned(surfaceVars(theme.light, false))}}
+html body[data-ds-dark-theme]{${declarations(themeVars(theme.dark, true, darkAccent(accent) ?? theme.dark.accent))};${pinned(surfaceVars(theme.dark, true))}}
 ${theme.css ?? ""}`;
 var shellTokens = ({ light, dark }) => ({
   "--dsw-alias-bg-base": { light: light.bg, dark: dark.bg },
@@ -2473,11 +2511,11 @@ function useGlide(key, { axis = "x", selector = CHOSEN, lead = SPRING_LEAD, trai
   return { box, thumb };
 }
 function Segmented({ label, value, className, children }) {
-  const glide = useGlide(value);
+  const glide2 = useGlide(value);
   return (0, import_react.createElement)(
     "div",
-    { ref: glide.box, className: className ? `bt-seg ${className}` : "bt-seg", role: "group", "aria-label": label },
-    (0, import_react.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+    { ref: glide2.box, className: className ? `bt-seg ${className}` : "bt-seg", role: "group", "aria-label": label },
+    (0, import_react.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
     children
   );
 }
@@ -2558,6 +2596,10 @@ body{--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-
    still moves it. The shell's two smallest text sizes (11 and 12px) step up one px too, so
    no label is left thin and grainy, settings included. */
 html body{--bt-text-size:calc(var(--dsh-content-font-size,14px) + 1px);--dsh-content-font-delta:calc(var(--dsh-content-font-size,14px) - 13px)!important;--dsw-font-markdown-base:var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-markdown-base-strong:600 var(--bt-text-size)/calc(var(--bt-text-size) + 9px) var(--dsw-font-family)!important;--dsw-font-xxs-12:13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-12-font-size:13px!important;--dsw-font-xxs-12-line-height:19px!important;--dsw-font-xxs-strong-12:500 13px/19px var(--dsw-font-family)!important;--dsw-font-xxs-strong-12-font-size:13px!important;--dsw-font-xxs-strong-12-line-height:19px!important;--dsw-font-xxxs-11:12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-11-font-size:12px!important;--dsw-font-xxxs-11-line-height:16px!important;--dsw-font-xxxs-strong-11:500 12px/16px var(--dsw-font-family)!important;--dsw-font-xxxs-strong-11-font-size:12px!important;--dsw-font-xxxs-strong-11-line-height:16px!important;-webkit-font-smoothing:auto!important}
+/* A shell skin can set its own weight on the shell's message text, user bubbles and
+   composer, which the Bot chat reuses; on the Bot surface they keep the regular weight
+   (bold and headings inside keep theirs). */
+html[data-bt-surface] body :is(.dsr_text,.dsr_text :is(p,li)):not(:is(h1,h2,h3,h4,h5,h6,strong,b,th)),html[data-bt-surface] body [class*="_userStack"]>[class*="_bubble"],html[data-bt-surface] body [data-composer-input]{font-weight:400}
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
 body[data-ds-dark-theme]{--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-cinnabar:#ef5b52;--bt-paper:#f4e7cf;--bt-seal-ink:#d9d6cf}
@@ -2660,10 +2702,24 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:var(--bt-font)}
-.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0}
-.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
+.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0;min-width:0;container-type:inline-size}
+.bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;overflow:hidden;max-width:240px;transition:max-width .26s cubic-bezier(.32,.72,0,1),opacity .18s ease,transform .26s cubic-bezier(.32,.72,0,1),padding .26s cubic-bezier(.32,.72,0,1);padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
 .bt-brand-whale{display:inline-flex;color:var(--bt-accent)}
-.bt-round{width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
+/* A narrow column folds the name and mark away, never the round buttons: the row's
+   content needs about 268px for the name and the three buttons. */
+@container (max-width:268px){.bt-side .bt-side-top>.bt-brand{max-width:0;opacity:0;transform:translateX(-6px);padding-left:0;padding-right:0;pointer-events:none}}
+/* macOS: the open column's top row shares the band of the window's lights, one row with
+   the lights on its left, instead of a row of its own under them. The row moves the
+   window; its buttons stay clickable. In fullscreen the lights are gone. */
+html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]){padding-top:calc(var(--bt-lc-clear) - 48px)}
+html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{padding-left:72px;-webkit-app-region:drag}
+html[data-platform=darwin] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
+/* The shell's own sidebar switch and new-session button wait beside the lights while its
+   sidebar is collapsed, as it always is under the Bot column. The Bot column has its own
+   pair (the rail's foot, the open column's top row), so the shell's pair stays hidden. */
+[class*="_frame"] [class*="_leadingSeat"]{display:none!important}
+@media (prefers-reduced-motion:reduce){.bt-side-top>.bt-brand{transition:none}}
+.bt-round{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--bt-line);background:var(--bt-main);color:var(--bt-ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background-color .12s ease,transform .12s ease}
 .bt-round:hover{background:var(--bt-hover)}
 .bt-round:active{transform:scale(.94)}
 .bt-list{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0;flex:1 1 auto}
@@ -2708,6 +2764,11 @@ html[data-windows-titlebar] .bt-leftcol,html[data-platform=darwin] .bt-leftcol{b
    own geometry). Our own collapse of it lands without the shell's slide. */
 [class*="_frame"][data-sidebar-collapsed][data-rightbar-collapsed]:has(>[class*="_sidebarCol"]){grid-template-columns:0px minmax(0,1fr) 0px!important}
 html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transition:none!important}
+/* Under the Bot column the shell's frame shows only where the column has just left and
+   the conversation has not yet arrived, as the column narrows. It wears the
+   conversation's own color there, so the conversation reads as widening into the room
+   instead of a band of sidebar color opening and closing. */
+[class*="_frame"]:has(>[class*="_sidebarCol"]){background:var(--bt-main)!important}
 .bt-leftcol[data-left=drawer]{background:var(--bt-sidebar);box-shadow:8px 0 24px rgba(0,0,0,.14)}
 .bt-leftcol>.bt-side{width:100%}
 .bt-leftcol-foot{display:flex;align-items:center;gap:9px;padding-top:8px;flex:none}
@@ -40665,7 +40726,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
     for (const other of cast) markTag(other, other === p);
     if (!p) marker.visible = false;
   };
-  const glide = (target, position, dur = 1.1) => {
+  const glide2 = (target, position, dur = 1.1) => {
     if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
       fly = null;
       controls.target.copy(target);
@@ -40684,7 +40745,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
       dir.y = 0.5;
       dir.normalize();
     }
-    glide(tgt, tgt.clone().add(dir.multiplyScalar(narrow ? 34 : 28)));
+    glide2(tgt, tgt.clone().add(dir.multiplyScalar(narrow ? 34 : 28)));
   };
   let lastTouch = performance.now();
   const onControlsStart = () => {
@@ -40843,7 +40904,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
         p.mode = "toCourt";
         p.delay = 0.1 * i + rnd() * 0.3;
       });
-      glide(new Vector3(0, 1, 9), new Vector3(0, narrow ? 44 : 34, narrow ? -30 : -24), 1.8);
+      glide2(new Vector3(0, 1, 9), new Vector3(0, narrow ? 44 : 34, narrow ? -30 : -24), 1.8);
     } else {
       cast.forEach((p, i) => {
         p.path = route(p).reverse().slice(1);
@@ -40851,7 +40912,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, rendererFactory =
         p.mode = "toHome";
         p.delay = 0.08 * i + rnd() * 0.3;
       });
-      glide(new Vector3(0, 0, -4), new Vector3(narrow ? 62 : 74, narrow ? 100 : 72, narrow ? 118 : 100), 1.8);
+      glide2(new Vector3(0, 0, -4), new Vector3(narrow ? 62 : 74, narrow ? 100 : 72, narrow ? 118 : 100), 1.8);
     }
   };
   const setTime = (value) => {
@@ -42130,8 +42191,8 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     event.preventDefault();
     actions.openMenu({ kind: "bot", id, x: event.clientX, y: event.clientY });
   };
-  const pinned = false;
-  const label = [bot.name, main ? t("Main Bot") : "", pinned ? t("Pinned") : "", running2 || away ? t("Working") : "", waitsFor, approval ? t("Waiting for your approval") : question ? t("Waiting for your answer") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
+  const pinned2 = false;
+  const label = [bot.name, main ? t("Main Bot") : "", pinned2 ? t("Pinned") : "", running2 || away ? t("Working") : "", waitsFor, approval ? t("Waiting for your approval") : question ? t("Waiting for your answer") : "", unread ? t("Unread activity") : ""].filter(Boolean).join(", ");
   if (tile && wide) {
     return (0, import_react26.createElement)("div", { className: "bt-tile-wrap" }, (0, import_react26.createElement)(
       "button",
@@ -42164,14 +42225,14 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
       onContextMenu
     },
     wide ? (0, import_react26.createElement)("span", { className: "bt-row-avatar" }, (0, import_react26.createElement)(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), (0, import_react26.createElement)(Seal, { kind: seal, court: court2 })) : (0, import_react26.createElement)(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
-    pinned && !wide ? (0, import_react26.createElement)(PinMark) : null,
+    pinned2 && !wide ? (0, import_react26.createElement)(PinMark) : null,
     // The rail has no line for what a Bot is doing: a bubble of dots says it is at work.
     !wide && (running2 || away) ? (0, import_react26.createElement)("span", { className: "bt-busy", "aria-hidden": true }, (0, import_react26.createElement)("i"), (0, import_react26.createElement)("i"), (0, import_react26.createElement)("i")) : null,
     !wide ? (0, import_react26.createElement)(Seal, { kind: seal, court: court2 }) : null,
     wide ? (0, import_react26.createElement)(
       "span",
       { className: "bt-row-body" },
-      (0, import_react26.createElement)("span", { className: "bt-row-name" }, (0, import_react26.createElement)("span", { className: "bt-row-title" }, bot.name), pinned ? (0, import_react26.createElement)(PinMark) : null),
+      (0, import_react26.createElement)("span", { className: "bt-row-name" }, (0, import_react26.createElement)("span", { className: "bt-row-title" }, bot.name), pinned2 ? (0, import_react26.createElement)(PinMark) : null),
       runningLine ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, runningLine) : awayLine ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, awayLine) : waitsFor ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, waitsFor) : preview ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, preview) : null
     ) : null,
     wide && !seal && unread && !active ? (0, import_react26.createElement)("span", { className: "bt-unread", "aria-hidden": true }) : !wide && !seal && !active && unread ? (0, import_react26.createElement)("span", { className: "bt-dot", "aria-hidden": true }) : null
@@ -42189,8 +42250,8 @@ function RoomRow({ room: room2, roster, actions, useSessions, useSessionStatus, 
   const first = roster.byId[members[0]?.id];
   const workingLine = first ? workLine(first.name, members[0], members.length - 1) : null;
   if ((room2.hidden || folded) && !active) return null;
-  const pinned = room2.pinned === true;
-  const label = [room2.name, pinned ? t("Pinned") : "", members.length > 0 ? t("Working") : "", approval ? t("Waiting for your approval") : ""].filter(Boolean).join(", ");
+  const pinned2 = room2.pinned === true;
+  const label = [room2.name, pinned2 ? t("Pinned") : "", members.length > 0 ? t("Working") : "", approval ? t("Waiting for your approval") : ""].filter(Boolean).join(", ");
   return (0, import_react26.createElement)(
     "button",
     {
@@ -42208,11 +42269,11 @@ function RoomRow({ room: room2, roster, actions, useSessions, useSessionStatus, 
       }
     },
     (0, import_react26.createElement)(RoomAvatar, { room: room2, roster, size: wide ? 36 : 44 }),
-    pinned && !wide ? (0, import_react26.createElement)(PinMark) : null,
+    pinned2 && !wide ? (0, import_react26.createElement)(PinMark) : null,
     wide ? (0, import_react26.createElement)(
       "span",
       { className: "bt-row-body" },
-      (0, import_react26.createElement)("span", { className: "bt-row-name" }, (0, import_react26.createElement)("span", { className: "bt-row-title" }, room2.name), pinned ? (0, import_react26.createElement)(PinMark) : null),
+      (0, import_react26.createElement)("span", { className: "bt-row-name" }, (0, import_react26.createElement)("span", { className: "bt-row-title" }, room2.name), pinned2 ? (0, import_react26.createElement)(PinMark) : null),
       workingLine ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, workingLine) : preview ? (0, import_react26.createElement)("span", { className: "bt-row-preview" }, preview) : null
     ) : null,
     wide && approval && !active ? (0, import_react26.createElement)("span", { className: "bt-unread bt-unread-wait", "aria-hidden": true }) : wide && unread && !active ? (0, import_react26.createElement)("span", { className: "bt-unread", "aria-hidden": true }) : !wide && !active && (approval || unread) ? (0, import_react26.createElement)("span", { className: `bt-dot${approval ? " bt-dot-wait" : ""}`, "aria-hidden": true }) : null
@@ -42386,13 +42447,33 @@ function useListGlide(listRef, layout, key, handoff) {
     tops.current = { layout, map: next };
   }, [layout, key]);
 }
-function LeftColumn({ mode, width, onGrip, children }) {
+function LeftColumn({ mode, width, pull = 0, onGrip, children }) {
   return (0, import_react_dom4.createPortal)((0, import_react26.createElement)(
     "div",
-    { className: "bt-leftcol", "data-left": mode, style: { width: `${width}px` } },
+    { className: "bt-leftcol", "data-left": mode, style: { width: `${width}px`, ...pull > 0 ? { "--bt-pull": pull.toFixed(3) } : {} } },
     children,
     (0, import_react26.createElement)("div", { className: "bt-leftcol-grip", role: "separator", "aria-orientation": "vertical", "aria-label": t("Resize sidebar"), title: t("Resize sidebar"), onPointerDown: onGrip })
   ), document.body);
+}
+var glideTimer = 0;
+function glide() {
+  if (typeof document === "undefined" || reducedMotion()) return;
+  document.documentElement.setAttribute("data-bt-glide", "");
+  clearTimeout(glideTimer);
+  glideTimer = setTimeout(() => document.documentElement.removeAttribute("data-bt-glide"), SPRING_SHAPE.duration + 80);
+}
+var GIVE = 0.4;
+function stretched(drag) {
+  if (drag?.x === void 0) return null;
+  if (drag.left === "open" && drag.from !== "rail" && drag.x < SIDEBAR_MIN) {
+    const reach = Math.min(SIDEBAR_MIN - drag.x, SIDEBAR_MIN - RAIL_SNAP);
+    return { width: SIDEBAR_MIN - reach * GIVE, pull: reach / (SIDEBAR_MIN - RAIL_SNAP) };
+  }
+  if (drag.left === "rail" && drag.from === "rail" && drag.x > RAIL_WIDTH) {
+    const reach = Math.min(drag.x - RAIL_WIDTH, RAIL_SNAP - RAIL_WIDTH);
+    return { width: RAIL_WIDTH + reach * GIVE, pull: reach / (RAIL_SNAP - RAIL_WIDTH) };
+  }
+  return null;
 }
 function TitleToggle({ hidden, onToggle }) {
   if (typeof document === "undefined") return null;
@@ -42450,9 +42531,17 @@ function TeamSidebar(props) {
     handoff.current = { seen, settle };
   } });
   useLandOnMainBot(roster, useSessions, actions);
-  const openWidth = drag?.width ?? frameSnap.sidebarWidth;
-  const ourWidth = mode === "rail" ? RAIL_WIDTH : openWidth;
-  const pushed = mode === "open" ? openWidth : mode === "hidden" ? 0 : RAIL_WIDTH;
+  const stretch = stretched(drag);
+  const openWidth = stretch?.width ?? drag?.width ?? frameSnap.sidebarWidth;
+  const railWidth = stretch?.width ?? RAIL_WIDTH;
+  const ourWidth = mode === "rail" ? railWidth : openWidth;
+  const pushed = mode === "open" ? openWidth : mode === "hidden" ? 0 : railWidth;
+  const shownMode2 = (0, import_react26.useRef)(mode);
+  (0, import_react26.useLayoutEffect)(() => {
+    const before = shownMode2.current;
+    shownMode2.current = mode;
+    if (before !== mode && (before === "rail" || mode === "rail")) glide();
+  }, [mode]);
   (0, import_react26.useLayoutEffect)(() => {
     if (typeof document === "undefined") return;
     chatRoom.setLeft(Math.max(0, pushed - (frameSnap.collapsedWidth ?? 0)));
@@ -42466,11 +42555,12 @@ function TeamSidebar(props) {
     const grip = event.currentTarget;
     grip.setPointerCapture?.(event.pointerId);
     chatRoom.hold(true);
+    const from = mode;
     let last = null;
     let done = false;
     const onMove = (move) => {
       last = dragColumn(move.clientX, window.innerWidth);
-      setDrag(last);
+      setDrag({ ...last, x: move.clientX, from });
     };
     const ends = ["pointerup", "pointercancel", "lostpointercapture"];
     const onEnd = (end) => {
@@ -42479,6 +42569,7 @@ function TeamSidebar(props) {
       if (end.type === "pointerup") last = dragColumn(end.clientX, window.innerWidth);
       grip.removeEventListener("pointermove", onMove);
       for (const name of ends) grip.removeEventListener(name, onEnd);
+      glide();
       setDrag(null);
       chatRoom.hold(false);
       if (last === null) return;
@@ -42613,7 +42704,6 @@ function TeamSidebar(props) {
     "div",
     { className: "bt-side-top" },
     (0, import_react26.createElement)("span", { className: "bt-brand" }, (0, import_react26.createElement)(BrandMark, { size: 22 }), (0, import_react26.createElement)(BrandName)),
-    (0, import_react26.createElement)(UpdateButton, { useUpdate: props.useUpdate, actions }),
     (0, import_react26.createElement)("button", { type: "button", className: "bt-round", "aria-label": t("Search"), title: t("Search"), onClick: () => actions.openPalette() }, (0, import_react26.createElement)(SearchIcon)),
     (0, import_react26.createElement)("button", { type: "button", className: "bt-round", "aria-label": t("New…"), title: t("New…"), onClick: () => actions.openNewChat("new") }, (0, import_react26.createElement)(PlusIcon)),
     (0, import_react26.createElement)("button", { type: "button", className: "bt-round bt-side-collapse", "aria-label": t("Collapse sidebar"), title: t("Collapse sidebar"), onClick: onToggle }, (0, import_react26.createElement)(SidebarIcon))
@@ -42625,7 +42715,7 @@ function TeamSidebar(props) {
     groups.tiles.length > 0 ? (0, import_react26.createElement)("span", { className: "bt-rail-sep", "aria-hidden": true }) : null
   );
   const courtEntry = courtTheme(roster) ? (0, import_react26.createElement)(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork }) : null;
-  const foot = wideContent ? (0, import_react26.createElement)("div", { className: "bt-leftcol-foot" }, (0, import_react26.createElement)(AccountLauncher, { seat: false, actions, useRoster }), courtEntry) : (0, import_react26.createElement)(
+  const foot = wideContent ? (0, import_react26.createElement)("div", { className: "bt-leftcol-foot" }, (0, import_react26.createElement)(AccountLauncher, { seat: false, actions, useRoster }), (0, import_react26.createElement)(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry) : (0, import_react26.createElement)(
     "div",
     { className: "bt-leftcol-foot bt-leftcol-foot-rail" },
     (0, import_react26.createElement)("button", { type: "button", className: "bt-round bt-rail-toggle", "aria-label": t("Expand sidebar"), title: t("Expand sidebar"), onClick: onToggle }, (0, import_react26.createElement)(SidebarIcon)),
@@ -42661,7 +42751,7 @@ function TeamSidebar(props) {
     import_react26.Fragment,
     null,
     (0, import_react26.createElement)(TitleToggle, { hidden: mode === "hidden", onToggle: () => actions.toggleLeftHidden?.() }),
-    mode === "hidden" ? null : (0, import_react26.createElement)(LeftColumn, { mode, width: ourWidth, onGrip: startDrag }, content)
+    mode === "hidden" ? null : (0, import_react26.createElement)(LeftColumn, { mode, width: ourWidth, pull: stretch?.pull ?? 0, onGrip: startDrag }, content)
   );
   function rowOf(entry, folded = false) {
     const marked = markedUnread[entry.item.id] === true;
@@ -42672,18 +42762,18 @@ function sectionGroups(order, sections, roster = {}) {
   const key = (name) => String(name).toLocaleLowerCase();
   const slots = new Map(sections.map((section) => [key(section.name), { section, entries: [] }]));
   const tiles = [];
-  const pinned = [];
+  const pinned2 = [];
   const loose = [];
   for (const entry of order) {
     const slot = entry.kind !== "agent" && typeof entry.item.section === "string" ? slots.get(key(entry.item.section)) : void 0;
     if (entry.kind === "bot" && isPinned(roster, entry.item)) tiles.push(entry);
-    else if (entry.item.pinned === true) pinned.push(entry);
+    else if (entry.item.pinned === true) pinned2.push(entry);
     else if (slot) slot.entries.push(entry);
     else loose.push(entry);
   }
   const rank = (entry) => entry.item.id === roster.mainBotId ? -Infinity : entry.item.pinnedAt ?? entry.item.createdAt ?? 0;
   tiles.sort((a, b) => rank(a) - rank(b));
-  return { tiles, pinned, sections: [...slots.values()], loose };
+  return { tiles, pinned: pinned2, sections: [...slots.values()], loose };
 }
 function SectionHeader({ section, count, wide, actions }) {
   if (!wide) return (0, import_react26.createElement)("div", { className: "bt-sec-rule", role: "separator", title: section.name });
@@ -42751,7 +42841,9 @@ function UpdateButton({ useUpdate, actions }) {
   (0, import_react26.useLayoutEffect)(() => {
     if (!open) return;
     const rect = button.current?.getBoundingClientRect();
-    if (rect) setBox({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 288)), top: rect.bottom + 6 });
+    if (!rect) return;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - 288));
+    setBox(rect.top > window.innerHeight / 2 ? { left, bottom: window.innerHeight - rect.top + 6 } : { left, top: rect.bottom + 6 });
   }, [open, tick]);
   if (!update?.available && !dshRow && phase === "idle" && dshPhase === "idle") return null;
   const cloudPhase = phase === "installing" || dshPhase === "installing" ? "installing" : phase !== "idle" ? phase : dshPhase;
@@ -43194,9 +43286,19 @@ var SIDEBAR_CSS = `
 /* Opening the sidebar: its rows ease in from the left while the column widens, a beat after
    the top row, instead of being uncovered as the column grows. */
 @keyframes bt-wide-in{from{opacity:0;transform:translateX(-10px)}}
+/* The glide between the open column and the rail: the column's width and the
+   conversation's margin on one spring. */
+html[data-bt-glide] .bt-leftcol{transition:width ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},margin-right ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}!important}
+/* Pulled past where it stops, the column's content dims toward the snap. */
+.bt-leftcol>.bt-side{opacity:calc(1 - var(--bt-pull,0) * .45)}
+/* The rail's avatars arrive as the column narrows onto them. */
+@keyframes bt-rail-in{from{opacity:0;transform:scale(.9)}}
+.bt-side.bt-rail>:is(.bt-rail-top,.bt-list){animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .04s backwards}
+.bt-leftcol-foot-rail{animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .08s backwards}
 .bt-side:not(.bt-rail)>.bt-side-top{animation:bt-wide-in .3s cubic-bezier(.32,.72,0,1) backwards}
 .bt-side:not(.bt-rail)>.bt-list{animation:bt-wide-in .34s cubic-bezier(.32,.72,0,1) .04s backwards}
-@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list{animation:none}}
+@media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list,.bt-side.bt-rail>.bt-rail-top,.bt-leftcol-foot-rail{animation:none}}
 .bt-menu .bt-profile-row{gap:10px;padding:6px 8px;min-height:48px}
 .bt-menu .bt-profile-row>.bt-you{flex:none}
 .bt-menu .bt-profile-row>svg{margin-left:auto;color:var(--bt-ink-3)}
@@ -43272,6 +43374,7 @@ var SIDEBAR_CSS = `
    loop while the install runs. */
 .bt-round.bt-update{position:relative;color:var(--bt-accent,#4D6BFE);animation:bt-update-in ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
 .bt-round.bt-update svg{width:17px;height:17px}
+.bt-leftcol-foot>.bt-round.bt-update{width:32px;height:32px}
 .bt-round.bt-update[data-phase=installed]{color:var(--bt-ink-2)}
 @keyframes bt-update-in{from{opacity:0;transform:scale(.6);filter:blur(4px)}}
 .bt-update[data-phase=installing] .bt-cloud-arrow{animation:bt-cloud-drop 1.1s cubic-bezier(.45,0,.55,1) infinite}
@@ -44467,9 +44570,9 @@ function CommandPalette({ start, token, roster, actions, useSessions }) {
   const rows2 = sections.flatMap(([, items]) => items);
   const active = Math.min(cursor, Math.max(rows2.length - 1, 0));
   const shown = rows2.map((row) => row.key).join("\n");
-  const glide = useGlide(`${active}
+  const glide2 = useGlide(`${active}
 ${shown}`, { axis: "y", ...QUICK_EDGES });
-  const listRef = glide.box;
+  const listRef = glide2.box;
   useFlip(listRef, shown, "[data-flip]");
   (0, import_react30.useEffect)(() => {
     listRef.current?.querySelector("[aria-selected=true]")?.scrollIntoView({ block: "nearest" });
@@ -44525,7 +44628,7 @@ ${shown}`, { axis: "y", ...QUICK_EDGES });
       (0, import_react30.createElement)(
         "div",
         { ref: listRef, id: "bt-palette-list", className: "bt-palette-list", role: "listbox", "aria-label": t("Results") },
-        (0, import_react30.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+        (0, import_react30.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
         rows2.length === 0 ? (0, import_react30.createElement)(
           "div",
           { className: "bt-palette-empty" },
@@ -45841,7 +45944,7 @@ function AvatarEditor({ bot, actions, run: run2, onClose }) {
     return () => window.removeEventListener("paste", onPaste);
   }, [tab, bot]);
   const hasPhoto = Boolean(look.image);
-  const glide = useGlide(tab);
+  const glide2 = useGlide(tab);
   return (0, import_react35.createElement)(
     "div",
     { ref, className: "bt-avedit", role: "dialog", "aria-label": t("Avatar editor") },
@@ -45850,8 +45953,8 @@ function AvatarEditor({ bot, actions, run: run2, onClose }) {
       { className: "bt-avedit-top" },
       (0, import_react35.createElement)(
         "div",
-        { ref: glide.box, role: "tablist", "aria-label": t("Avatar source"), className: "bt-avedit-tabs" },
-        (0, import_react35.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+        { ref: glide2.box, role: "tablist", "aria-label": t("Avatar source"), className: "bt-avedit-tabs" },
+        (0, import_react35.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
         [["bot", "Bot"], ["upload", "Upload"], ["library", "Library"]].map(([id, label]) => (0, import_react35.createElement)("button", { key: id, type: "button", role: "tab", className: "bt-avedit-tab", "aria-selected": tab === id, onClick: () => setTab(id) }, t(label)))
       ),
       (0, import_react35.createElement)("button", {
@@ -46040,7 +46143,7 @@ function BotSettingsForm({ bot, roster, actions, run: run2 }) {
     (0, import_react35.createElement)(
       Card2,
       { title: t("Sidebar") },
-      (0, import_react35.createElement)(SwitchRow, { label: t("Pin"), hint: t("Shown as a tile at the top of the sidebar."), on: isPinned(roster, bot), onChange: (pinned) => run2(actions.setFlags(bot.id, { pinned })) }),
+      (0, import_react35.createElement)(SwitchRow, { label: t("Pin"), hint: t("Shown as a tile at the top of the sidebar."), on: isPinned(roster, bot), onChange: (pinned2) => run2(actions.setFlags(bot.id, { pinned: pinned2 })) }),
       isMainBot ? null : (0, import_react35.createElement)(SwitchRow, { label: t("Hide from sidebar"), hint: t("Search still finds it."), on: bot.hidden === true, onChange: (hidden) => run2(actions.setFlags(bot.id, { hidden })) })
     ),
     (0, import_react35.createElement)(
@@ -46389,9 +46492,9 @@ function NewChat({ mode, roster, actions }) {
   if (wanted !== "" && !exact && mode !== "search") options.push({ key: "create", icon: (0, import_react37.createElement)(PlusIcon), label: t("Create new Bot “{name}”", { name: query.trim() }), run: createBot });
   const active = Math.min(cursor, Math.max(options.length - 1, 0));
   const listed = options.map((option) => option.key).join("\n");
-  const glide = useGlide(`${active}
+  const glide2 = useGlide(`${active}
 ${listed}`, { axis: "y", ...QUICK_EDGES });
-  useFlip(glide.box, listed, "[data-flip]");
+  useFlip(glide2.box, listed, "[data-flip]");
   const drop = (0, import_react37.useRef)(null);
   useMorph(drop, listed);
   if (draft) {
@@ -46480,8 +46583,8 @@ ${listed}`, { axis: "y", ...QUICK_EDGES });
       ),
       (0, import_react37.createElement)("div", { ref: drop, className: "bt-drop" }, (0, import_react37.createElement)(
         "div",
-        { ref: glide.box, role: "listbox", "aria-label": t("Recipients"), className: "bt-drop-list" },
-        (0, import_react37.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+        { ref: glide2.box, role: "listbox", "aria-label": t("Recipients"), className: "bt-drop-list" },
+        (0, import_react37.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
         options.length === 0 ? (0, import_react37.createElement)("div", { className: "bt-hint" }, mode === "search" ? t("No Bots match") : t("Type a name to create a Bot")) : options.map((option, index) => (0, import_react37.createElement)(
           "button",
           {
@@ -47128,7 +47231,7 @@ function GroupSettingsForm({ room: room2, roster, actions, run: run2, onDeleted 
     (0, import_react41.createElement)(
       Card2,
       { title: t("Sidebar") },
-      (0, import_react41.createElement)(SwitchRow, { label: t("Pin"), hint: t("Kept above the other chats."), on: room2.pinned === true, onChange: (pinned) => run2(actions.setFlags(room2.id, { pinned })) }),
+      (0, import_react41.createElement)(SwitchRow, { label: t("Pin"), hint: t("Kept above the other chats."), on: room2.pinned === true, onChange: (pinned2) => run2(actions.setFlags(room2.id, { pinned: pinned2 })) }),
       (0, import_react41.createElement)(SwitchRow, { label: t("Hide from sidebar"), hint: t("Search still finds it."), on: room2.hidden === true, onChange: (hidden) => run2(actions.setFlags(room2.id, { hidden })) })
     ),
     (0, import_react41.createElement)(
@@ -47517,12 +47620,12 @@ function kindLabel(kind, botFocus) {
 }
 function Tabs({ label, value, options, onChange, boxRef }) {
   const names = options.map(([, text]) => text).join("\n");
-  const glide = useGlide(`${value}
+  const glide2 = useGlide(`${value}
 ${names}`, { box: boxRef });
   return (0, import_react43.createElement)(
     "div",
-    { ref: glide.box, className: "bt-us-tabs", role: "group", "aria-label": label },
-    (0, import_react43.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+    { ref: glide2.box, className: "bt-us-tabs", role: "group", "aria-label": label },
+    (0, import_react43.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
     options.map(([id, text, icon2]) => (0, import_react43.createElement)("button", { key: id, type: "button", "aria-pressed": value === id, onClick: () => onChange(id) }, icon2 ? (0, import_react43.createElement)(icon2) : null, text))
   );
 }
@@ -50247,7 +50350,7 @@ function DetailsDrawer({ sessionId, startRenaming, startTab, hasStrip, roster, a
   const [draftName, setDraftName] = (0, import_react52.useState)(roster.byId[sessionId]?.name ?? (roster.roomsById[sessionId]?.named ? roster.roomsById[sessionId].name : ""));
   const [copied, setCopied] = (0, import_react52.useState)(false);
   const [error, setError] = (0, import_react52.useState)("");
-  const glide = useGlide(tab);
+  const glide2 = useGlide(tab);
   const last = (0, import_react52.useRef)({ view, tab, move: void 0 });
   if (last.current.view !== view) last.current = { view, tab, move: view === "settings" ? "in" : "out" };
   else if (last.current.tab !== tab) last.current = { view, tab, move: "tab" };
@@ -50351,8 +50454,8 @@ function DetailsDrawer({ sessionId, startRenaming, startTab, hasStrip, roster, a
     ),
     tabs.length > 1 ? (0, import_react52.createElement)(
       "div",
-      { key: "tabs", ref: glide.box, className: "bt-tabs", role: "tablist", "data-move": side },
-      (0, import_react52.createElement)("span", { ref: glide.thumb, className: "bt-thumb", "aria-hidden": true }),
+      { key: "tabs", ref: glide2.box, className: "bt-tabs", role: "tablist", "data-move": side },
+      (0, import_react52.createElement)("span", { ref: glide2.thumb, className: "bt-thumb", "aria-hidden": true }),
       tabs.map((key) => (0, import_react52.createElement)("button", { key, type: "button", role: "tab", className: "bt-tab", "aria-selected": tab === key, onClick: () => setTab(key) }, t(TAB_LABELS[key])))
     ) : null,
     (0, import_react52.createElement)(
@@ -53387,6 +53490,7 @@ function apply(ctx) {
   };
   const installTheme = () => {
     const style = installStyles("", "theme");
+    document.documentElement.dataset.btSurface = "bot";
     let key = "";
     let releaseTokens = null;
     const render = () => {
@@ -53428,6 +53532,7 @@ function apply(ctx) {
       try {
         if (typeof releaseTokens === "function") releaseTokens();
       } finally {
+        delete document.documentElement.dataset.btSurface;
         delete document.body.dataset.btMotion;
         delete document.body.dataset.btLayout;
         document.body.style.removeProperty("--bt-msg-w");

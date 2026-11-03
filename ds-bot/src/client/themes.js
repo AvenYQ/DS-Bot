@@ -55,9 +55,54 @@ const darkAccent = (accent) => {
   const ink = ACCENT_INKS.find(id => INKS[id][0] === accent)
   return ink === undefined ? accent : INKS[ink][1]
 }
+// The Bot surface keeps its own look whatever skin the shell wears. A shell skin (or
+// the shell's own custom theme) moves DSH's surface tokens and its text font; on the
+// Bot surface the theme's colors set the tokens the team UI derives from, and every
+// other surface token and the font go back to DSH's stock values (the bubble tokens
+// stay the host's: the Bot chat paints its own bubbles). They need
+// !important: the shell writes its token layers inline on <body>, the latest layer
+// winning, so a skin that reloads its palette would otherwise land over the Bot theme.
+const stock = name => `var(--dsw-static-${name})`
+const STOCK_TOKENS = {
+  '--dsw-alias-bg-layer-1': [stock('neutral-bluish-00'), stock('neutral-bluish-875')],
+  '--dsw-alias-bg-layer-2': [stock('neutral-bluish-00'), stock('neutral-bluish-850')],
+  '--dsw-alias-bg-layer-3': [stock('neutral-bluish-00'), stock('neutral-bluish-800')],
+  '--dsw-alias-bg-overlay': [stock('neutral-bluish-150'), stock('neutral-bluish-700')],
+  '--dsw-alias-bg-document-selection': ['color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent)', 'color-mix(in srgb, var(--dsw-static-blue-500) 40%, transparent)'],
+  '--dsw-alias-label-caption': [stock('neutral-bluish-400'), stock('neutral-bluish-600')],
+  '--dsw-alias-label-primary-bluish': [stock('blue-900'), stock('neutral-bluish-50')],
+  '--dsw-alias-label-deep-diving': ['color-mix(in srgb, var(--dsw-static-deepseek-500) 70%, var(--dsw-static-blue-950))', 'color-mix(in srgb, var(--dsw-static-deepseek-450) 55%, var(--dsw-static-neutral-bluish-400))'],
+  '--dsw-alias-label-deep-diving-shimmer': ['color-mix(in srgb, var(--dsw-static-deepseek-500) 30%, var(--dsw-static-blue-950))', 'color-mix(in srgb, var(--dsw-static-blue-300) 65%, var(--dsw-static-deepseek-400))'],
+  '--dsw-alias-border-l1': ['#0000000a', '#ffffff0f'],
+  '--dsw-alias-border-l2': ['#0000001a', '#ffffff1f'],
+  '--dsw-alias-border-l3': ['#0000001f', '#ffffff29'],
+  '--dsw-alias-border-l4': ['#00000029', '#fff3'],
+  '--dsw-alias-interactive-bg-hover': ['#2631480f', '#ffffff14'],
+  '--dsw-alias-brand-primary': [stock('neutral-bluish-1000'), stock('neutral-bluish-50')],
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': ['#4176e6', stock('deepseek-450')],
+  '--dsw-alias-link': [stock('deepseek-500'), stock('deepseek-400')],
+  '--dsw-alias-button-info-fill': [stock('deepseek-500'), stock('deepseek-400')],
+  '--dsw-alias-button-info-hover': [stock('deepseek-400'), stock('deepseek-500')],
+  '--dsw-alias-state-business-primary': [stock('deepseek-500'), stock('deepseek-400')],
+  '--dsw-alias-state-business-tertiary': [stock('deepseek-100'), stock('deepseek-800')],
+  '--dsw-alias-state-error-primary': [stock('red-600'), stock('red-400')],
+  '--dsw-alias-state-warn-primary': [stock('amber-500'), stock('amber-500')],
+  '--dsw-alias-state-success-primary': [stock('green-500'), stock('green-500')],
+  '--dsw-alias-state-idle-primary': [stock('neutral-300'), stock('neutral-600')],
+  '--dsw-specific-sidebar-nav-item-active-accent': [stock('deepseek-100'), stock('neutral-bluish-800')],
+}
+const STOCK_FONT = 'var(--dsh-font-family-text-default)'
+const pinned = (vars) => Object.entries(vars).map(([name, value]) => `${name}:${value}!important`).join(';')
+function surfaceVars(mode, dark) {
+  const vars = { '--dsw-font-family': STOCK_FONT, '--dsh-font-family-text': STOCK_FONT }
+  for (const [name, [light, night]] of Object.entries(STOCK_TOKENS)) vars[name] = dark ? night : light
+  for (const [name, value] of Object.entries(shellTokens({ light: mode, dark: mode }))) vars[name] = value.light
+  if (dark) vars['--dsw-specific-input-major'] = mode.sidebar
+  return vars
+}
 // `html body` outranks the base sheet's `body` rules without !important.
-export const themeCss = (theme, accent) => `html body{${declarations(themeVars(theme.light, false, accent ?? theme.light.accent))}}
-html body[data-ds-dark-theme]{${declarations(themeVars(theme.dark, true, darkAccent(accent) ?? theme.dark.accent))}}
+export const themeCss = (theme, accent) => `html body{${declarations(themeVars(theme.light, false, accent ?? theme.light.accent))};${pinned(surfaceVars(theme.light, false))}}
+html body[data-ds-dark-theme]{${declarations(themeVars(theme.dark, true, darkAccent(accent) ?? theme.dark.accent))};${pinned(surfaceVars(theme.dark, true))}}
 ${theme.css ?? ''}`
 export const shellTokens = ({ light, dark }) => ({
   '--dsw-alias-bg-base': { light: light.bg, dark: dark.bg },

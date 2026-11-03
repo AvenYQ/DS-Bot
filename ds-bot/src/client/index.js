@@ -342,6 +342,9 @@ export function apply(ctx) {
   // copy only avoids a flash of the default theme before the first state pull.
   const installTheme = () => {
     const style = installStyles('', 'theme')
+    // Marks the Bot surface, so its rules can outrank what a shell skin sets on the
+    // shell's own elements that the Bot chat reuses.
+    document.documentElement.dataset.btSurface = 'bot'
     let key = ''
     let releaseTokens = null
     const render = () => {
@@ -380,6 +383,7 @@ export function apply(ctx) {
       try {
         if (typeof releaseTokens === 'function') releaseTokens()
       } finally {
+        delete document.documentElement.dataset.btSurface
         delete document.body.dataset.btMotion
         delete document.body.dataset.btLayout
         document.body.style.removeProperty('--bt-msg-w')
