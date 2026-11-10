@@ -1010,6 +1010,26 @@ export function apply(ctx) {
   const shadow = (name, options, component) => ctx.slots.inject(name, () => ctx.slots.register({
     name, ...options, ...(options.priority === undefined ? {} : { priority: freePriority(ctx.slots.entries(name), options) }),
   }, component))
+  // Places in the Bot surface that other plugins can fill. A theme puts its own thinking-level
+  // control in the model menu by registering into `ds-bot.model.effort`; it gets the levels,
+  // the current pick (undefined: the model's default) and `onPick`, and when nothing is
+  // registered the menu keeps its own bar.
+  const BOT_OUTLETS = {
+    'ds-bot.sidebar.foot': { kind: 'list', scope: 'root' },
+    'ds-bot.model.effort': { kind: 'single', scope: 'root' },
+  }
+  let outletRender = null
+  const OutletSidebar = (props) => {
+    outletRender = props.renderSlot ?? null
+    useEffect(() => () => { if (outletRender === props.renderSlot) outletRender = null }, [props.renderSlot])
+    return h(TeamSidebar, props)
+  }
+  actions.renderEffort = (props) => {
+    if (outletRender === null) return null
+    let filled = false
+    try { filled = ctx.slots.entries('ds-bot.model.effort').length > 0 } catch { filled = false }
+    return filled ? outletRender('ds-bot.model.effort', props) : null
+  }
   const installHeader = () => ctx.slots.inject('conversation.session.header', () => installHeaderNavigation(ctx.slots, face, HeaderPill, BOT_PRIORITY))
 
   // The "@" menu's Bot group and the chats "+" references. The composer's controller
@@ -1117,7 +1137,10 @@ export function apply(ctx) {
     () => installChatColor(),
     () => installTailKeeper(),
     () => installProcessGroups(),
-    () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
+    // The column declares two places other plugins can fill: its foot (`ds-bot.sidebar.foot`,
+    // beside the account) and the model menu's thinking level (`ds-bot.model.effort`), which
+    // the column lends to every model menu while it is up.
+    () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face, slots: BOT_OUTLETS }, OutletSidebar),
     () => shadow('sidebar.brand.mark', { priority: BOT_PRIORITY }, BrandMark),
     () => shadow('sidebar.brand.name', { priority: BOT_PRIORITY }, BrandName),
     () => shadow('sidebar.footer.action', { id: 'bot-account', order: -200, inject: face }, FooterAccount),

@@ -380,7 +380,7 @@ export function ModelMenu({ bot, roster, actions, run, wide = false, onPick, onP
           : local ? null : h('div', { className: 'bt-model-none' }, t('No models are set up in DeepSeek Harness yet.')),
         reading ? h('div', { className: 'bt-model-none' }, t('Reading models…')) : null),
       hasEfforts || manage ? h('div', { className: 'bt-model-foot' },
-        hasEfforts ? h(EffortBar, { reasoning, current: picked, onPick: pickEffort }) : null,
+        hasEfforts ? (actions?.renderEffort?.({ efforts: reasoning.efforts, defaultEffort: reasoning.defaultEffort, current: picked, onPick: pickEffort }) ?? h(EffortBar, { reasoning, current: picked, onPick: pickEffort })) : null,
         hasEfforts && manage ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
         manage ? h('button', { type: 'button', role: 'menuitem', onClick: () => { close(); manage() } }, h(SlidersIcon), h('span', { className: 'bt-menu-label' }, t('Models and providers…'))) : null) : null), document.body) : null)
 }

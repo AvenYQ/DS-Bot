@@ -3468,6 +3468,8 @@ html[data-bt-collapsing] [class*="_frame"]:has(>[class*="_sidebarCol"]){transiti
 .bt-leftcol[data-left=drawer]{background:var(--bt-sidebar);box-shadow:8px 0 24px rgba(0,0,0,.14)}
 .bt-leftcol>.bt-side{width:100%}
 .bt-leftcol-foot{display:flex;align-items:center;gap:9px;padding-top:8px;flex:none}
+.bt-foot-slot{display:inline-flex;align-items:center;gap:8px;flex:none}
+.bt-foot-slot:empty{display:none}
 .bt-rail{align-items:center;gap:6px;padding:0}
 .bt-rail .bt-row{justify-content:center;width:56px;height:56px;min-height:56px;padding:0;border-radius:16px}
 .bt-rail-top{display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:8px}
@@ -10801,7 +10803,7 @@ function ModelMenu({ bot, roster, actions, run: run2, wide = false, onPick, onPi
       hasEfforts || manage ? (0, import_react22.createElement)(
         "div",
         { className: "bt-model-foot" },
-        hasEfforts ? (0, import_react22.createElement)(EffortBar, { reasoning, current: picked, onPick: pickEffort }) : null,
+        hasEfforts ? actions?.renderEffort?.({ efforts: reasoning.efforts, defaultEffort: reasoning.defaultEffort, current: picked, onPick: pickEffort }) ?? (0, import_react22.createElement)(EffortBar, { reasoning, current: picked, onPick: pickEffort }) : null,
         hasEfforts && manage ? (0, import_react22.createElement)("div", { className: "bt-menu-sep", role: "separator" }) : null,
         manage ? (0, import_react22.createElement)("button", { type: "button", role: "menuitem", onClick: () => {
           close();
@@ -48773,7 +48775,7 @@ function TeamSidebar(props) {
     groups.tiles.length > 0 ? (0, import_react39.createElement)("span", { className: "bt-rail-sep", "aria-hidden": true }) : null
   );
   const courtEntry = courtTheme(roster) ? (0, import_react39.createElement)(CourtBoardEntry, { wide: wideContent, useRoster, useSessionStatus: props.useSessionStatus, useWork: props.useWork }) : null;
-  const foot = wideContent ? (0, import_react39.createElement)("div", { className: "bt-leftcol-foot" }, (0, import_react39.createElement)(AccountLauncher, { seat: false, actions, useRoster }), (0, import_react39.createElement)(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry) : (0, import_react39.createElement)(
+  const foot = wideContent ? (0, import_react39.createElement)("div", { className: "bt-leftcol-foot" }, (0, import_react39.createElement)(AccountLauncher, { seat: false, actions, useRoster }), props.renderSlot ? (0, import_react39.createElement)("span", { className: "bt-foot-slot" }, props.renderSlot("ds-bot.sidebar.foot", { wide: true })) : null, (0, import_react39.createElement)(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry) : (0, import_react39.createElement)(
     "div",
     { className: "bt-leftcol-foot bt-leftcol-foot-rail" },
     (0, import_react39.createElement)("button", { type: "button", className: "bt-round bt-rail-toggle", "aria-label": t("Expand sidebar"), title: t("Expand sidebar"), onClick: onToggle }, (0, import_react39.createElement)(SidebarIcon)),
@@ -62848,6 +62850,28 @@ function apply(ctx) {
     ...options,
     ...options.priority === void 0 ? {} : { priority: freePriority(ctx.slots.entries(name), options) }
   }, component));
+  const BOT_OUTLETS = {
+    "ds-bot.sidebar.foot": { kind: "list", scope: "root" },
+    "ds-bot.model.effort": { kind: "single", scope: "root" }
+  };
+  let outletRender = null;
+  const OutletSidebar = (props) => {
+    outletRender = props.renderSlot ?? null;
+    (0, import_react69.useEffect)(() => () => {
+      if (outletRender === props.renderSlot) outletRender = null;
+    }, [props.renderSlot]);
+    return (0, import_react69.createElement)(TeamSidebar, props);
+  };
+  actions.renderEffort = (props) => {
+    if (outletRender === null) return null;
+    let filled = false;
+    try {
+      filled = ctx.slots.entries("ds-bot.model.effort").length > 0;
+    } catch {
+      filled = false;
+    }
+    return filled ? outletRender("ds-bot.model.effort", props) : null;
+  };
   const installHeader = () => ctx.slots.inject("conversation.session.header", () => installHeaderNavigation(ctx.slots, face, HeaderPill, BOT_PRIORITY));
   let atMenu = null;
   const installAtMenu = () => {
@@ -62947,7 +62971,10 @@ function apply(ctx) {
     () => installChatColor(),
     () => installTailKeeper(),
     () => installProcessGroups(),
-    () => shadow("sidebar.workspaces", { priority: BOT_PRIORITY, inject: face }, TeamSidebar),
+    // The column declares two places other plugins can fill: its foot (`ds-bot.sidebar.foot`,
+    // beside the account) and the model menu's thinking level (`ds-bot.model.effort`), which
+    // the column lends to every model menu while it is up.
+    () => shadow("sidebar.workspaces", { priority: BOT_PRIORITY, inject: face, slots: BOT_OUTLETS }, OutletSidebar),
     () => shadow("sidebar.brand.mark", { priority: BOT_PRIORITY }, BrandMark),
     () => shadow("sidebar.brand.name", { priority: BOT_PRIORITY }, BrandName),
     () => shadow("sidebar.footer.action", { id: "bot-account", order: -200, inject: face }, FooterAccount),

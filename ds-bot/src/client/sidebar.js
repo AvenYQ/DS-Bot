@@ -635,7 +635,9 @@ export function TeamSidebar(props) {
   const foot = wideContent
     // The open column's update button waits in the foot, so the top row keeps room for the
     // window's lights beside its three buttons however narrow the column gets.
-    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), h(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry)
+    // Other plugins' entries in `ds-bot.sidebar.foot` (a theme's day/night switch) sit
+    // between the account and the column's own buttons, as their shell footer entries do.
+    ? h('div', { className: 'bt-leftcol-foot' }, h(AccountLauncher, { seat: false, actions, useRoster }), props.renderSlot ? h('span', { className: 'bt-foot-slot' }, props.renderSlot('ds-bot.sidebar.foot', { wide: true })) : null, h(UpdateButton, { useUpdate: props.useUpdate, actions }), courtEntry)
     : h('div', { className: 'bt-leftcol-foot bt-leftcol-foot-rail' },
         h('button', { type: 'button', className: 'bt-round bt-rail-toggle', 'aria-label': t('Expand sidebar'), title: t('Expand sidebar'), onClick: onToggle }, h(SidebarIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
