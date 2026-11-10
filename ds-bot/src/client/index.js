@@ -1140,7 +1140,7 @@ export function apply(ctx) {
     // The column declares two places other plugins can fill: its foot (`ds-bot.sidebar.foot`,
     // beside the account) and the model menu's thinking level (`ds-bot.model.effort`), which
     // the column lends to every model menu while it is up.
-    () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face, slots: BOT_OUTLETS }, OutletSidebar),
+    () => shadow('sidebar.workspaces', { priority: BOT_PRIORITY, inject: face, children: BOT_OUTLETS }, OutletSidebar),
     () => shadow('sidebar.brand.mark', { priority: BOT_PRIORITY }, BrandMark),
     () => shadow('sidebar.brand.name', { priority: BOT_PRIORITY }, BrandName),
     () => shadow('sidebar.footer.action', { id: 'bot-account', order: -200, inject: face }, FooterAccount),
@@ -1306,7 +1306,7 @@ export function apply(ctx) {
       let landed = false
       let declared = true
       try {
-        landed = ctx.slots.entries('sidebar.workspaces').some(entry => entry.component === TeamSidebar)
+        landed = ctx.slots.entries('sidebar.workspaces').some(entry => entry.component === OutletSidebar)
         declared = ctx.slots.spec?.('sidebar.workspaces') !== undefined
       } catch {
         declared = false
