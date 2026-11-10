@@ -17,9 +17,9 @@ test('the application menu of macOS has a Quit on ⌘Q', async () => {
   await waitFor(() => state.tray !== undefined, 'build the tray')
   const menu = state.menus.at(-1).template
   const items = menu[0].submenu
-  assert.equal(menu[0].label, 'DeepSeek Bot', 'the menu of the app')
+  assert.equal(menu[0].label, 'DS Bot', 'the menu of the app')
   const quit = items.at(-1)
-  assert.equal(quit.label, 'Quit DeepSeek Bot', 'the menu ends the app')
+  assert.equal(quit.label, 'Quit DS Bot', 'the menu ends the app')
   assert.equal(quit.accelerator, 'Command+Q', 'on ⌘Q')
   assert.equal(typeof quit.click, 'function', 'the entry works')
   // The menu keeps the rest of macOS: about, services and the hiding of the app.

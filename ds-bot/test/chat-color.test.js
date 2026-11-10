@@ -32,7 +32,7 @@ test('a photo takes the color of its background, not of the figure in it', () =>
 })
 
 test('a character Bot takes its ink, and the colors repaint the accent and the bubbles', () => {
-  assert.deepEqual([...botChatColor({ id: 'b', color: 'green' })], ['#00C972', '#009957'])
+  assert.deepEqual([...botChatColor({ id: 'b', color: 'green' })], ['#10B981', '#059669'])
   const css = chatColorCss(['#1e5ac8', '#1e5ac8'])
   assert.match(css, /--bt-accent:#1e5ac8;--bt-accent-ink:#ffffff;--bt-user:#1e5ac8;--bt-user-ink:#ffffff/)
   assert.match(chatColorCss(['#ffe680', '#ffe680']), /--bt-user-ink:#141414/)

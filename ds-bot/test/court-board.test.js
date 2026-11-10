@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { build } from 'esbuild'
 import { runInNewContext } from 'node:vm'
 import { OFFICIALS, glazeFor } from '../src/client/court-board/data.js'
-import { castOf, castOrder, courtStateOf, officeOf, officialFor, sleepsAt } from '../src/client/court-board/state.js'
+import { castOf, castOrder, courtStateOf, officeOf, officialFor, sectionOf, sleepsAt } from '../src/client/court-board/state.js'
 import { decreeFor } from '../src/client/court-board/decree.js'
 
 const { outputFiles } = await build({
@@ -17,7 +17,7 @@ runInNewContext(outputFiles[0].text, {
 })
 const { liveStateOf, createDoneHold } = bundled.exports
 
-const bot = (over = {}) => ({ id: 'b1', name: '首辅·张居正', section: '内阁', avatar: { color: '#123456' }, ...over })
+const bot = (over = {}) => ({ id: 'b1', name: '首辅·张居正', sectionId: '内阁', avatar: { color: '#123456' }, ...over })
 
 test('the court theme is on unless the team turned it off', async () => {
   const { courtTheme } = await import('../src/client/sources.js')
@@ -48,13 +48,13 @@ test("a section's slab takes its glaze from its name, the rest take turns", () =
 
 test('the cast follows the sidebar: each section in its order, unfiled Bots last', () => {
   const roster = {
-    sections: [{ name: '内阁' }, { name: '六部' }],
+    sections: [{ id: '内阁', name: '内阁' }, { id: '六部', name: '六部' }],
     bots: [
-      { id: 'c', name: '礼部尚书·纪晓岚', section: '六部' },
-      { id: 'x', name: 'Chief', section: '' },
-      { id: 'a', name: '次辅·王安石', section: '内阁' },
-      { id: 'h', name: '隐藏的', section: '内阁', hidden: true },
-      { id: 'b', name: '首辅·张居正', section: '内阁' },
+      { id: 'c', name: '礼部尚书·纪晓岚', sectionId: '六部' },
+      { id: 'x', name: 'Chief' },
+      { id: 'a', name: '次辅·王安石', sectionId: '内阁' },
+      { id: 'h', name: '隐藏的', sectionId: '内阁', hidden: true },
+      { id: 'b', name: '首辅·张居正', sectionId: '内阁' },
     ],
   }
   assert.deepEqual(castOrder(roster).map(item => item.id), ['a', 'b', 'c', 'x'])
@@ -131,11 +131,11 @@ test('completion waits for a fresh snapshot and ignores stale or failed requests
 
 test('the cast dresses a known official from the table and an unknown Bot from itself', () => {
   const roster = {
-    sections: [{ name: '内阁' }],
+    sections: [{ id: '内阁', name: '内阁' }],
     bots: [
       bot(),
-      { id: 'n1', name: 'Chief', section: '内阁', avatar: { color: '#abcdef' } },
-      { id: 'n2', name: '工部·新来的', section: '' },
+      { id: 'n1', name: 'Chief', sectionId: '内阁', avatar: { color: '#abcdef' } },
+      { id: 'n2', name: '工部·新来的' },
     ],
   }
   const live = new Map()
@@ -199,4 +199,12 @@ test('a group order outranks a batch, and the batch still plays once afterwards'
 test('work from another Bot is ignored', () => {
   const other = [{ from: 'deputy', to: 'a', at: NOW - 1_000 }, { from: 'deputy', to: 'b', at: NOW - 2_000 }]
   assert.equal(decreeFor(other, 'main', {}, NOW), null)
+})
+
+test('the first Main Bot, kept out of the sidebar sections, holds the first yard', () => {
+  const roster = { mainBotId: 'm', sections: [{ id: 's1', name: '内阁' }, { id: 's2', name: '六部' }], bots: [{ id: 'm', name: '首辅·张居正' }, { id: 'o', name: '礼部尚书·纪晓岚', sectionId: 's2' }, { id: 'l', name: 'Loose' }] }
+  assert.equal(sectionOf(roster, roster.bots[0]), '内阁')
+  assert.equal(sectionOf(roster, roster.bots[1]), '六部')
+  assert.equal(sectionOf(roster, roster.bots[2]), '')
+  assert.deepEqual(castOrder(roster).map(bot => bot.id), ['m', 'o', 'l'])
 })

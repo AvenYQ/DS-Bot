@@ -1,23 +1,26 @@
 import { createElement as h, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { FishLogo } from './dsh-primitives.js'
-import { isMainOf, isPinned } from './sources.js'
+import { inkFill } from './inks.js'
+import { courtTheme, isMainOf, isPinned } from './sources.js'
 import { useDragSort } from './drag-sort.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
-import { ChevronRightIcon, DotsIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, SwitchIcon, CloudDownloadIcon, SignOutIcon } from './icons.js'
-import { MAIN_LOOK } from './characters.js'
+import { PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, CloudDownloadIcon, SignInIcon, SignOutIcon, SlidersIcon, ChevronRightIcon, DotsIcon, FolderIcon, ImageIcon, PencilIcon } from './icons.js'
+import { lookOf, MAIN_LOOK } from './characters.js'
 import { SealIcon } from './court-board/icons.js'
 import { BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
+import { AgentBadge } from './agent-badge.js'
 import { useBotLiveState } from './live-state.js'
-import { courtTheme } from './sources.js'
 import { CourtBoardEntry } from './court-board/index.js'
 import { reducedMotion } from './activity-row.js'
 import { avatarImage } from './avatar-library.js'
 import { Shimmer, workPhrase } from './cells.js'
-import { springEasing, SPRING_POP, SPRING_SHAPE, SPRING_TAP, useViewport, viewBottom } from './motion.js'
+import { SPRING_GLIDE, SPRING_POP, SPRING_SHAPE, SPRING_TAP, stepMenuFocus, useLinger, useViewport, viewBottom } from './motion.js'
 import { hostText, t } from './i18n.js'
+import { clientErrors } from './diagnostics.js'
 import { showsDshRow } from './dsh-offer.js'
-import { frameLayout, dragColumn, RAIL_WIDTH, RAIL_SNAP, SIDEBAR_MIN, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
+import { quietly } from './diagnostics.js'
+import { frameLayout, dragColumn, RAIL_WIDTH, FALLBACK_SIDEBAR_WIDTH, userSidebarToggle } from './frame-layout.js'
 import { chatRoom, dshCollapsed } from './frame-watch.js'
 
 // -------------------------------------------------------------------------
@@ -53,8 +56,10 @@ const useApproval = (useWork, match) => (useWork ? useWork(work => (work.approva
 // Work running in group Sessions, as "botId|tool" keys so a row redraws only when it
 // changes: the groups one Bot works in, or the members at work in one group.
 // Picked as text, so a row redraws only when what it shows changes.
-const useGroupWork = (useWork, pick) => (useWork ? useWork(work => JSON.stringify(pick(work.rooms ?? {}))) : '[]')
-const workKeys = text => JSON.parse(text)
+const useGroupWork = (useWork, pick) => {
+  const raw = useWork ? useWork(work => JSON.stringify(pick(work.rooms ?? {}))) : '[]'
+  return useMemo(() => JSON.parse(raw), [raw])
+}
 const doingOf = ({ tool, said, note, target, switching }) => ({ tool, said, note, target, switching })
 const workLine = (lead, doing, more) => h(Shimmer, null, `${lead} · ${workPhrase(doing)}…${more > 0 ? ` +${more}` : ''}`)
 // The row already names the Bot; its own-chat preview is just what it is doing.
@@ -65,7 +70,7 @@ const waitingFor = (roster, waits) => {
   return names.length === 0 ? '' : t('Waiting for {names}', { names: names.join(t(' and ')) })
 }
 
-function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, wide, marked, folded = false }) {
+function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useActivity, useWork, wide, marked, folded = false, onDragStart }) {
   const id = bot.id
   const part = currentPart(bot)
   // The chat's copy of the photo is made ahead, so opening the chat shows it at once.
@@ -100,7 +105,10 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   }
   return h('button', {
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
-    'data-bot-id': id, title: wide ? undefined : bot.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id), onContextMenu,
+    'data-bot-id': id, title: wide ? undefined : bot.name,
+    draggable: wide && !tile && onDragStart ? true : undefined,
+    onDragStart: wide && !tile && onDragStart ? event => onDragStart(event, id) : undefined,
+    onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id), onContextMenu,
   },
   wide ? h('span', { className: 'bt-row-avatar' }, h(BotAvatar, { bot, size: 36, state, main, shared: true, alertBadge: false }), h(Seal, { kind: seal, court }))
     : h(BotAvatar, { bot, size: 44, state, main, shared: true, alertBadge: false }),
@@ -109,7 +117,7 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
   !wide && (running || away) ? h('span', { className: 'bt-busy', 'aria-hidden': true }, h('i'), h('i'), h('i')) : null,
   !wide ? h(Seal, { kind: seal, court }) : null,
   wide ? h('span', { className: 'bt-row-body' },
-    h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, bot.name), pinned ? h(PinMark) : null),
+    h('span', { className: 'bt-row-name' }, h('span', { className: 'bt-row-title' }, bot.name), bot.engine ? h(AgentBadge, { engine: bot.engine }) : null, pinned ? h(PinMark) : null),
     runningLine ? h('span', { className: 'bt-row-preview' }, runningLine)
       : awayLine ? h('span', { className: 'bt-row-preview' }, awayLine)
         : waitsFor ? h('span', { className: 'bt-row-preview' }, waitsFor)
@@ -118,15 +126,17 @@ function BotRow({ bot, roster, actions, useSessions, useSessionStatus, useSessio
     : !wide && !seal && !active && unread ? h('span', { className: 'bt-dot', 'aria-hidden': true }) : null)
 }
 
-function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false }) {
+function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSessionRetainInfo, useWork, wide, marked, folded = false, onDragStart }) {
   const id = room.id
-  const fallback = useSessions(list => previewOf(list, id))
+  // The group's own Session is a chain of parts; the row shows the current one.
+  const sessionId = room.sessionId ?? id
+  const fallback = useSessions(list => previewOf(list, sessionId))
   const preview = room.preview?.replace(/\s+/g, ' ').trim() || fallback
-  const active = useSessionRetainInfo(id, info => (info?.retainedBy?.mainView ?? 0) > 0)
-  const unread = useSessionStatus(map => map.get(id)?.completionUnread === true) || (marked && !active)
+  const active = useSessionRetainInfo(sessionId, info => (info?.retainedBy?.mainView ?? 0) > 0)
+  const unread = useSessionStatus(map => map.get(sessionId)?.completionUnread === true) || (marked && !active)
   useMarkedUnread(id, active, marked, actions)
   const approval = useApproval(useWork, entry => entry.roomId === id)
-  const members = workKeys(useGroupWork(useWork, rooms => (rooms[id] ?? []).map(entry => ({ id: entry.botId, ...doingOf(entry) }))))
+  const members = useGroupWork(useWork, rooms => (rooms[id] ?? []).filter(entry => entry.botId !== undefined).map(entry => ({ id: entry.botId, ...doingOf(entry) })))
   const first = roster.byId[members[0]?.id]
   const workingLine = first ? workLine(first.name, members[0], members.length - 1) : null
   if ((room.hidden || folded) && !active) return null
@@ -134,7 +144,10 @@ function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSess
   const label = [room.name, pinned ? t('Pinned') : '', members.length > 0 ? t('Working') : '', approval ? t('Waiting for your approval') : ''].filter(Boolean).join(', ')
   return h('button', {
     type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
-    'data-room-id': id, title: wide ? undefined : room.name, onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id),
+    'data-room-id': id, title: wide ? undefined : room.name,
+    draggable: wide && onDragStart ? true : undefined,
+    onDragStart: wide && onDragStart ? event => onDragStart(event, id) : undefined,
+    onMouseEnter: wide ? nameIfCut : undefined, onClick: () => actions.openSession(id),
     onContextMenu: (event) => { event.preventDefault(); actions.openMenu({ kind: 'room', id, x: event.clientX, y: event.clientY }) },
   },
   h(RoomAvatar, { room, roster, size: wide ? 36 : 44 }),
@@ -146,6 +159,8 @@ function RoomRow({ room, roster, actions, useSessions, useSessionStatus, useSess
     : wide && unread && !active ? h('span', { className: 'bt-unread', 'aria-hidden': true })
       : !wide && !active && (approval || unread) ? h('span', { className: `bt-dot${approval ? ' bt-dot-wait' : ''}`, 'aria-hidden': true }) : null)
 }
+
+const agentSessionTitle = session => (session.title === '' ? t('New session') : session.title)
 
 // One expanded DSH Agent Session row: title, relative stamp, rename field, and a
 // context menu for rename/archive.
@@ -190,13 +205,13 @@ function AgentSessionRow({ session, agent, actions, renaming, index }) {
       actions.openMenu({ kind: 'agent-session', id: session.id, agentId: agent.id, x: event.clientX, y: event.clientY })
     },
   },
-  h('span', { className: 'bt-agent-sub-title' }, session.title),
+  h('span', { className: 'bt-agent-sub-title' }, agentSessionTitle(session)),
   h('span', { className: 'bt-agent-sub-time' }, session.at > 0 ? relativeShort(session.at) : ''))
 }
 
 // The DSH Agent row: a plain dsh Session list lives in the Bot workspace, so it
 // sits among the Bots with the harness's own whale mark.
-function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, marked }) {
+function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, marked, onDragStart }) {
   const info = useSessions(list => JSON.stringify(agent.sessions.map((id) => {
     const row = list.byId[id]
     return {
@@ -211,25 +226,29 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
   const statusInfo = useSessionStatus(map => JSON.stringify(agent.sessions.map(id => ({
     id, running: map.get(id)?.running === true, unread: map.get(id)?.completionUnread === true,
   }))))
-  const statuses = Object.fromEntries(JSON.parse(statusInfo).map(entry => [entry.id, entry]))
-  const sessions = JSON.parse(info).map(session => ({
-    ...session,
-    running: statuses[session.id]?.running ?? session.running,
-    unread: statuses[session.id]?.unread ?? false,
-    title: session.title === '' ? t('New session') : session.title,
-  }))
+  const sessions = useMemo(() => {
+    const statuses = Object.fromEntries(JSON.parse(statusInfo).map(entry => [entry.id, entry]))
+    return JSON.parse(info).map(session => ({
+      ...session,
+      running: statuses[session.id]?.running ?? session.running,
+      unread: statuses[session.id]?.unread ?? false,
+    }))
+  }, [info, statusInfo])
   const renaming = useUi(value => value.renameAgent)
   const active = sessions.some(session => session.active)
   const running = sessions.some(session => session.running)
   const unread = sessions.some(session => session.unread) || (marked && !active)
   useMarkedUnread(agent.id, active, marked, actions)
-  const preview = sessions[0]?.title ?? t('New session')
+  const preview = sessions[0] === undefined ? t('New session') : agentSessionTitle(sessions[0])
   const label = ['DSH Agent', running ? t('Working') : '', unread ? t('Unread activity') : ''].filter(Boolean).join(', ')
   const open = active && wide
   return h('div', { className: 'bt-agent' },
     h('button', {
       type: 'button', className: 'bt-row', 'aria-label': label, 'aria-current': active ? 'page' : undefined,
-      'data-agent-id': agent.id, title: wide ? undefined : 'DSH Agent', onClick: () => actions.openAgent(agent.id),
+      'data-agent-id': agent.id, title: wide ? undefined : 'DSH Agent',
+      draggable: wide && onDragStart ? true : undefined,
+      onDragStart: wide && onDragStart ? event => onDragStart(event, agent.id) : undefined,
+      onClick: () => actions.openAgent(agent.id),
       onContextMenu: (event) => { event.preventDefault(); actions.openMenu({ kind: 'agent', id: agent.id, x: event.clientX, y: event.clientY }) },
     },
     h('span', { className: `bt-agent-ava${running ? ' bt-run' : ''}` }, h(FishLogo, { size: wide ? 22 : 24 })),
@@ -248,9 +267,6 @@ function AgentRow({ agent, actions, useSessions, useSessionStatus, useUi, wide, 
         })))))
 }
 
-// List rows glide to new places on a spring.
-const GLIDE = springEasing(1000, 63)
-
 function useListGlide(listRef, layout, key, handoff) {
   const tops = useRef({ layout, map: new Map() })
   useLayoutEffect(() => {
@@ -267,13 +283,14 @@ function useListGlide(listRef, layout, key, handoff) {
     const next = new Map()
     const still = reducedMotion() || tops.current.layout !== layout
     for (const row of list.querySelectorAll('[data-bot-id],[data-room-id],[data-agent-id],.bt-sec[data-section]')) {
+      if (row.closest?.('[aria-hidden="true"]')) continue
       const id = row.dataset.botId ?? row.dataset.roomId ?? row.dataset.agentId ?? `section:${row.dataset.section}`
       // offsetTop ignores transforms, so a glide in flight does not skew the next one.
       const top = row.offsetTop
       next.set(id, top)
       const before = tops.current.map.get(id)
       if (!still && before !== undefined && Math.abs(before - top) > 0.5) {
-        row.animate([{ transform: `translateY(${before - top}px)` }, { transform: 'none' }], GLIDE)
+        row.animate([{ transform: `translateY(${before - top}px)` }, { transform: 'none' }], SPRING_GLIDE)
       }
     }
     tops.current = { layout, map: next }
@@ -284,39 +301,10 @@ function useListGlide(listRef, layout, key, handoff) {
 // collapsed sidebar: the open column or the avatar rail push the conversation
 // over, the drawer floats above it. Its right edge drags the open width, and
 // down to the rail.
-function LeftColumn({ mode, width, pull = 0, onGrip, children }) {
-  return createPortal(h('div', { className: 'bt-leftcol', 'data-left': mode, style: { width: `${width}px`, ...(pull > 0 ? { '--bt-pull': pull.toFixed(3) } : {}) } },
+function LeftColumn({ mode, width, onGrip, leaving, children }) {
+  return createPortal(h('div', { className: 'bt-leftcol', 'data-left': mode, 'data-leaving': leaving || undefined, 'aria-hidden': leaving || undefined, style: { width: `${width}px` } },
     children,
     h('div', { className: 'bt-leftcol-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': t('Resize sidebar'), title: t('Resize sidebar'), onPointerDown: onGrip })), document.body)
-}
-
-// Between the open column and the rail the width glides on a spring, the conversation
-// beside it on the same curve, instead of jumping. Only the snap and the release glide:
-// while the edge follows the pointer it stays under it.
-let glideTimer = 0
-function glide() {
-  if (typeof document === 'undefined' || reducedMotion()) return
-  document.documentElement.setAttribute('data-bt-glide', '')
-  clearTimeout(glideTimer)
-  glideTimer = setTimeout(() => document.documentElement.removeAttribute('data-bt-glide'), SPRING_SHAPE.duration + 80)
-}
-// Past the point where the column stops (the open column's least width, the rail's own
-// width) the edge still gives a little under the pointer, so the snap that follows reads
-// as the end of the pull rather than a jump. `pull` is how far toward the snap, 0 to 1.
-// Only the side the drag started on gives: once it snaps over, the column lands where a
-// release leaves it, so letting go never moves it again.
-const GIVE = 0.4
-function stretched(drag) {
-  if (drag?.x === undefined) return null
-  if (drag.left === 'open' && drag.from !== 'rail' && drag.x < SIDEBAR_MIN) {
-    const reach = Math.min(SIDEBAR_MIN - drag.x, SIDEBAR_MIN - RAIL_SNAP)
-    return { width: SIDEBAR_MIN - reach * GIVE, pull: reach / (SIDEBAR_MIN - RAIL_SNAP) }
-  }
-  if (drag.left === 'rail' && drag.from === 'rail' && drag.x > RAIL_WIDTH) {
-    const reach = Math.min(drag.x - RAIL_WIDTH, RAIL_SNAP - RAIL_WIDTH)
-    return { width: RAIL_WIDTH + reach * GIVE, pull: reach / (RAIL_SNAP - RAIL_WIDTH) }
-  }
-  return null
 }
 
 // The top-left switch hides the whole column and brings it back. Under a
@@ -333,24 +321,43 @@ function TitleToggle({ hidden, onToggle }) {
   }, h(SidebarIcon)), document.body)
 }
 
+// The Bot-API-down hint cannot send the user to Settings → Feedback: its
+// diagnostics request needs the same API. What still works in this state is
+// the last error this window recorded, and the engine's own startup output —
+// its console, or the app's startup error box (#516).
+const bootHint = () => {
+  const last = clientErrors().at(-1)?.text
+  return last === undefined
+    ? t('The Bot team could not start. The engine’s startup output — its console, or the app’s startup error box — has the cause.')
+    : t('The Bot team could not start. {error}. The engine’s startup output — its console, or the app’s startup error box — has the cause.', { error: last })
+}
+
 export function TeamSidebar(props) {
   const { wide, useRoster, useUi, useSessions, actions } = props
   const listRef = useRef(null)
   const roster = useRoster(value => value)
   const markedUnread = useUi(value => value.unread)
-  const uiNow = useUi(value => value)
+  const leftDrawer = useUi(value => value.leftDrawer === true)
+  const details = useUi(value => value.details ?? null)
+  const view = useUi(value => value.view ?? 'details')
+  const panelYield = useUi(value => value.panelYield === true)
+  const bootFailed = useUi(value => value.bootFailed === true)
+  const renameSection = useUi(value => value.renameSection)
   props.useRegistry(value => value)
   const frameSnap = props.useFrame ? props.useFrame(value => value) : { viewport: typeof window === 'undefined' ? 0 : window.innerWidth, sidebarWidth: FALLBACK_SIDEBAR_WIDTH, collapsedWidth: 0 }
   const pref = props.useSidebarPref ? props.useSidebarPref(value => value) : 'open'
   const layout = frameLayout({
     viewport: frameSnap.viewport, sidebarWidth: frameSnap.sidebarWidth,
-    pref, drawer: uiNow.leftDrawer === true,
-    panel: uiNow.details ? { view: uiNow.view, yielded: uiNow.panelYield === true } : null,
+    pref, drawer: leftDrawer,
+    panel: details ? { view, yielded: panelYield } : null,
   })
   // A drag of the column's edge shows where it would land, live.
   const [drag, setDrag] = useState(null)
   const mode = drag?.left ?? layout.left
-  const wideContent = mode !== 'rail'
+  // A hidden column stays mounted for its slide out; `shown` is the mode it last had.
+  const [held, leaving] = useLinger(mode === 'hidden' ? null : mode, SPRING_SHAPE.duration)
+  const shown = held ?? mode
+  const wideContent = shown !== 'rail'
   const updated = useSessions(list => {
     const stamps = {}
     for (const id of list.ids) stamps[id] = list.byId[id]?.updatedAt ?? 0
@@ -370,26 +377,23 @@ export function TeamSidebar(props) {
   }, [roster, updated])
   const groups = useMemo(() => sectionGroups(order, roster.sections ?? [], roster), [order, roster])
   const handoff = useRef(null)
-  const listKey = `${order.map(entry => `${entry.item.id}${isPinned(roster, entry.item) ? '*' : ''}:${entry.item.section ?? ''}`).join(',')}|${(roster.sections ?? []).map(section => `${section.name}${section.collapsed ? '-' : '+'}`).join(',')}`
+  const listKey = `${order.map(entry => `${entry.item.id}${isPinned(roster, entry.item) ? '*' : ''}:${entry.item.sectionId ?? ''}`).join(',')}|${(roster.sections ?? []).map(section => `${section.id}${section.collapsed ? '-' : '+'}`).join(',')}`
   useListGlide(listRef, wideContent, listKey, handoff)
   useDragSort(listRef, { enabled: wideContent && !roster.readOnly, actions, onLand: (seen, settle) => { handoff.current = { seen, settle } } })
   useLandOnMainBot(roster, useSessions, actions)
+  useReportReady(roster.ready, roster)
+  const createNewSection = () => {
+    void Promise.resolve(actions.saveSection({}))
+      .then((sec) => { if (sec?.id) actions.beginSectionRename(sec.id) })
+      .catch(error => actions.reportError(error, 'section'))
+  }
 
   // Our column pushes the conversation over by what it takes beyond the shell's
   // collapsed track; a drawer floats over the rail's place, so it pushes as much
   // as the rail and the chat stays put when it opens or closes.
-  const stretch = stretched(drag)
-  const openWidth = stretch?.width ?? drag?.width ?? frameSnap.sidebarWidth
-  const railWidth = stretch?.width ?? RAIL_WIDTH
-  const ourWidth = mode === 'rail' ? railWidth : openWidth
-  const pushed = mode === 'open' ? openWidth : mode === 'hidden' ? 0 : railWidth
-  // A change between the open column and the rail, by drag, switch or shortcut, glides.
-  const shownMode = useRef(mode)
-  useLayoutEffect(() => {
-    const before = shownMode.current
-    shownMode.current = mode
-    if (before !== mode && (before === 'rail' || mode === 'rail')) glide()
-  }, [mode])
+  const openWidth = drag?.width ?? frameSnap.sidebarWidth
+  const ourWidth = shown === 'rail' ? RAIL_WIDTH : openWidth
+  const pushed = mode === 'open' ? openWidth : mode === 'hidden' ? 0 : RAIL_WIDTH
   useLayoutEffect(() => {
     if (typeof document === 'undefined') return
     chatRoom.setLeft(Math.max(0, pushed - (frameSnap.collapsedWidth ?? 0)))
@@ -397,34 +401,99 @@ export function TeamSidebar(props) {
   useEffect(() => () => { if (typeof document !== 'undefined') chatRoom.setLeft(null) }, [])
 
   // The edge drag: live while the pointer moves, the column's new state on release.
+  // Per frame the drag writes the column's own inline style and each conversation
+  // column's inline margin — the same path the panel's resize takes — so nothing
+  // re-renders or restyles the chat while the pointer moves. A render only happens
+  // when the drag crosses the rail's snap line, and the spring (`data-folding`)
+  // rides that switch alone: it comes off when the switch settles, so a drag that
+  // keeps going afterwards follows the cursor frame by frame again.
+  const settleTimer = useRef(0)
+  const springTimer = useRef(0)
   const startDrag = (event) => {
     if (event.button !== 0) return
     event.preventDefault()
+    clearTimeout(settleTimer.current)
+    clearTimeout(springTimer.current)
     const grip = event.currentTarget
+    const column = grip.parentElement
+    // A re-grab can land while a previous spring still stands: the new drag owns
+    // the column from here, so its fold state starts clean.
+    delete column.dataset.folding
     grip.setPointerCapture?.(event.pointerId)
     chatRoom.hold(true)
-    const from = mode
+    const columns = chatRoom.columns()
+    for (const col of columns) col.style.setProperty('transition', 'none', 'important')
+    const panes = [...document.querySelectorAll('.bt-pane')]
+    const offLeft = frameSnap.collapsedWidth ?? 0
     let last = null
+    let liveLeft = mode
     let done = false
-    const onMove = (move) => { last = dragColumn(move.clientX, window.innerWidth); setDrag({ ...last, x: move.clientX, from }) }
+    const write = (at) => {
+      const width = at.left === 'rail' ? RAIL_WIDTH : at.width
+      column.style.width = `${width}px`
+      column.style.setProperty('--bt-lc-w', `${width}px`)
+      const occupied = at.left === 'open' ? width : RAIL_WIDTH
+      const push = Math.max(0, occupied - offLeft)
+      for (const col of columns) col.style.setProperty('margin-left', `${push}px`, 'important')
+      for (const pane of panes) pane.style.left = `${occupied}px`
+    }
+    // A snap crossing arms the spring for the switch's glide; the timer takes it
+    // back off once the switch has had its duration.
+    let springUntil = 0
+    const springOff = () => {
+      springUntil = 0
+      delete column.dataset.folding
+      for (const col of columns) col.style.setProperty('transition', 'none', 'important')
+    }
+    const springOn = () => {
+      column.dataset.folding = ''
+      for (const col of columns) col.style.setProperty('transition', `margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}`, 'important')
+      springUntil = performance.now() + SPRING_SHAPE.duration
+      clearTimeout(springTimer.current)
+      springTimer.current = setTimeout(springOff, SPRING_SHAPE.duration)
+    }
+    const track = (x) => {
+      last = dragColumn(x, window.innerWidth)
+      if (last.left !== liveLeft) {
+        liveLeft = last.left
+        if (!reducedMotion()) springOn()
+        setDrag(last)
+      }
+      write(last)
+    }
+    const onMove = (move) => track(move.clientX)
+    // The rules and props take the landed geometry back over; while the fold's
+    // spring still runs this waits it out so the landing does not snap. The
+    // inline `width` stays: it is the landed geometry, and React writes its width
+    // prop only when the value changes, so removing it would leave the edge at
+    // its CSS fallback (57px on the rail).
+    const finish = () => {
+      clearTimeout(springTimer.current)
+      if (column.isConnected && last !== null) chatRoom.setLeft(Math.max(0, (last.left === 'open' ? last.width : RAIL_WIDTH) - offLeft))
+      for (const col of columns) { col.style.removeProperty('margin-left'); col.style.removeProperty('transition') }
+      column.style.removeProperty('--bt-lc-w')
+      delete column.dataset.folding
+      chatRoom.hold(false)
+    }
     const ends = ['pointerup', 'pointercancel', 'lostpointercapture']
     const onEnd = (end) => {
       if (done) return
       done = true
-      if (end.type === 'pointerup') last = dragColumn(end.clientX, window.innerWidth)
+      if (end.type === 'pointerup') track(end.clientX)
       grip.removeEventListener('pointermove', onMove)
       for (const name of ends) grip.removeEventListener(name, onEnd)
-      // A release inside the give settles back to where the column stops.
-      glide()
       setDrag(null)
-      chatRoom.hold(false)
-      if (last === null) return
+      if (last === null) { finish(); return }
       // The drag is the latest explicit gesture: it takes back a yielded panel's room.
       actions.setPanelYield?.(false)
-      if (last.left === 'rail') { actions.setLeftDrawer?.(false); actions.setSidebarPref?.('rail'); return }
-      actions.setSidebarWidth?.(last.width)
-      actions.setSidebarPref?.('open')
-      actions.setLeftDrawer?.(last.left === 'drawer')
+      if (last.left === 'rail') { actions.setLeftDrawer?.(false); actions.setSidebarPref?.('rail') }
+      else {
+        actions.setSidebarWidth?.(last.width)
+        actions.setSidebarPref?.('open')
+        actions.setLeftDrawer?.(last.left === 'drawer')
+      }
+      if (springUntil === 0) finish()
+      else settleTimer.current = setTimeout(finish, Math.max(0, springUntil - performance.now()) + 60)
     }
     grip.addEventListener('pointermove', onMove)
     for (const name of ends) grip.addEventListener(name, onEnd)
@@ -499,7 +568,7 @@ export function TeamSidebar(props) {
 
   const navigate = (open, id) => {
     const result = open(id)
-    if (uiNow.leftDrawer === true) actions.setLeftDrawer?.(false)
+    if (leftDrawer) actions.setLeftDrawer?.(false)
     return result
   }
   const rowActions = {
@@ -547,6 +616,7 @@ export function TeamSidebar(props) {
   const top = wideContent
     ? h('div', { className: 'bt-side-top' },
         h('span', { className: 'bt-brand' }, h(BrandMark, { size: 22 }), h(BrandName)),
+        h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New section'), title: t('New section'), onClick: createNewSection }, h(FolderIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('Search'), title: t('Search'), onClick: () => actions.openPalette() }, h(SearchIcon)),
         h('button', { type: 'button', className: 'bt-round', 'aria-label': t('New…'), title: t('New…'), onClick: () => actions.openNewChat('new') }, h(PlusIcon)),
         h('button', { type: 'button', className: 'bt-round bt-side-collapse', 'aria-label': t('Collapse sidebar'), title: t('Collapse sidebar'), onClick: onToggle }, h(SidebarIcon)))
@@ -575,20 +645,20 @@ export function TeamSidebar(props) {
     top,
     wideContent && roster.readOnly ? h('div', { className: 'bt-hint bt-read-only', role: 'status' }, hostText(roster.readOnly)) : null,
     h('div', { ref: listRef, className: 'bt-list', role: 'region', 'aria-label': t('Bot list') },
-      roster.ready || roster.byId[roster.mainBotId] ? null : h('div', { className: 'bt-hint' }, t('Setting up your Main Bot…')),
+      roster.ready || roster.byId[roster.mainBotId] ? null : h('div', { className: 'bt-hint' }, bootFailed ? bootHint() : t('Setting up your Main Bot…')),
       wideContent && groups.tiles.length > 0 ? h('div', { className: 'bt-tiles' }, groups.tiles.map(entry => rowOf(entry))) : null,
       groups.pinned.map(entry => rowOf(entry)),
-      groups.sections.map(({ section, entries }) => h(Fragment, { key: `section:${section.name}` },
+      groups.sections.map(({ section, entries }) => h(Fragment, { key: `section:${section.id}` },
         // In the rail an empty section draws no rule, so rules never double up.
-        wideContent || entries.some(entry => !entry.item.hidden) ? h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide: wideContent, actions }) : null,
+        wideContent || entries.some(entry => !entry.item.hidden) ? h(SectionHeader, { section, count: entries.filter(entry => !entry.item.hidden).length, wide: wideContent, renaming: renameSection === section.id, actions }) : null,
         // A rail has no room for headings, so it shows every row under a thin rule.
         entries.map(entry => rowOf(entry, wideContent && section.collapsed === true)))),
       groups.sections.length > 0 && groups.loose.length > 0 && wideContent ? h('div', { className: 'bt-sec-rest', role: 'separator' }) : null,
       groups.loose.map(entry => rowOf(entry))),
     foot)
   return h(Fragment, null,
-    h(TitleToggle, { hidden: mode === 'hidden', onToggle: () => actions.toggleLeftHidden?.() }),
-    mode === 'hidden' ? null : h(LeftColumn, { mode, width: ourWidth, pull: stretch?.pull ?? 0, onGrip: startDrag }, content))
+    h(TitleToggle, { hidden: mode === 'hidden', onToggle }),
+    shown === 'hidden' ? null : h(LeftColumn, { mode: shown, width: ourWidth, onGrip: startDrag, leaving }, content))
 
   function rowOf(entry, folded = false) {
     const marked = markedUnread[entry.item.id] === true
@@ -601,16 +671,15 @@ export function TeamSidebar(props) {
 }
 
 // Pinned rows stay on top whatever their section; then each section in the user's
-// order, its rows by recent activity; then the rows in no section. The DSH Agent
-// is in no section.
+// order, its rows in the order they were arranged, else by recent activity; then the
+// rows in no section. The DSH Agent is in no section.
 export function sectionGroups(order, sections, roster = {}) {
-  const key = name => String(name).toLocaleLowerCase()
-  const slots = new Map(sections.map(section => [key(section.name), { section, entries: [] }]))
+  const slots = new Map(sections.map(section => [section.id, { section, entries: [] }]))
   const tiles = []
   const pinned = []
   const loose = []
   for (const entry of order) {
-    const slot = entry.kind !== 'agent' && typeof entry.item.section === 'string' ? slots.get(key(entry.item.section)) : undefined
+    const slot = entry.kind !== 'agent' && typeof entry.item.sectionId === 'string' ? slots.get(entry.item.sectionId) : undefined
     if (entry.kind === 'bot' && isPinned(roster, entry.item)) tiles.push(entry)
     else if (entry.item.pinned === true) pinned.push(entry)
     else if (slot) slot.entries.push(entry)
@@ -622,22 +691,46 @@ export function sectionGroups(order, sections, roster = {}) {
   return { tiles, pinned, sections: [...slots.values()], loose }
 }
 
-// A section's heading: a click folds or opens it, and its menu renames, moves or
-// deletes it.
-function SectionHeader({ section, count, wide, actions }) {
-  if (!wide) return h('div', { className: 'bt-sec-rule', role: 'separator', title: section.name })
+// A section's heading: a click folds or opens it, a double click renames it in place,
+// "+" adds to it and its menu renames, colors, moves or ungroups it.
+function SectionHeader({ section, count, wide, renaming, actions }) {
+  const input = useRef(null)
+  useLayoutEffect(() => {
+    if (!renaming) return
+    input.current?.focus()
+    input.current?.select()
+  }, [renaming])
+  if (!wide) return h('div', { className: 'bt-sec-rule', role: 'separator', title: section.name, style: section.color ? { '--bt-sec-ink': inkFill(section.color) } : undefined })
   const folded = section.collapsed === true
-  const openMenu = (x, y) => actions.openMenu({ kind: 'section', id: section.name, x, y })
-  const fold = () => { void Promise.resolve(actions.arrangeSection(section.name, { collapsed: !folded })).catch(error => actions.reportError?.(error, 'section')) }
-  return h('div', { className: 'bt-sec', 'data-section': section.name, 'data-folded': folded || undefined, onContextMenu: (event) => { event.preventDefault(); openMenu(event.clientX, event.clientY) } },
-    h('button', { type: 'button', className: 'bt-sec-head', 'aria-expanded': !folded, onClick: fold },
+  const openMenu = (kind, x, y) => actions.openMenu({ kind, id: section.id, x, y })
+  const fold = () => { void Promise.resolve(actions.saveSection({ id: section.id, collapsed: !folded })).catch(error => actions.reportError?.(error, 'section')) }
+  const commitRename = (keep) => {
+    const value = input.current?.value ?? ''
+    actions.endSectionRename()
+    if (!keep || value.trim() === '' || value.trim() === section.name) return
+    void Promise.resolve(actions.saveSection({ id: section.id, name: value.trim() })).catch(error => actions.reportError(error, 'section-rename'))
+  }
+  if (renaming) {
+    return h('div', { className: 'bt-sec bt-sec-edit', 'data-section': section.id },
+      h('input', {
+        ref: input, defaultValue: section.name, maxLength: 32, 'aria-label': t('Rename section'),
+        onKeyDown: (event) => {
+          if (event.nativeEvent.isComposing) return
+          if (event.key === 'Enter') commitRename(true)
+          else if (event.key === 'Escape') commitRename(false)
+        },
+        onBlur: () => commitRename(true),
+      }))
+  }
+  const at = (kind, event) => { event.stopPropagation(); const box = event.currentTarget.getBoundingClientRect(); openMenu(kind, box.left, box.bottom + 4) }
+  return h('div', { className: 'bt-sec', 'data-section': section.id, 'data-folded': folded || undefined, onContextMenu: (event) => { event.preventDefault(); openMenu('section', event.clientX, event.clientY) } },
+    h('button', { type: 'button', className: 'bt-sec-head', 'aria-expanded': !folded, onClick: fold, onDoubleClick: (event) => { event.stopPropagation(); actions.beginSectionRename(section.id) } },
       h('span', { className: 'bt-sec-caret', 'aria-hidden': true }, h(ChevronRightIcon)),
+      section.color ? h('span', { className: 'bt-sec-dot', style: { background: inkFill(section.color) }, 'aria-hidden': true }) : null,
       h('span', { className: 'bt-sec-name' }, section.name),
       folded && count > 0 ? h('span', { className: 'bt-sec-count' }, count) : null),
-    h('button', {
-      type: 'button', className: 'bt-sec-more', 'aria-label': t('{name} actions', { name: section.name }),
-      onClick: (event) => { const box = event.currentTarget.getBoundingClientRect(); openMenu(box.left, box.bottom + 4) },
-    }, h(DotsIcon)))
+    h('button', { type: 'button', className: 'bt-sec-more', 'aria-label': t('Add to {name}', { name: section.name }), title: t('Add to {name}', { name: section.name }), onClick: event => at('section-add', event) }, h(PlusIcon)),
+    h('button', { type: 'button', className: 'bt-sec-more', 'aria-label': t('{name} actions', { name: section.name }), title: t('{name} actions', { name: section.name }), onClick: event => at('section', event) }, h(DotsIcon)))
 }
 
 // The update button at the sidebar's top right: a cloud while a newer DS Bot —
@@ -647,6 +740,7 @@ function SectionHeader({ section, count, wide, actions }) {
 function UpdateButton({ useUpdate, actions }) {
   const update = useUpdate(value => value)
   const [open, setOpen] = useState(false)
+  const [shown, leaving] = useLinger(open, 120)
   const [box, setBox] = useState(null)
   const [error, setError] = useState('')
   const [dshError, setDshError] = useState('')
@@ -707,7 +801,7 @@ function UpdateButton({ useUpdate, actions }) {
       ref: button, type: 'button', className: 'bt-round bt-update', 'data-phase': cloudPhase, 'aria-label': label, title: label,
       'aria-haspopup': 'dialog', 'aria-expanded': open, onClick: toggle,
     }, h(CloudDownloadIcon, { done: phase === 'installed' || phase === 'updated' }), phase === 'failed' || dshPhase === 'failed' ? h('span', { className: 'bt-update-dot', 'aria-hidden': true }) : null),
-    open && box ? createPortal(h('div', { className: 'bt-update-pop', role: 'dialog', 'aria-label': update?.available || phase !== 'idle' ? t('DS Bot update') : t('DSH update'), style: box },
+    shown && box ? createPortal(h('div', { className: 'bt-update-pop', role: 'dialog', 'aria-label': update?.available || phase !== 'idle' ? t('DS Bot update') : t('DSH update'), style: box, 'data-leaving': leaving || undefined },
       update?.available || phase !== 'idle' ? h(Fragment, null,
         h('div', { className: 'bt-update-title' }, phase === 'installed' || phase === 'updated' ? t('Update installed') : t('DS Bot {version}', { version: update.latest })),
         h('div', { className: 'bt-update-text' }, phase === 'installed'
@@ -752,59 +846,11 @@ export function YouAvatar({ useRoster } = {}) {
     h('span', { style: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' } }, t('Settings')))
 }
 
-let openShellSettings = null
-let openShellOnboarding = null
 let shellShortcuts = null
 
 export function holdShellShortcuts(shortcuts) {
   shellShortcuts = shortcuts
   return () => { if (shellShortcuts === shortcuts) shellShortcuts = null }
-}
-
-// DeepSeek Harness hands its settings opener only to the settings.launcher seat. When
-// the Desktop's account menu holds that seat, its first item (Settings) is the way in;
-// the Desktop on Windows and macOS takes shortcuts natively, so a synthetic key press
-// reaches the shell only where the page delivers them (the Web, Linux).
-export function openHarnessSettings() {
-  // A frame first, so a Bot dialog that closes on this click leaves the modal stack.
-  requestAnimationFrame(() => {
-    if (openShellSettings) { openShellSettings(); return }
-    const desktop = document.querySelector('button[aria-haspopup="menu"][data-signed-out]')
-    if (desktop) openThroughMenu(desktop)
-    else pressSettingsShortcut()
-  })
-}
-
-// Opens one of the shell's own onboarding editors, such as the DeepSeek API key form.
-export function openHarnessOnboarding(id) {
-  requestAnimationFrame(() => {
-    if (openShellOnboarding) openShellOnboarding(id)
-    else openHarnessSettings()
-  })
-}
-
-function openThroughMenu(trigger) {
-  const before = new Set(document.querySelectorAll('[role="menu"]'))
-  trigger.click()
-  let frames = 0
-  const look = () => {
-    const menu = [...document.querySelectorAll('[role="menu"]')].find(node => !before.has(node))
-    const item = menu?.querySelector('button[role="menuitem"]')
-    if (item) item.click()
-    else if (++frames < 30) requestAnimationFrame(look)
-    else pressSettingsShortcut()
-  }
-  requestAnimationFrame(look)
-}
-
-function pressSettingsShortcut() {
-  const binding = shellShortcuts?.catalog.getSnapshot().find(row => row.id === 'settings.open')?.binding
-  if (!binding) return
-  const held = new Set(binding.modifiers)
-  window.dispatchEvent(new KeyboardEvent('keydown', {
-    code: binding.code, key: binding.code === 'Comma' ? ',' : '', bubbles: true, cancelable: true,
-    ctrlKey: held.has('control'), altKey: held.has('alt'), shiftKey: held.has('shift'), metaKey: held.has('meta'),
-  }))
 }
 
 // Whether a key press is the shell's current binding for one of its shortcuts.
@@ -824,7 +870,7 @@ const NO_SNAPSHOT = () => null
 // `seat` is the shell's settings.launcher seat: at priority -10 the whale wins it
 // over a shell account plugin's own launcher (the Desktop's "··· More"), which comes
 // back in Agent mode; FooterAccount stands in while no seat exists at all.
-export function AccountLauncher({ seat = true, settingsOpen, openSettings, openOnboarding, actions, useRoster }) {
+export function AccountLauncher({ seat = true, settingsOpen, actions, useRoster }) {
   const picker = useRef(null)
   const [open, setOpen] = useState(false)
   useLayoutEffect(() => {
@@ -834,25 +880,18 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
   }, [seat])
   const [box, setBox] = useState(null)
   const button = useRef(null)
+  const menuRef = useRef(null)
   useEffect(() => { if (settingsOpen) setOpen(false) }, [settingsOpen])
-  // The settings dialog links back to the shell's own settings (models, providers).
-  useEffect(() => {
-    if (!openSettings) return undefined
-    openShellSettings = openSettings
-    return () => { if (openShellSettings === openSettings) openShellSettings = null }
-  }, [openSettings])
-  useEffect(() => {
-    if (!openOnboarding) return undefined
-    openShellOnboarding = openOnboarding
-    return () => { if (openShellOnboarding === openOnboarding) openShellOnboarding = null }
-  }, [openOnboarding])
   useEffect(() => {
     if (!open) return undefined
     const onDown = (event) => {
       if (event.target instanceof Element && (event.target.closest('.bt-account-menu') || button.current?.contains(event.target))) return
       setOpen(false)
     }
-    const onKey = (event) => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); button.current?.focus() } }
+    const onKey = (event) => {
+      if (stepMenuFocus(menuRef.current, event, button.current)) return
+      if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); button.current?.focus() }
+    }
     window.addEventListener('mousedown', onDown)
     window.addEventListener('keydown', onKey, true)
     return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true) }
@@ -865,6 +904,7 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
   const accountSource = ops.hooks?.account
   const account = useSyncExternalStore(accountSource?.subscribe ?? NO_SUBSCRIBE, accountSource ? () => accountSource.getSnapshot() : NO_SNAPSHOT)
   const signedIn = signIn !== null && typeof ops.signOut === 'function' && account?.view?.status === 'credential-stored'
+  const signedOut = signIn !== null && typeof actions.signIn === 'function' && account?.view?.status === 'signed-out'
   const accountT = actions.accountT?.() ?? (key => key)
   const [confirm, setConfirm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -918,18 +958,18 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
     setOpen(false)
     if (draft.trim() !== myName) void Promise.resolve(actions.setPrefs({ youName: draft })).catch(error => actions.reportError(error, 'menu'))
   }
+  const openModels = actions.openModels
   const groups = [
     [
       [t('Usage'), GaugeIcon, () => actions.openSettings('usage')],
+      openModels ? [t('Models and API keys'), SlidersIcon, () => openModels()] : null,
       [t('Connectors'), ConnectorIcon, () => actions.openConnectors()],
       [t('Automation tasks'), ClockIcon, () => actions.selectPanel('schedules')],
-      [t('Bot settings'), GearIcon, () => actions.openSettings('general')],
-    ],
-    [
-      [t('Switch to classic Agent mode'), SwitchIcon, () => actions.setSurface('agent')],
-    ],
+      [t('Settings'), GearIcon, () => actions.openSettings('general')],
+    ].filter(Boolean),
   ]
   if (signedIn) groups.push([[accountT('signOut'), SignOutIcon, askSignOut, undefined, true]])
+  else if (signedOut) groups.push([[t('Sign in to DeepSeek'), SignInIcon, () => actions.signIn()]])
   return h(Fragment, null,
     h('button', { ref: button, type: 'button', className: 'bt-account', 'aria-label': t('Account'), 'aria-haspopup': 'menu', 'aria-expanded': open, onClick: toggle },
       h(YouFace, { useRoster }),
@@ -939,7 +979,7 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
       event.target.value = ''
       if (file) void avatarImage(file).then(image => actions.setPrefs({ youImage: image })).catch(error => actions.reportError(error, 'menu'))
     } }),
-    open && box ? createPortal(h('div', { className: 'bt-menu bt-menu-up bt-account-menu', role: 'menu', 'aria-label': t('Account'), style: box },
+    open && box ? createPortal(h('div', { ref: menuRef, className: 'bt-menu bt-menu-up bt-account-menu', role: 'menu', 'aria-label': t('Account'), style: box },
       editing ? h('form', { className: 'bt-profile', onSubmit: saveProfile },
         h('button', { type: 'button', className: 'bt-profile-face', 'aria-label': t('Change my picture'), title: t('Change my picture'), onClick: () => picker.current?.click() },
           h(YouFace, { useRoster }), h('span', { className: 'bt-profile-cam', 'aria-hidden': true }, h(ImageIcon))),
@@ -966,6 +1006,106 @@ export function AccountLauncher({ seat = true, settingsOpen, openSettings, openO
           }, h(Icon), h('span', { className: 'bt-menu-label' }, label), hint ? h('span', { className: 'bt-menu-hint' }, hint) : null))))]), document.body) : null)
 }
 
+// The desktop app keeps its main window hidden until the team interface has drawn
+// the first state, and shows its failure page when that never comes. The report
+// says where the Main Bot's avatar is when it wears the start window's whale: the
+// start window hands that whale over at the top of its jump, and it glides onto
+// the avatar here.
+let readyReported = false
+function useReportReady(drawn, roster) {
+  useEffect(() => {
+    if (!drawn || readyReported) return
+    readyReported = true
+    void Promise.resolve().then(() => {
+      const app = globalThis.dsBotApp
+      if (typeof app?.ready !== 'function') return undefined
+      // The place is a nicety: whatever goes wrong measuring it, the report still goes.
+      let place
+      try { place = mainAvatarPlace(roster) } catch { place = undefined }
+      if (place === undefined) return app.ready()
+      const mainId = roster.mainBotId
+      app.onHandoff?.((from) => { try { glideOnto(mainMarkOf(mainId), from) } catch (error) { quietly('handoff')(error) } })
+      return app.ready(place)
+    }).catch(quietly('app ready'))
+  }, [drawn])
+}
+
+function mainMarkOf(id) {
+  if (typeof document === 'undefined') return null
+  const key = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id
+  return document.querySelector(`.bt-side [data-bot-id="${key}"] .bt-mark`)
+}
+
+// The Main Bot's avatar in the team column, in CSS px of the page, with the page's size.
+// Only the default look: a photo or another character would not match the start window's whale.
+function mainAvatarPlace(roster) {
+  const main = roster?.byId?.[roster.mainBotId]
+  if (main === undefined || main.avatar?.image || typeof document === 'undefined') return undefined
+  const look = lookOf(main)
+  if (look.shape !== MAIN_LOOK.shape || look.color !== MAIN_LOOK.color) return undefined
+  const mark = mainMarkOf(main.id)
+  // Not the opacity: the column fades in as it first draws, which is when this is measured.
+  if (!mark || mark.checkVisibility?.({ visibilityProperty: true }) === false) return undefined
+  const box = restingBox(mark)
+  const view = document.documentElement
+  return { x: box.left, y: box.top, width: box.width, height: box.height, viewportWidth: globalThis.innerWidth ?? view.clientWidth, viewportHeight: globalThis.innerHeight ?? view.clientHeight }
+}
+
+// The avatar's box where the team column comes to rest. The column also slides in as it first
+// draws (bt-leftcol-in, from off the left edge), and measured mid-slide the avatar would be
+// outside the page and the whale would have nowhere to land; offsetLeft and offsetTop leave the
+// slide's transform out.
+function restingBox(mark) {
+  const box = mark.getBoundingClientRect()
+  const column = mark.closest?.('.bt-leftcol')
+  if (!column) return box
+  const now = column.getBoundingClientRect()
+  const dx = column.offsetLeft - now.left
+  const dy = column.offsetTop - now.top
+  return { left: box.left + dx, top: box.top + dy, width: box.width, height: box.height }
+}
+
+// The whale the start window hands over (app/src/start-window.mjs): `from` is where it is on
+// this page at the top of its jump. A copy of the avatar waits there for `hold` ms, while the two
+// windows cross-fade, then glides onto the avatar in one compositor animation, so the jump does
+// not stutter the way a window that resizes under it would. x and y ease differently, so the path
+// bows upward; the avatar itself is hidden until the copy is on it, then gives a small bounce.
+// Hidden by opacity, not visibility: the copy draws through the avatar's own masks (same ids),
+// which a hidden avatar would stop drawing.
+const GLIDE_MS = 460
+function glideOnto(mark, from) {
+  if (!mark || reducedMotion()) return
+  const box = restingBox(mark)
+  if (!box.width) return
+  const outer = document.createElement('div')
+  const inner = document.createElement('div')
+  const copy = mark.cloneNode(true)
+  copy.removeAttribute('data-live')
+  Object.assign(outer.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '2147483647', pointerEvents: 'none' })
+  Object.assign(inner.style, { width: '100%', height: '100%', transformOrigin: '0 0' })
+  Object.assign(copy.style, { width: '100%', height: '100%' })
+  copy.style.setProperty('--bt-ink-deepseek', getComputedStyle(mark).getPropertyValue('--bt-ink-deepseek'))
+  inner.append(copy)
+  outer.append(inner)
+  outer.setAttribute('aria-hidden', 'true')
+  document.body.append(outer)
+  mark.style.opacity = '0'
+  const timing = { delay: Math.max(0, Number(from.hold) || 0), duration: GLIDE_MS, fill: 'both' }
+  outer.animate([{ transform: `translateX(${from.x - box.left}px)` }, { transform: 'none' }], { ...timing, easing: 'cubic-bezier(.45,0,.25,1)' })
+  const glide = inner.animate([{ transform: `translateY(${from.y - box.top}px) scale(${from.size / box.width})` }, { transform: 'none' }], { ...timing, easing: 'cubic-bezier(.2,.65,.3,1)' })
+  let landed = false
+  const land = () => {
+    if (landed) return
+    landed = true
+    outer.remove()
+    mark.style.opacity = ''
+    mark.animate([{ transform: 'scale(1.08, .92)' }, { transform: 'none' }], { duration: SPRING_POP.duration, easing: SPRING_POP.easing })
+  }
+  glide.finished.then(land, land)
+  // A hidden page stops ticking animations: the avatar comes back regardless.
+  setTimeout(land, timing.delay + GLIDE_MS + 500)
+}
+
 // Opens the Main Bot whenever the main view holds no Bot conversation, the way
 // The view always lands on a Bot rather than an empty New Session page.
 // When a Bot's chat moves on to a fresh part, the shell clears the view of the part
@@ -985,8 +1125,16 @@ function useLandOnMainBot(roster, useSessions, actions) {
       if (currentPart(bot) !== id) actions.landOn(bot.id)
       return undefined
     }
+    // The group's own Session moves on like a Bot's chat does: the part it archived
+    // is cleared, and the view goes on in the fresh one.
+    const room = id === '' ? undefined : roster.roomsById[id]
+    if (room !== undefined) {
+      lastBot.current = null
+      if ((room.sessionId ?? room.id) !== id) actions.openSession(room.id)
+      return undefined
+    }
     // A DSH Agent Session, blank or not, is a real destination: it stays.
-    if (id !== '' && (roster.roomsById[id] || (actions.isAgentSession?.(id) ?? roster.agentOf[id] !== undefined) || blank !== '1')) {
+    if (id !== '' && ((actions.isAgentSession?.(id) ?? roster.agentOf[id] !== undefined) || blank !== '1')) {
       lastBot.current = null
       return undefined
     }
@@ -1006,8 +1154,11 @@ export function FooterAccount(props) {
 // withdrawn, and this button above the shell's panel rows is the way back. It keeps
 // that list's shape — one icon in a square button — so it reads as another panel row
 // rather than a full-width row of its own.
-export function BotReturn({ useSurface, actions, quiet = false }) {
+export function BotReturn({ useSurface, useRoster, actions, quiet = false }) {
   const mode = useSurface(value => value.mode)
+  const ready = useRoster(value => value.ready)
+  // Agent mode draws no team sidebar; there this button is the team interface.
+  useReportReady(mode === 'agent' && ready)
   if (mode !== 'agent') return null
   // The 小朝廷 mark, monochrome: the same outline the court board entry wears, so the
   // shell's own sidebar carries the team under the one icon.
@@ -1072,16 +1223,10 @@ export const SIDEBAR_CSS = `
 /* Opening the sidebar: its rows ease in from the left while the column widens, a beat after
    the top row, instead of being uncovered as the column grows. */
 @keyframes bt-wide-in{from{opacity:0;transform:translateX(-10px)}}
-/* The glide between the open column and the rail: the column's width and the
-   conversation's margin on one spring. */
-html[data-bt-glide] .bt-leftcol{transition:width ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
-html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},margin-right ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}!important}
-/* Pulled past where it stops, the column's content dims toward the snap. */
-.bt-leftcol>.bt-side{opacity:calc(1 - var(--bt-pull,0) * .45)}
 /* The rail's avatars arrive as the column narrows onto them. */
 @keyframes bt-rail-in{from{opacity:0;transform:scale(.9)}}
 .bt-side.bt-rail>:is(.bt-rail-top,.bt-list){animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .04s backwards}
-.bt-leftcol-foot-rail{animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .08s backwards}
+.bt-leftcol>.bt-leftcol-foot-rail{animation:bt-rail-in .32s cubic-bezier(.32,.72,0,1) .08s backwards}
 .bt-side:not(.bt-rail)>.bt-side-top{animation:bt-wide-in .3s cubic-bezier(.32,.72,0,1) backwards}
 .bt-side:not(.bt-rail)>.bt-list{animation:bt-wide-in .34s cubic-bezier(.32,.72,0,1) .04s backwards}
 @media (prefers-reduced-motion:reduce){.bt-busy i,.bt-done,.bt-side>.bt-side-top,.bt-side>.bt-list,.bt-side.bt-rail>.bt-rail-top,.bt-leftcol-foot-rail{animation:none}}
@@ -1166,13 +1311,14 @@ html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.
 .bt-update[data-phase=installing] .bt-cloud-arrow{animation:bt-cloud-drop 1.1s cubic-bezier(.45,0,.55,1) infinite}
 @keyframes bt-cloud-drop{0%{transform:translateY(-3px);opacity:0}35%{opacity:1}70%{transform:translateY(1px);opacity:1}100%{transform:translateY(2px);opacity:0}}
 .bt-update-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#E5484D;box-shadow:0 0 0 1.5px var(--bt-sidebar)}
-.bt-update-pop{position:fixed;z-index:60;width:280px;padding:14px 14px 12px;border-radius:14px;background:var(--bt-main);border:.5px solid var(--bt-line-2);box-shadow:0 10px 20px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);color:var(--bt-ink);box-sizing:border-box;transform-origin:top left;font-family:var(--bt-font);animation:bt-update-pop ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-update-pop{position:fixed;z-index:60;width:280px;padding:14px 14px 12px;border-radius:16px;background:var(--bt-glass-bg);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:.5px solid var(--bt-glass-rim);box-shadow:var(--bt-glass-shadow);color:var(--bt-ink);box-sizing:border-box;transform-origin:top left;font-family:var(--bt-font);animation:bt-update-pop ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-update-pop[data-leaving]{animation:bt-pop-out .12s cubic-bezier(.4,0,1,1) forwards;pointer-events:none}
 @keyframes bt-update-pop{from{opacity:0;transform:scale(.96);filter:blur(4px)}}
 .bt-update-title{font-size:14px;line-height:20px;font-weight:600}
-.bt-update-text{margin-top:2px;font-size:12.5px;line-height:18px;color:var(--bt-ink-2)}
+.bt-update-text{margin-top:2px;font-size:12px;line-height:18px;color:var(--bt-ink-2)}
 .bt-update-error{margin-top:8px;font-size:12px;line-height:17px;color:var(--bt-danger);overflow-wrap:anywhere;max-height:90px;overflow:auto}
 .bt-update-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px}
-.bt-update-notes{margin-right:auto;font-size:12.5px;color:var(--bt-ink-2);text-decoration:none}
+.bt-update-notes{margin-right:auto;font-size:12px;color:var(--bt-ink-2);text-decoration:none}
 .bt-update-notes:hover{color:var(--bt-ink);text-decoration:underline}
 .bt-update-go{height:30px;padding:0 14px;border:0;border-radius:999px;background:var(--bt-accent,#4D6BFE);color:var(--bt-accent-ink,#fff);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .12s ease,transform .12s ease}
 .bt-update-go:hover:not(:disabled){opacity:.9}
@@ -1192,6 +1338,8 @@ html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.
 .bt-agent-sub-row{display:flex;align-items:center;gap:8px;width:100%;padding:5px 10px 5px 8px;border:0;border-radius:8px;background:none;color:var(--bt-ink-2);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}
 .bt-agent-sub-row:hover{background:var(--bt-hover);color:var(--bt-ink)}
 .bt-agent-sub-row[aria-current=page]{background:var(--bt-hover);color:var(--bt-ink);font-weight:500}
+/* .bt-agent-sub-in clips for the expand animation and the rows touch its edges, so the ring goes inside. */
+.bt-agent-sub-row:focus-visible{outline:2px solid var(--bt-accent);outline-offset:-2px}
 .bt-agent-sub-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bt-agent-sub-time{flex:none;font-size:11px;color:var(--bt-ink-3)}
 .bt-agent-new{color:var(--bt-ink-3)}
@@ -1201,4 +1349,70 @@ html[data-bt-glide] [class*="_centerCol"]{transition:margin-left ${SPRING_SHAPE.
 .bt-agent-sub[data-open] .bt-agent-sub-row{animation:bt-agent-row-in .24s ease both;animation-delay:calc(var(--i, 0)*30ms)}
 @keyframes bt-agent-row-in{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:blur(0)}}
 @media (prefers-reduced-motion:reduce){.bt-agent-sub{transition:none}.bt-agent-sub .bt-agent-sub-row{animation:none}}
+
+/* Sidebar sections: collapsible header with a 3D character pile and live status when
+   folded, active conversation peek, drag-and-drop highlight, and 88px rail cluster. */
+.bt-sec-ungrouped{display:flex;flex-direction:column;gap:3px;border-radius:10px;transition:min-height .14s ease,background-color .14s ease,box-shadow .14s ease}
+.bt-sec-ungrouped[data-dragging=true]:empty{min-height:28px;margin-bottom:2px;box-shadow:inset 0 0 0 1px var(--bt-line-2)}
+.bt-sec-ungrouped[data-drop=true]{background:color-mix(in srgb,var(--bt-accent) 9%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bt-accent) 65%,transparent)}
+.bt-sec{display:flex;flex-direction:column;margin-top:6px;border-radius:12px;transition:background-color .14s ease,box-shadow .14s ease}
+.bt-sec[data-drop=true]{background:color-mix(in srgb,var(--bt-accent) 9%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bt-accent) 65%,transparent)}
+.bt-sec-head-wrap{position:relative;display:flex;align-items:center}
+.bt-sec-head{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px 0 6px;border:0;border-radius:8px;background:transparent;color:var(--bt-ink-2);font-family:var(--bt-font);font-size:12px;line-height:16px;font-weight:600;cursor:pointer;width:100%;text-align:left;transition:background-color .12s ease,color .12s ease}
+.bt-sec-head-wrap:hover .bt-sec-head{background:var(--bt-hover);color:var(--bt-ink)}
+.bt-sec-head:focus-visible{outline:2px solid var(--bt-accent);outline-offset:-2px}
+.bt-sec-chev{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;flex:none;color:var(--bt-ink-3);transition:transform ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing},color .12s ease}
+.bt-sec-head-wrap:hover .bt-sec-chev{color:var(--bt-ink-2)}
+.bt-sec[data-collapsed=false] .bt-sec-chev{transform:rotate(90deg)}
+.bt-sec-chev svg{width:12px;height:12px}
+.bt-sec-dot{width:6px;height:6px;border-radius:50%;corner-shape:round;flex:none}
+.bt-sec-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+.bt-sec-count{font-size:11px;line-height:16px;font-weight:500;color:var(--bt-ink-3);font-variant-numeric:tabular-nums;flex:none}
+.bt-sec-head-wrap:hover .bt-sec-count-hide{display:none}
+.bt-sec-tail{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none}
+.bt-sec-head-wrap:hover .bt-sec-tail{padding-right:44px}
+.bt-sec-pile{display:inline-flex;align-items:center;animation:bt-sec-pile-in ${SPRING_POP.duration}ms ${SPRING_POP.easing}}
+@keyframes bt-sec-pile-in{from{opacity:0;transform:translateX(6px) scale(.82)}to{opacity:1;transform:none}}
+.bt-sec-pile-item{display:inline-flex;border-radius:50%;corner-shape:round;background:var(--bt-sidebar);box-shadow:0 0 0 1.5px var(--bt-sidebar)}
+.bt-sec-pile-item+.bt-sec-pile-item{margin-left:-5px}
+.bt-sec-pile-more{font-size:11px;line-height:16px;font-weight:600;color:var(--bt-ink-3);margin-left:3px;font-variant-numeric:tabular-nums}
+.bt-sec-status{width:8px;height:8px;border-radius:50%;corner-shape:round;flex:none}
+.bt-sec-status[data-kind=working]{background:var(--bt-green);box-shadow:0 0 0 2px color-mix(in srgb,var(--bt-green) 22%,transparent)}
+.bt-sec-status[data-kind=alert]{width:12px;height:12px;background:var(--bt-accent);color:var(--bt-accent-ink);font-size:8.5px;line-height:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.bt-sec-status[data-kind=unread]{background:var(--bt-accent)}
+.bt-sec-acts{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:none;align-items:center;gap:2px}
+.bt-sec-head-wrap:hover .bt-sec-acts,.bt-sec-acts:focus-within{display:inline-flex}
+.bt-sec-act{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--bt-ink-3);cursor:pointer;transition:background-color .12s ease,color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-sec-act:hover{background:var(--bt-active);color:var(--bt-ink)}
+.bt-sec-act:active{transform:scale(.9)}
+.bt-sec-act:focus-visible{outline:2px solid var(--bt-accent);outline-offset:-2px}
+.bt-sec-act svg{width:13px;height:13px}
+.bt-sec-edit{display:flex;align-items:center;height:30px;padding:0 4px}
+.bt-sec-edit input{width:100%;height:24px;padding:0 8px;border:0;border-radius:6px;background:var(--bt-card);color:var(--bt-ink);font:inherit;font-size:12px;line-height:16px;font-weight:600;outline:none;box-shadow:inset 0 0 0 1.5px var(--bt-accent)}
+.bt-sec-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
+.bt-sec[data-collapsed=true] .bt-sec-body{grid-template-rows:0fr}
+.bt-sec-body-in{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:3px;position:relative}
+.bt-sec[data-collapsed=false] .bt-sec-body-in{padding-top:2px}
+.bt-sec[data-collapsed=false]:hover .bt-sec-body-in::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:1.5px;border-radius:999px;background:var(--bt-line-2);opacity:.55;pointer-events:none}
+.bt-sec-peek{margin-top:2px}
+.bt-rail-sec{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%}
+.bt-rail-sec-div{display:flex;align-items:center;justify-content:center;width:100%;padding:5px 0 2px;cursor:pointer}
+.bt-rail-sec-pill{width:22px;height:3px;border-radius:999px;background:var(--bt-line-2);transition:width .14s ease,background-color .14s ease}
+.bt-rail-sec-div:hover .bt-rail-sec-pill{width:30px;background:var(--bt-ink-3)}
+.bt-rail-folder{position:relative;display:flex;align-items:center;justify-content:center;width:56px;height:56px;padding:0;border:0;border-radius:16px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);color:var(--bt-ink-2);box-shadow:inset 0 0 0 .5px var(--bt-line-2);cursor:pointer;transition:background-color .12s ease,transform ${SPRING_TAP.duration}ms ${SPRING_TAP.easing}}
+.bt-rail-folder:hover{background:var(--bt-hover);color:var(--bt-ink)}
+.bt-rail-folder:active{transform:scale(.95)}
+.bt-rail-folder:focus-visible{outline:2px solid var(--bt-accent);outline-offset:-2px}
+.bt-rail-folder[aria-current=page]{background:var(--bt-active);box-shadow:inset 0 0 0 1.5px var(--bt-accent)}
+.bt-menu-sub-head{padding:4px 8px 2px;font-size:11px;line-height:16px;font-weight:600;color:var(--bt-ink-3);user-select:none}
+.bt-menu-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left}
+.bt-menu-hint{margin-left:auto;font-size:11px;line-height:16px;color:var(--bt-ink-3);flex:none}
+.bt-menu-check{margin-left:auto;color:var(--bt-accent);display:inline-flex;flex:none}
+.bt-menu-colors{display:flex;align-items:center;gap:6px;padding:4px 8px 6px}
+.bt-menu-color-dot{width:16px;height:16px;border-radius:50%;corner-shape:round;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px var(--bt-line-2)}
+.bt-menu-color-dot[aria-pressed=true]{outline:2px solid var(--bt-ink);outline-offset:1.5px}
+.bt-menu-color-dot:focus-visible{outline:2px solid var(--bt-accent);outline-offset:2px}
+.bt-sec-add-menu{max-width:260px}
+.bt-sec-add-list{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto}
+@media (prefers-reduced-motion:reduce){.bt-sec-body,.bt-sec-chev,.bt-sec-act,.bt-rail-folder{transition:none}.bt-sec-pile{animation:none}}
 `

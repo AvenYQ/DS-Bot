@@ -1,41 +1,12 @@
 // Windows and a Linux AppImage download and install updates; macOS and a Linux deb ask before
-// opening the release page.
-
-export const UPDATE_TEXT = {
-  en: {
-    ready: version => `DeepSeek Bot ${version} is ready to install.`,
-    readyDetail: 'Restart now to update, or it is installed the next time you quit.',
-    restart: 'Restart now', later: 'Later',
-    onFailure: version => `DeepSeek Bot ${version} is installed when its download is done, and then DeepSeek Bot opens again.`,
-    available: version => `DeepSeek Bot ${version} is available.`,
-    availableDetail: 'This version cannot update itself. Download the new version from its release page, then replace DeepSeek Bot in Applications.',
-    download: 'Download',
-    onFailurePage: version => `DeepSeek Bot ${version} is available. After this box, its download page opens.`,
-    availableSelfDetail: 'Update now and it downloads in the background; then DeepSeek Bot restarts in the new version.',
-    updateNow: 'Update now',
-    updateFailed: (version, reason) => `DeepSeek Bot ${version} could not update itself: ${reason}`,
-    updateFailedDetail: 'Open the release page to download it by hand?',
-    openPage: 'Open page',
-  },
-  zh: {
-    ready: version => `DeepSeek Bot ${version} 已经下载好。`,
-    readyDetail: '现在重启就能更新；不重启的话，下次退出时安装。',
-    restart: '立即重启', later: '稍后',
-    onFailure: version => `DeepSeek Bot ${version} 下载完会自动安装，然后重新打开。`,
-    available: version => `DeepSeek Bot ${version} 已经发布。`,
-    availableDetail: '这个版本不能自己更新。请到发布页下载新版，再用它替换「应用程序」里的 DeepSeek Bot。',
-    download: '下载',
-    onFailurePage: version => `DeepSeek Bot ${version} 已经发布。关掉这个对话框后，会打开它的下载页面。`,
-    availableSelfDetail: '点「立即更新」会在后台下载新版，下载好后 DeepSeek Bot 自动重启到新版本。',
-    updateNow: '立即更新',
-    updateFailed: (version, reason) => `DeepSeek Bot ${version} 没能自动更新：${reason}`,
-    updateFailedDetail: '要打开发布页手动下载吗？',
-    openPage: '打开发布页',
-  },
-}
+// opening the release page (Aven's macOS build updates itself in place, mac-update.mjs). main.mjs
+// asks the questions, in the dialog.update.* copy of start/text.mjs.
 
 const CHECK_EVERY_MS = 4 * 60 * 60_000
 export const RELEASES_URL = 'https://api.github.com/repos/AvenYQ/DS-Bot/releases?per_page=20'
+// Where a user downloads the newest version by hand.
+export const RELEASE_PAGE = 'https://github.com/AvenYQ/DS-Bot/releases/latest'
+const MB = 1024 * 1024
 
 function parseVersion(version) {
   if (typeof version !== 'string') return null
@@ -97,7 +68,7 @@ function stateHolder(log) {
     set: (next) => {
       state = next
       for (const listener of [...listeners]) {
-        try { listener(next) } catch (error) { log.error(`DeepSeek Bot: an update state listener failed: ${error instanceof Error ? error.message : String(error)}`) }
+        try { listener(next) } catch (error) { log.error(`DS Bot: an update state listener failed: ${error instanceof Error ? error.message : String(error)}`) }
       }
     },
     subscribe: (listener) => {
@@ -119,16 +90,16 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
     latest = (async () => {
       try {
         const response = await fetch(feed, {
-          headers: { accept: 'application/vnd.github+json', 'user-agent': `DeepSeek-Bot/${current}` },
+          headers: { accept: 'application/vnd.github+json', 'user-agent': `DS-Bot/${current}` },
         })
         if (!response.ok) {
-          log.error(`DeepSeek Bot: update check failed: HTTP ${String(response.status)}`)
+          log.error(`DS Bot: update check failed: HTTP ${String(response.status)}`)
           holder.set({ phase: 'failed' })
           return null
         }
         const releases = await response.json()
         if (!Array.isArray(releases)) {
-          log.error('DeepSeek Bot: update check failed: releases response is not an array')
+          log.error('DS Bot: update check failed: releases response is not an array')
           holder.set({ phase: 'failed' })
           return null
         }
@@ -143,7 +114,7 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
           const file = Array.isArray(release.assets) ? release.assets.find(entry => entry?.name === assetName(version)) : undefined
           if (file === undefined) continue
           if (!isHttpsPage(release.html_url)) {
-            log.error('DeepSeek Bot: update check failed: release page URL is not HTTPS')
+            log.error('DS Bot: update check failed: release page URL is not HTTPS')
             continue
           }
           if (found === undefined || isNewer(version, found.version)) {
@@ -154,17 +125,17 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
           holder.set({ phase: 'current' })
           return null
         }
-        log.info(`DeepSeek Bot: update ${found.version} available`)
+        log.info(`DS Bot: update ${found.version} available`)
         if (ask !== undefined && asked !== found.version) {
           asked = found.version
           void Promise.resolve().then(() => ask(found.version))
             .then(yes => (yes ? open(found.page) : undefined))
-            .catch((error) => { log.error(`DeepSeek Bot: update ${found.version} not opened: ${error instanceof Error ? error.message : String(error)}`) })
+            .catch((error) => { log.error(`DS Bot: update ${found.version} not opened: ${error instanceof Error ? error.message : String(error)}`) })
         }
         holder.set({ phase: 'available', ...found })
         return found
       } catch (error) {
-        log.error(`DeepSeek Bot: update check failed: ${error instanceof Error ? error.message : String(error)}`)
+        log.error(`DS Bot: update check failed: ${error instanceof Error ? error.message : String(error)}`)
         holder.set({ phase: 'failed' })
         return null
       }
@@ -191,13 +162,14 @@ export function watchReleases({ current, arch, fetch = globalThis.fetch, ask, op
  *   stop: () => void,
  *   latest: () => Promise<{ version: string, downloaded: Promise<boolean> } | null>,
  *   install: () => Promise<void>,
- *   state: () => { phase: string, version?: string, page?: string },
+ *   state: () => { phase: string, version?: string, page?: string, percent?: number, received?: number, total?: number },
  *   subscribe: (listener: (state: { phase: string }) => void) => () => void,
  *   check: () => void,
  * }} `latest` is what the newest check found: the version and whether its download finished.
  *   `install` stops the Host and runs the installer, which opens the app again. `state` is
- *   the phase the About row shows; `check` runs the same check the timer does and does
- *   nothing while a check, a download or a ready install is on.
+ *   the phase the About row shows, with the download's per cent and MB while it downloads;
+ *   `check` runs the same check the timer does and does nothing while a check, a download or a
+ *   ready install is on.
  */
 export function watchUpdates({ updater, beforeInstall, ask, feed, log = console }) {
   updater.autoDownload = true
@@ -212,17 +184,24 @@ export function watchUpdates({ updater, beforeInstall, ask, feed, log = console 
   updater.on('checking-for-update', () => { holder.set({ phase: 'checking' }) })
   updater.on('update-not-available', () => { holder.set({ phase: 'current' }) })
   updater.on('update-available', (info) => { holder.set({ phase: 'downloading', version: info?.version }) })
+  // The download's progress, for the failure page's update banner: once per whole per cent.
+  updater.on('download-progress', (progress) => {
+    const current = holder.state()
+    const percent = Math.floor(Number(progress?.percent))
+    if (current.phase !== 'downloading' || !Number.isFinite(percent) || percent === current.percent) return
+    holder.set({ ...current, percent, received: Math.round(Number(progress.transferred) / MB) || 0, total: Math.round(Number(progress.total) / MB) || 0 })
+  })
   updater.on('update-downloaded', ({ version }) => {
-    log.info(`DeepSeek Bot: update ${version} downloaded`)
+    log.info(`DS Bot: update ${version} downloaded`)
     holder.set({ phase: 'downloaded', version })
     if (ask === undefined || asked === version) return
     asked = version
     void ask(version).then(now => (now ? install() : undefined))
-      .catch((error) => { log.error(`DeepSeek Bot: update ${version} not installed: ${error instanceof Error ? error.message : String(error)}`) })
+      .catch((error) => { log.error(`DS Bot: update ${version} not installed: ${error instanceof Error ? error.message : String(error)}`) })
   })
   // A downloaded update stays ready: a later failed check does not hide it.
   updater.on('error', (error) => {
-    log.error(`DeepSeek Bot: update failed: ${error instanceof Error ? error.message : String(error)}`)
+    log.error(`DS Bot: update failed: ${error instanceof Error ? error.message : String(error)}`)
     if (holder.state().phase !== 'downloaded') holder.set({ phase: 'failed' })
   })
   let latest = Promise.resolve(null)

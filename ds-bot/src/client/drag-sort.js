@@ -13,7 +13,7 @@ const ROWS = '.bt-row[data-bot-id],.bt-row[data-room-id]'
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
 
 // The list as it stands, top to bottom: what each row belongs to and where each section
-// starts. `section` is a section's name, '' for no section, or null for the pinned area.
+// starts. `section` is a section's id, '' for no section, or null for the pinned area.
 function readList(list) {
   const items = []
   let section = null
@@ -304,7 +304,12 @@ export function useDragSort(listRef, { enabled, actions, onLand }) {
       }
       let change = null
       if (drag.kind === 'section') {
-        if (drag.slot !== drag.from) change = () => actions.arrangeSection(drag.self.section, { to: drag.slot })
+        if (drag.slot !== drag.from) {
+          // `section` is the section's id; the host takes the whole order.
+          const ids = [...list.querySelectorAll('.bt-sec[data-section]')].map(el => el.dataset.section).filter(id => id !== drag.self.section)
+          ids.splice(Math.max(0, Math.min(ids.length, drag.slot)), 0, drag.self.section)
+          change = () => actions.reorderSections(ids)
+        }
       } else {
         const id = drag.el.dataset.botId ?? drag.el.dataset.roomId
         const isBot = drag.el.dataset.botId !== undefined

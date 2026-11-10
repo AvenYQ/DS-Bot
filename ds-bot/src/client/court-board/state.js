@@ -56,6 +56,18 @@ function motionOf(doing) {
   return 'working'
 }
 
+/**
+ * The name of the section a Bot is filed under, '' for none. The first Main Bot stays out of
+ * every sidebar section (it sits on the sidebar's tile), so on the board it keeps the first
+ * yard, the one the sidebar lists first.
+ */
+export function sectionOf(roster, bot) {
+  const sections = roster?.sections ?? []
+  const filed = sections.find(section => section.id !== undefined && section.id === bot?.sectionId)
+  if (filed !== undefined) return filed.name
+  return bot?.id !== undefined && bot.id === roster?.mainBotId ? sections[0]?.name ?? '' : ''
+}
+
 /** The Bots in sidebar order: each section's Bots, then the ones filed under no heading. */
 export function castOrder(roster) {
   const bots = (roster?.bots ?? []).filter(bot => bot && !bot.hidden)
@@ -63,7 +75,7 @@ export function castOrder(roster) {
   const ordered = []
   for (const section of roster?.sections ?? []) {
     for (const bot of bots) {
-      if (bot.section === section.name) { ordered.push(bot); filed.add(bot.id) }
+      if (!filed.has(bot.id) && sectionOf(roster, bot) === section.name) { ordered.push(bot); filed.add(bot.id) }
     }
   }
   for (const bot of bots) if (!filed.has(bot.id)) ordered.push(bot)
@@ -82,7 +94,7 @@ export function castOf({ roster, live, hour, phrase, words }) {
   const cards = []
   for (const bot of castOrder(roster)) {
     const official = officialFor(bot)
-    const group = bot.section ?? ''
+    const group = sectionOf(roster, bot)
     const own = ownLook(bot)
     const state = live.get(bot.id) ?? { bot, state: 'idle' }
     const court = courtStateOf(state, hour, phrase, words)

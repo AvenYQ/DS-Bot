@@ -1,19 +1,26 @@
-import { createElement as h, Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createElement as h, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { inkFill } from './inks.js'
 import { isMainOf, isPinned } from './sources.js'
 import { currentPart } from './text.js'
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, ChevronRightIcon, CloseIcon, FolderIcon, GearIcon, PinIcon, UnreadIcon, PencilIcon, StarLineIcon, CopyIcon, HideIcon, TrashIcon, DuplicateIcon } from './icons.js'
+import { GearIcon, PinIcon, UnreadIcon, PencilIcon, StarLineIcon, CopyIcon, HideIcon, TrashIcon, DuplicateIcon, FolderIcon, PlusIcon, CheckIcon, ChevronRightIcon, CloseIcon, PeopleIcon, SignOutIcon } from './icons.js'
+import { BotMark, RoomAvatar } from './mark.js'
 import { useEscape } from './overlay-hooks.js'
-import { useViewport, viewBottom } from './motion.js'
+import { stepMenuFocus, useViewport, viewBottom } from './motion.js'
 import { t } from './i18n.js'
 
-export function ContextMenu({ menu, roster, actions, leaving = false }) {
+const SECTION_COLORS = ['blue', 'orange', 'green', 'violet', 'rose']
+
+export function ContextMenu({ menu, roster, actions, useWork, leaving = false }) {
   useEscape(() => actions.closeMenu())
+  const ref = useRef(null)
+  const trigger = useRef(typeof document === 'undefined' ? null : document.activeElement)
   useEffect(() => {
     const onDown = (event) => { if (!(event.target instanceof Element) || !event.target.closest('.bt-menu')) actions.closeMenu() }
+    const onKey = (event) => { stepMenuFocus(ref.current, event, trigger.current) }
     window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey, true)
+    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true) }
   }, [])
-  const ref = useRef(null)
   const [place, setPlace] = useState({ left: menu.x, top: menu.y })
   // 'main', or 'sections' while the menu lists where to move the row.
   const [pane, setPane] = useState('main')
@@ -24,10 +31,13 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
     setPlace({ left: Math.max(8, Math.min(menu.x, window.innerWidth - box.width - 8)), top: Math.max(8, Math.min(menu.y, viewBottom() - box.height - 8)) })
   }, [menu.x, menu.y, tick, pane])
   if (menu.kind === 'agent' || menu.kind === 'agent-session') return h(AgentMenu, { menu, roster, actions, leaving })
-  if (menu.kind === 'section') return h(SectionMenu, { menu, roster, actions, leaving })
+  if (menu.kind === 'section' || menu.kind === 'section-add') return h(SectionMenu, { menu, roster, actions, leaving })
   const bot = roster.byId[menu.id]
   const room = roster.roomsById[menu.id]
   const entry = bot ?? room
+  // Only a Bot that is waiting on a hand-off offers to give one up.
+  const waitsRaw = useWork && bot ? useWork(work => JSON.stringify(work.waiting?.[bot.id] ?? null)) : 'null'
+  const waits = useMemo(() => JSON.parse(waitsRaw), [waitsRaw])
   if (entry === undefined) return null
   const isMainBot = isMainOf(roster, menu.id)
   const pinnedNow = isPinned(roster, entry)
@@ -41,7 +51,7 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
     [
       [pinnedNow ? t('Unpin') : t('Pin'), PinIcon, () => actions.setFlags(menu.id, { pinned: !pinnedNow })],
       [t('Mark as Unread'), UnreadIcon, () => actions.markUnread(menu.id)],
-      [t('Move to section'), FolderIcon, () => setPane('sections'), false, true],
+      menu.id === roster.mainBotId ? null : [t('Move to section'), FolderIcon, () => setPane('sections'), false, false, true],
     ],
     [
       bot ? [t('Rename Bot'), PencilIcon, () => actions.renameBot(bot.id)] : null,
@@ -53,6 +63,7 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
       bot && isMainBot && mainCount > 1 ? [t('Remove Main Bot role'), StarLineIcon, () => actions.setMain(bot.id, false)] : null,
     ],
     [[t('Copy conversation ID'), CopyIcon, () => navigator.clipboard?.writeText(bot ? currentPart(bot) : menu.id)]],
+    bot ? (waits?.waits ?? []).map(item => [t('Give up waiting for {name}', { name: item.name ?? t('a Bot') }), SignOutIcon, () => actions.abandonWork(item.id)]) : [],
     [
       isMainBot ? null : [t('Hide from sidebar'), HideIcon, () => actions.setFlags(menu.id, { hidden: true })],
       isMainBot ? null : [room ? t('Delete group') : t('Delete'), TrashIcon, () => (bot ? actions.deleteBot(bot.id) : actions.deleteRoom(menu.id)), true],
@@ -61,81 +72,137 @@ export function ContextMenu({ menu, roster, actions, leaving = false }) {
   return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': label, style: place, 'data-leaving': leaving || undefined },
     groups.map((group, index) => h(Fragment, { key: index },
       index > 0 ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
-      group.map(([text, Icon, run, danger, stays]) => h('button', {
-        key: text, type: 'button', role: 'menuitem', className: danger ? 'bt-danger' : undefined, 'aria-haspopup': stays ? 'menu' : undefined,
+      group.map(([label, Icon, run, danger, checked, stays]) => h('button', {
+        key: label, type: 'button', role: 'menuitem', className: danger ? 'bt-danger' : undefined, 'aria-haspopup': stays ? 'menu' : undefined,
         onClick: () => {
           // An entry that opens another pane keeps the menu open.
           if (stays) { run(); return }
           actions.closeMenu()
           void Promise.resolve(run()).catch(error => actions.reportError(error, 'menu'))
         },
-      }, h(Icon), text, stays ? h('span', { style: { marginLeft: 'auto', display: 'inline-flex' } }, h(ChevronRightIcon)) : null)))))
+      }, h(Icon), h('span', { className: 'bt-menu-label' }, label), checked ? h('span', { className: 'bt-menu-check' }, h(CheckIcon)) : null, stays ? h('span', { style: { marginLeft: 'auto', display: 'inline-flex' } }, h(ChevronRightIcon)) : null)))))
 }
-
-const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLocaleLowerCase() === b.toLocaleLowerCase()
 
 // Where a Bot or group chat can go: a section that exists, a new one, or none.
 function SectionPicker({ entry, roster, actions }) {
   const [draft, setDraft] = useState('')
-  const move = (section) => {
+  const run = (work) => {
     actions.closeMenu()
-    void Promise.resolve(actions.setSection(entry.id, section)).catch(error => actions.reportError(error, 'menu'))
+    void Promise.resolve(work()).catch(error => actions.reportError(error, 'menu'))
   }
   const sections = roster.sections ?? []
   return h(Fragment, null,
     h('div', { className: 'bt-menu-head' }, t('Move {name} to', { name: entry.name })),
-    sections.map(section => h('button', { key: section.name, type: 'button', role: 'menuitemradio', 'aria-checked': sameName(entry.section, section.name), onClick: () => move(section.name) },
-      h('span', { className: 'bt-menu-tick', 'aria-hidden': true }, sameName(entry.section, section.name) ? h(CheckIcon) : null), section.name)),
+    sections.map(sec => h('button', { key: sec.id, type: 'button', role: 'menuitemradio', 'aria-checked': entry.sectionId === sec.id, onClick: () => run(() => actions.setFlags(entry.id, { sectionId: sec.id })) },
+      h('span', { className: 'bt-menu-tick', 'aria-hidden': true }, entry.sectionId === sec.id ? h(CheckIcon) : null),
+      sec.color ? h('span', { className: 'bt-sec-dot', style: { background: inkFill(sec.color) }, 'aria-hidden': true }) : null,
+      sec.name)),
     sections.length > 0 ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
-    h('form', { className: 'bt-menu-field', onSubmit: (event) => { event.preventDefault(); if (draft.trim() !== '') move(draft.trim()) } },
-      h('input', { autoFocus: true, value: draft, maxLength: 24, placeholder: t('New section name, then Enter'), 'aria-label': t('New section'), onChange: event => setDraft(event.target.value) })),
-    typeof entry.section === 'string' && entry.section !== '' ? h('button', { type: 'button', role: 'menuitem', onClick: () => move('') }, h(CloseIcon), t('Remove from section')) : null)
+    h('form', { className: 'bt-menu-field', onSubmit: (event) => { event.preventDefault(); if (draft.trim() !== '') run(() => actions.saveSection({ name: draft.trim(), items: [entry.id] })) } },
+      h('input', { autoFocus: true, value: draft, maxLength: 32, placeholder: t('New section name, then Enter'), 'aria-label': t('New section'), onChange: event => setDraft(event.target.value) })),
+    typeof entry.sectionId === 'string' && entry.sectionId !== '' ? h('button', { type: 'button', role: 'menuitem', onClick: () => run(() => actions.setFlags(entry.id, { sectionId: null })) }, h(CloseIcon), t('Remove from section')) : null)
 }
 
-// A section heading's menu: fold, rename, move, delete. Deleting keeps its rows.
 function SectionMenu({ menu, roster, actions, leaving }) {
-  useEscape(() => actions.closeMenu())
-  useEffect(() => {
-    const onDown = (event) => { if (!(event.target instanceof Element) || !event.target.closest('.bt-menu')) actions.closeMenu() }
-    window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
-  }, [])
   const ref = useRef(null)
+  const trigger = useRef(typeof document === 'undefined' ? null : document.activeElement)
+  useEffect(() => {
+    const onKey = (event) => { stepMenuFocus(ref.current, event, trigger.current) }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   const [place, setPlace] = useState({ left: menu.x, top: menu.y })
-  const [renaming, setRenaming] = useState(false)
-  const [draft, setDraft] = useState(menu.id)
   const tick = useViewport()
   useLayoutEffect(() => {
     const box = ref.current?.getBoundingClientRect()
     if (!box) return
     setPlace({ left: Math.max(8, Math.min(menu.x, window.innerWidth - box.width - 8)), top: Math.max(8, Math.min(menu.y, viewBottom() - box.height - 8)) })
-  }, [menu.x, menu.y, tick, renaming])
+  }, [menu.x, menu.y, tick])
   const sections = roster.sections ?? []
-  const index = sections.findIndex(section => sameName(section.name, menu.id))
-  const section = sections[index]
-  if (section === undefined) return null
-  const run = (work) => { actions.closeMenu(); void Promise.resolve(work()).catch(error => actions.reportError(error, 'menu')) }
-  const members = [...roster.bots, ...roster.rooms].filter(item => sameName(item.section, section.name)).length
-  const items = [
-    [section.collapsed ? t('Expand section') : t('Collapse section'), ChevronRightIcon, () => actions.arrangeSection(section.name, { collapsed: !section.collapsed })],
-    [t('Rename section'), PencilIcon, null],
-    index > 0 ? [t('Move up'), ArrowUpIcon, () => actions.arrangeSection(section.name, { to: index - 1 })] : null,
-    index < sections.length - 1 ? [t('Move down'), ArrowDownIcon, () => actions.arrangeSection(section.name, { to: index + 1 })] : null,
-  ].filter(Boolean)
-  return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': t('{name} actions', { name: section.name }), style: place, 'data-leaving': leaving || undefined },
-    renaming
-      ? h('form', { className: 'bt-menu-field', onSubmit: (event) => { event.preventDefault(); if (draft.trim() !== '' && draft.trim() !== section.name) run(() => actions.renameSection(section.name, draft.trim())); else actions.closeMenu() } },
-          h('input', { autoFocus: true, value: draft, maxLength: 24, 'aria-label': t('Rename section'), onFocus: event => event.target.select(), onChange: event => setDraft(event.target.value) }))
-      : h(Fragment, null,
-          items.map(([text, Icon, work]) => h('button', { key: text, type: 'button', role: 'menuitem', onClick: () => (work ? run(work) : setRenaming(true)) }, h(Icon), text)),
-          h('div', { className: 'bt-menu-sep', role: 'separator' }),
-          h('div', { className: 'bt-menu-head' }, members > 0 ? t('Deleting keeps its {count} chats, out of any section.', { count: members }) : t('This section is empty.')),
-          h('button', { type: 'button', role: 'menuitem', className: 'bt-danger', onClick: () => run(() => actions.deleteSection(section.name)) }, h(TrashIcon), t('Delete section'))))
+  const index = sections.findIndex(sec => sec.id === menu.id)
+  const sec = sections[index]
+  if (sec === undefined) return null
+  if (menu.kind === 'section-add') {
+    const candidates = [
+      ...roster.bots.filter(bot => bot.id !== roster.mainBotId && !bot.hidden).map(bot => ({ kind: 'bot', item: bot })),
+      ...roster.rooms.filter(room => !room.hidden).map(room => ({ kind: 'room', item: room })),
+    ]
+    return h('div', { ref, className: 'bt-menu bt-sec-add-menu', role: 'menu', 'aria-label': t('Add to {name}', { name: sec.name }), style: place, 'data-leaving': leaving || undefined },
+      h('button', {
+        type: 'button', role: 'menuitem',
+        onClick: () => { actions.closeMenu(); actions.openNewChat('create', sec.id) },
+      }, h(PlusIcon), h('span', { className: 'bt-menu-label' }, t('Create new Bot'))),
+      h('button', {
+        type: 'button', role: 'menuitem',
+        onClick: () => { actions.closeMenu(); actions.openNewChat('group', sec.id) },
+      }, h(PeopleIcon), h('span', { className: 'bt-menu-label' }, t('Create group chat'))),
+      candidates.length > 0 ? h(Fragment, null,
+        h('div', { className: 'bt-menu-sep', role: 'separator' }),
+        h('div', { className: 'bt-menu-sub-head' }, t('Add existing')),
+        h('div', { className: 'bt-sec-add-list' },
+          candidates.map(({ kind, item }) => {
+            const inside = item.sectionId === sec.id
+            const otherSec = item.sectionId && !inside ? sections.find(s => s.id === item.sectionId)?.name : undefined
+            return h('button', {
+              key: item.id, type: 'button', role: 'menuitem',
+              onClick: () => {
+                actions.closeMenu()
+                void Promise.resolve(actions.setFlags(item.id, { sectionId: inside ? null : sec.id })).catch(error => actions.reportError(error, 'menu'))
+              },
+            },
+            kind === 'room' ? h(RoomAvatar, { room: item, roster, size: 18 }) : h(BotMark, { bot: item, size: 18 }),
+            h('span', { className: 'bt-menu-label' }, item.name),
+            inside ? h('span', { className: 'bt-menu-check' }, h(CheckIcon)) : otherSec ? h('span', { className: 'bt-menu-hint' }, otherSec) : null)
+          }))) : null)
+  }
+  const move = (delta) => {
+    const next = sections.map(entry => entry.id)
+    const target = index + delta
+    if (target < 0 || target >= next.length) return
+    const [picked] = next.splice(index, 1)
+    next.splice(target, 0, picked)
+    void Promise.resolve(actions.reorderSections(next)).catch(error => actions.reportError(error, 'menu'))
+  }
+  return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': t('{name} actions', { name: sec.name }), style: place, 'data-leaving': leaving || undefined },
+    h('button', {
+      type: 'button', role: 'menuitem',
+      onClick: () => { actions.closeMenu(); actions.beginSectionRename(sec.id) },
+    }, h(PencilIcon), h('span', { className: 'bt-menu-label' }, t('Rename section'))),
+    h('button', {
+      type: 'button', role: 'menuitem',
+      onClick: () => { actions.closeMenu(); actions.openNewChat('create', sec.id) },
+    }, h(PlusIcon), h('span', { className: 'bt-menu-label' }, t('Create new Bot'))),
+    h('div', { className: 'bt-menu-sep', role: 'separator' }),
+    h('div', { className: 'bt-menu-sub-head' }, t('Section color')),
+    h('div', { className: 'bt-menu-colors' },
+      h('button', {
+        type: 'button', className: 'bt-menu-color-dot', 'aria-label': t('None'), title: t('None'), 'aria-pressed': !sec.color,
+        style: { background: 'var(--bt-hover)' },
+        onClick: () => { actions.closeMenu(); void Promise.resolve(actions.saveSection({ id: sec.id, color: null })).catch(error => actions.reportError(error, 'menu')) },
+      }),
+      SECTION_COLORS.map(color => h('button', {
+        key: color, type: 'button', className: 'bt-menu-color-dot', 'aria-label': t(color[0].toUpperCase() + color.slice(1)), title: t(color[0].toUpperCase() + color.slice(1)), 'aria-pressed': sec.color === color,
+        style: { background: inkFill(color) },
+        onClick: () => { actions.closeMenu(); void Promise.resolve(actions.saveSection({ id: sec.id, color })).catch(error => actions.reportError(error, 'menu')) },
+      }))),
+    index > 0 ? h('button', { type: 'button', role: 'menuitem', onClick: () => { actions.closeMenu(); move(-1) } }, h(FolderIcon), h('span', { className: 'bt-menu-label' }, t('Move section up'))) : null,
+    index < sections.length - 1 ? h('button', { type: 'button', role: 'menuitem', onClick: () => { actions.closeMenu(); move(1) } }, h(FolderIcon), h('span', { className: 'bt-menu-label' }, t('Move section down'))) : null,
+    h('div', { className: 'bt-menu-sep', role: 'separator' }),
+    h('button', {
+      type: 'button', role: 'menuitem', className: 'bt-danger',
+      onClick: () => { actions.closeMenu(); void Promise.resolve(actions.deleteSection(sec.id)).catch(error => actions.reportError(error, 'menu')) },
+    }, h(TrashIcon), h('span', { className: 'bt-menu-label' }, t('Ungroup section'))))
 }
 
 // Menus for the DSH Agent row and its Sessions; none of the Bot entries apply.
 function AgentMenu({ menu, roster, actions, leaving }) {
   const ref = useRef(null)
+  const trigger = useRef(typeof document === 'undefined' ? null : document.activeElement)
+  useEffect(() => {
+    const onKey = (event) => { stepMenuFocus(ref.current, event, trigger.current) }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   const [place, setPlace] = useState({ left: menu.x, top: menu.y })
   const tick = useViewport()
   useLayoutEffect(() => {
@@ -153,7 +220,7 @@ function AgentMenu({ menu, roster, actions, leaving }) {
         [
           [t('Remove DSH Agent'), TrashIcon, () => actions.removeAgent(agent.id), true],
         ],
-      ]
+      ].filter(group => group.length > 0)
     : [
         [
           [t('Rename'), PencilIcon, () => actions.beginAgentRename(menu.id)],
@@ -165,8 +232,8 @@ function AgentMenu({ menu, roster, actions, leaving }) {
   return h('div', { ref, className: 'bt-menu', role: 'menu', 'aria-label': menu.kind === 'agent' ? 'DSH Agent' : t('Session actions'), style: place, 'data-leaving': leaving || undefined },
     groups.map((group, index) => h(Fragment, { key: index },
       index > 0 ? h('div', { className: 'bt-menu-sep', role: 'separator' }) : null,
-      group.map(([label, Icon, run, danger]) => h('button', {
+      group.map(([label, Icon, run, danger, checked]) => h('button', {
         key: label, type: 'button', role: 'menuitem', className: danger ? 'bt-danger' : undefined,
         onClick: () => { actions.closeMenu(); void Promise.resolve(run()).catch(error => console.warn('[ds-bot]', error)) },
-      }, h(Icon), label)))))
+      }, h(Icon), h('span', { className: 'bt-menu-label' }, label), checked ? h('span', { className: 'bt-menu-check' }, h(CheckIcon)) : null)))))
 }
