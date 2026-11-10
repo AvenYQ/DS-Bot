@@ -111,3 +111,5 @@ export const QueueIcon = lineIcon(['M4 6h12', 'M4 10h12', 'M4 14h8', 'M14 12.5l2
 export const SETTINGS_ICONS = { general: GearIcon, bots: PeopleIcon, groups: ChatsIcon, im: ImIcon, usage: GaugeIcon }
 export const ImageIcon = lineIcon(['M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5z', 'M4 13l3.5-3.5L11 13l2-2 3 3', 'M12.5 7.5h.01'])
 export const UndoIcon = lineIcon(['M7 8H12a4 4 0 0 1 0 8H8', 'M9.5 5.5 7 8l2.5 2.5'])
+// Two arrows passing: the switch between the Bot view and DSH's own interface.
+export const SwitchIcon = lineIcon(['M4 7h9.5M10.5 3.5L14 7l-3.5 3.5', 'M16 13H6.5M9.5 9.5L6 13l3.5 3.5'])

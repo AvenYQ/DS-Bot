@@ -5,7 +5,7 @@ import { inkFill } from './inks.js'
 import { courtTheme, isMainOf, isPinned } from './sources.js'
 import { useDragSort } from './drag-sort.js'
 import { currentPart, previewOf, relativeShort } from './text.js'
-import { PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, CloudDownloadIcon, SignInIcon, SignOutIcon, SlidersIcon, ChevronRightIcon, DotsIcon, FolderIcon, ImageIcon, PencilIcon } from './icons.js'
+import { PlusIcon, SearchIcon, SidebarIcon, GaugeIcon, ClockIcon, GearIcon, PinMarkIcon, ConnectorIcon, CloudDownloadIcon, SignInIcon, SignOutIcon, SlidersIcon, ChevronRightIcon, DotsIcon, FolderIcon, ImageIcon, PencilIcon, SwitchIcon } from './icons.js'
 import { lookOf, MAIN_LOOK } from './characters.js'
 import { SealIcon } from './court-board/icons.js'
 import { BotMark, BotAvatar, RoomAvatar, warmPhoto } from './mark.js'
@@ -969,6 +969,11 @@ export function AccountLauncher({ seat = true, settingsOpen, actions, useRoster 
       [t('Automation tasks'), ClockIcon, () => actions.selectPanel('schedules')],
       [t('Settings'), GearIcon, () => actions.openSettings('general')],
     ].filter(Boolean),
+    // Aven's build keeps the way back to DSH's own interface one click away (upstream
+    // moved it to Settings → General → Mode).
+    [
+      [t('Switch to classic Agent mode'), SwitchIcon, () => actions.setSurface('agent')],
+    ],
   ]
   if (signedIn) groups.push([[accountT('signOut'), SignOutIcon, askSignOut, undefined, true]])
   else if (signedOut) groups.push([[t('Sign in to DeepSeek'), SignInIcon, () => actions.signIn()]])

@@ -23,6 +23,7 @@ const ZH = {
   'Move section down': '下移分组',
   'Ungroup section': '解散分组',
   'Remove from section': '移出分组',
+  'Switch to classic Agent mode': '切换经典 Agent 模式',
   'Move to new section…': '移至新分组…',
   'Add to {name}': '添加到 {name}',
   'Add existing': '添加已有对话',

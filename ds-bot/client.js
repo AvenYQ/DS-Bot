@@ -60,6 +60,7 @@ var ZH = {
   "Move section down": "下移分组",
   "Ungroup section": "解散分组",
   "Remove from section": "移出分组",
+  "Switch to classic Agent mode": "切换经典 Agent 模式",
   "Move to new section…": "移至新分组…",
   "Add to {name}": "添加到 {name}",
   "Add existing": "添加已有对话",
@@ -5712,6 +5713,7 @@ var QueueIcon = lineIcon(["M4 6h12", "M4 10h12", "M4 14h8", "M14 12.5l2 1.5-2 1.
 var SETTINGS_ICONS = { general: GearIcon, bots: PeopleIcon, groups: ChatsIcon, im: ImIcon, usage: GaugeIcon };
 var ImageIcon = lineIcon(["M4 5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 14.5z", "M4 13l3.5-3.5L11 13l2-2 3 3", "M12.5 7.5h.01"]);
 var UndoIcon = lineIcon(["M7 8H12a4 4 0 0 1 0 8H8", "M9.5 5.5 7 8l2.5 2.5"]);
+var SwitchIcon = lineIcon(["M4 7h9.5M10.5 3.5L14 7l-3.5 3.5", "M16 13H6.5M9.5 9.5L6 13l3.5 3.5"]);
 
 // src/client/court-board/icons.js
 var import_react5 = require("react");
@@ -49154,7 +49156,12 @@ function AccountLauncher({ seat = true, settingsOpen, actions, useRoster }) {
       [t("Connectors"), ConnectorIcon, () => actions.openConnectors()],
       [t("Automation tasks"), ClockIcon, () => actions.selectPanel("schedules")],
       [t("Settings"), GearIcon, () => actions.openSettings("general")]
-    ].filter(Boolean)
+    ].filter(Boolean),
+    // Aven's build keeps the way back to DSH's own interface one click away (upstream
+    // moved it to Settings → General → Mode).
+    [
+      [t("Switch to classic Agent mode"), SwitchIcon, () => actions.setSurface("agent")]
+    ]
   ];
   if (signedIn) groups.push([[accountT("signOut"), SignOutIcon, askSignOut, void 0, true]]);
   else if (signedOut) groups.push([[t("Sign in to DeepSeek"), SignInIcon, () => actions.signIn()]]);
