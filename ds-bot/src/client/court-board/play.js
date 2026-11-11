@@ -273,7 +273,7 @@ export function DispatchCard({ copy, error = '', busy = false, onConfirm, onCanc
     h('button', {
       type: 'button', onClick: onConfirm, disabled: busy, 'aria-busy': busy,
       style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, background: 'var(--bt-accent)', color: 'var(--bt-user-ink)', fontSize: '13px' },
-    }, busy ? t('Sending…') : error ? t('Try again') : copy.confirm)))
+    }, busy ? t('Sending the memorial…') : error ? t('Try sending it again') : copy.confirm)))
 }
 
 /** How many times this official has been picked: the greeting walks its lines with it. */

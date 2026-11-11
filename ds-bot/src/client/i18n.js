@@ -1525,6 +1525,34 @@ const ZH = {
   'Sent': '已发送',
   'Failed': '失败',
 
+  // 值房图 (the court board): the preset views, the minimap, the tour, the memorial pile,
+  // dragging a memorial onto an official, and the sound switch. Every word here is drawn
+  // at 13px or larger and at weight 400 or more — never smaller, never a light or thin cut
+  // (Aven's rule; the sizes live in court-board/styles.js).
+  'Overview': '全景',
+  'The Cabinet': '内阁',
+  'The Six Ministries': '六部',
+  'Show the whole city': '看整座紫禁城',
+  'Show the Cabinet halls': '去内阁转转',
+  'Show the Six Ministries': '去六部瞧瞧',
+  'Minimap': '小地图',
+  'Click the minimap to look there': '点小地图，一步就到',
+  'Map of the court board, north up': '值房小地图，上方是北',
+  'Tour the court': '御驾巡视',
+  'Memorial': '奏折',
+  'Drag a memorial onto an official': '把奏折拖到官员身上',
+  'Pending memorials': '案头待办',
+  'Nothing waits on him right now': '他这会儿手上清闲，没压着折子。',
+  'Take care of the errand in hand': '请把手上这件事办一办，办完回一声。',
+  'A star chart': '星图',
+  'A painting': '一幅画',
+  'A ledger': '一本账',
+  'The message did not go out': '没送出去，点「再试一次」再递一回。',
+  'Try sending it again': '再试一次',
+  'Sending the memorial…': '送信中…',
+  'Sound is on': '音效开着，点一下关掉',
+  'Sound is off': '音效关着，点一下打开',
+
 }
 
 // Host errors stay English, since Bots read them too; they are translated where the
@@ -1688,32 +1716,6 @@ const HOST_ZH = {
   '{name} · foreground': '{name} · 前台',
   '{name} waits for the computer': '{name} 等你停手',
 
-  // 值房图 (the court board): the preset views over the city and the minimap. Aven's rule
-  // for every word here: 13px or larger, weight 400 or more — never smaller, never a
-  // light or thin cut. The sizes themselves live in court-board/styles.js.
-  'Overview': '全景',
-  'The Cabinet': '内阁',
-  'The Six Ministries': '六部',
-  'Show the whole city': '看整座紫禁城',
-  'Show the Cabinet halls': '去内阁转转',
-  'Show the Six Ministries': '去六部瞧瞧',
-  'Minimap': '小地图',
-  'Click the minimap to look there': '点小地图，一步就到',
-  'Map of the court board, north up': '值房小地图，上方是北',
-  'The message did not go out': '没送出去，皇上再点一次「再试一次」。',
-  'Try again': '再试一次',
-  'Sending…': '送信中…',
-  // 第三段的交互: 御驾巡视、奏折堆、拖拽派活。
-  'Tour the court': '御驾巡视',
-  'Memorial': '奏折',
-  'Drag a memorial onto an official': '把奏折拖到官员身上',
-  'Pending memorials': '案头待办',
-  'Nothing waits on him right now': '他这会儿手上清闲，没压着折子。',
-  'Close': '关闭',
-  'Take care of the errand in hand': '请把手上这件事办一办，办完回一声。',
-  'A star chart': '星图',
-  'A painting': '一幅画',
-  'A ledger': '一本账',
 }
 Object.assign(ZH, HOST_ZH)
 
