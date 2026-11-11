@@ -63843,7 +63843,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
         if (kind === "work" || kind === "pending" || kind === "question" || kind === "court") busy.add(p.building);
       }
       for (const [id, material] of palace.windows ?? []) {
-        material.emissiveIntensity = glow ? busy.has(id) ? 0.3 + 1.2 * night : 0.05 + 0.26 * night : 0;
+        material.emissiveIntensity = glow && busy.has(id) ? 0.3 + 1.2 * night : 0;
       }
       palace.glowLan.emissiveIntensity = glow ? 0.25 + 1.1 * night : 0;
       palace.cloudMat.emissiveIntensity = 0.25 - 0.15 * (1 - day);
@@ -63990,15 +63990,83 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       distance: camera.position.distanceTo(target)
     };
   }
+  const HALL_BOXES = BUILDINGS.filter((b) => b.id && b.type !== "oct" && b.type !== "tower").map((b) => {
+    const tiers = b.tiers ?? 1;
+    return {
+      id: b.id,
+      minX: b.x - (b.w + 3) / 2,
+      maxX: b.x + (b.w + 3) / 2,
+      minZ: b.z - (b.d + 3) / 2,
+      maxZ: b.z + footOf(b) / 2,
+      minY: 0,
+      maxY: tiers * 0.7 + b.h + 0.7 + (b.d * 0.45 + 1.2) * (b.dbl ? 2.6 : 1) + 0.8
+    };
+  });
+  function crossesHall(from, to, skip) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dz = to.z - from.z;
+    for (const hall of HALL_BOXES) {
+      if (hall.id === skip) continue;
+      let t0 = 0;
+      let t1 = 1;
+      const lo = [hall.minX, hall.minY, hall.minZ];
+      const hi = [hall.maxX, hall.maxY, hall.maxZ];
+      const origin = [from.x, from.y, from.z];
+      const step = [dx, dy, dz];
+      let hit = true;
+      for (let axis = 0; axis < 3; axis += 1) {
+        if (Math.abs(step[axis]) < 1e-6) {
+          if (origin[axis] < lo[axis] || origin[axis] > hi[axis]) {
+            hit = false;
+            break;
+          }
+          continue;
+        }
+        let a = (lo[axis] - origin[axis]) / step[axis];
+        let b = (hi[axis] - origin[axis]) / step[axis];
+        if (a > b) {
+          const swap = a;
+          a = b;
+          b = swap;
+        }
+        t0 = Math.max(t0, a);
+        t1 = Math.min(t1, b);
+        if (t0 > t1) {
+          hit = false;
+          break;
+        }
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
+  const CLOSE_POINTS = [
+    [10.5, 6, 3],
+    [9, 8.5, 6],
+    [11, 11.5, 9],
+    [0, 20, 7]
+  ];
   function pushIn(id) {
     const p = people.get(id);
     if (!p) return;
-    const at = p.fig.g.position;
+    const at = p.building === "zhenfu" ? p.home : p.fig.g.position;
     const side = at.x >= -4 && at.x <= 4 ? 1 : -Math.sign(at.x) || 1;
-    const offset = new Vector3(side * 9.5, 11.5, 9.5);
     const target = at.clone();
     target.y = 1.6;
-    glide(target, target.clone().add(offset), 1.1);
+    let chosen = CLOSE_POINTS[CLOSE_POINTS.length - 1];
+    for (const point of CLOSE_POINTS) {
+      const camera_ = target.clone().add(new Vector3(side * point[0], point[1], point[2]));
+      if (!crossesHall(camera_, target, p.building)) {
+        chosen = point;
+        break;
+      }
+    }
+    const eye = target.clone().add(new Vector3(side * chosen[0], chosen[1], chosen[2]));
+    eye.x = Math.max(-56, Math.min(56, eye.x));
+    eye.z = Math.max(-70, Math.min(37, eye.z));
+    eye.y = Math.max(eye.y, target.y + 4);
+    glide(target, eye, 1.1);
   }
   function flyTo(id) {
     pushIn(id);
