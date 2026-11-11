@@ -165,12 +165,12 @@ export function createDispatch({ send } = {}) {
       pending = { bot, text }
       return dispatchCopy({ name: bot?.name ?? '', text })
     },
-    confirm() {
-      if (!pending) return false
+    async confirm() {
+      if (!pending) return { ok: false, reason: 'nothing-to-send' }
       const job = pending
       pending = null
-      send?.(job.bot.id, job.text, { confirmed: true })
-      return true
+      const answer = await send?.(job.bot.id, job.text, { confirmed: true })
+      return answer ?? { ok: true }
     },
     cancel() {
       const had = pending !== null
@@ -243,7 +243,7 @@ export function DutyCard({ name, duty, onClose }) {
 }
 
 /** The confirmation card itself: 准奏 sends, 且慢 only closes. */
-export function DispatchCard({ copy, onConfirm, onCancel }) {
+export function DispatchCard({ copy, error = '', busy = false, onConfirm, onCancel }) {
   if (!copy) return null
   return h('div', {
     className: 'cb-dispatch', role: 'dialog', 'aria-modal': 'true', 'aria-label': copy.title,
@@ -258,15 +258,16 @@ export function DispatchCard({ copy, onConfirm, onCancel }) {
   h('p', { style: { margin: '8px 0 0', color: 'var(--bt-ink-2)' } }, copy.to),
   h('p', { style: { margin: '2px 0 0' } }, copy.text),
   h('p', { style: { margin: '8px 0 12px', color: 'var(--bt-ink-2)' } }, copy.note),
+  error ? h('p', { role: 'alert', style: { margin: '0 0 10px', color: 'var(--bt-danger)' } }, error) : null,
   h('div', { style: { display: 'flex', gap: '8px', justifyContent: 'flex-end' } },
     h('button', {
-      type: 'button', onClick: onCancel,
-      style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: 'pointer', background: 'var(--bt-hover)', color: 'var(--bt-ink)', fontSize: '13px' },
+      type: 'button', onClick: onCancel, disabled: busy,
+      style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, background: 'var(--bt-hover)', color: 'var(--bt-ink)', fontSize: '13px' },
     }, copy.cancel),
     h('button', {
-      type: 'button', onClick: onConfirm,
-      style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: 'pointer', background: 'var(--bt-accent)', color: 'var(--bt-user-ink)', fontSize: '13px' },
-    }, copy.confirm)))
+      type: 'button', onClick: onConfirm, disabled: busy, 'aria-busy': busy,
+      style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, background: 'var(--bt-accent)', color: 'var(--bt-user-ink)', fontSize: '13px' },
+    }, busy ? t('Sending…') : error ? t('Try again') : copy.confirm)))
 }
 
 /** A tiny hook for index.js: which 衙门 has a 彩蛋, by building id. */

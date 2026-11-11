@@ -1742,6 +1742,9 @@ var HOST_ZH = {
   "Minimap": "小地图",
   "Click the minimap to look there": "点小地图，一步就到",
   "Map of the court board, north up": "值房小地图，上方是北",
+  "The message did not go out": "没送出去，皇上再点一次「再试一次」。",
+  "Try again": "再试一次",
+  "Sending…": "送信中…",
   // 第三段的交互: 御驾巡视、奏折堆、拖拽派活。
   "Tour the court": "御驾巡视",
   "Memorial": "奏折",
@@ -64875,12 +64878,12 @@ function createDispatch({ send } = {}) {
       pending = { bot, text };
       return dispatchCopy({ name: bot?.name ?? "", text });
     },
-    confirm() {
-      if (!pending) return false;
+    async confirm() {
+      if (!pending) return { ok: false, reason: "nothing-to-send" };
       const job = pending;
       pending = null;
-      send?.(job.bot.id, job.text, { confirmed: true });
-      return true;
+      const answer = await send?.(job.bot.id, job.text, { confirmed: true });
+      return answer ?? { ok: true };
     },
     cancel() {
       const had = pending !== null;
@@ -64977,7 +64980,7 @@ function DutyCard({ name, duty, onClose }) {
     duty?.task ? (0, import_react37.createElement)("p", { style: { margin: "8px 0 0", color: "var(--bt-ink-2)" } }, duty.task) : null
   );
 }
-function DispatchCard({ copy: copy2, onConfirm, onCancel }) {
+function DispatchCard({ copy: copy2, error: error2 = "", busy = false, onConfirm, onCancel }) {
   if (!copy2) return null;
   return (0, import_react37.createElement)(
     "div",
@@ -65007,19 +65010,23 @@ function DispatchCard({ copy: copy2, onConfirm, onCancel }) {
     (0, import_react37.createElement)("p", { style: { margin: "8px 0 0", color: "var(--bt-ink-2)" } }, copy2.to),
     (0, import_react37.createElement)("p", { style: { margin: "2px 0 0" } }, copy2.text),
     (0, import_react37.createElement)("p", { style: { margin: "8px 0 12px", color: "var(--bt-ink-2)" } }, copy2.note),
+    error2 ? (0, import_react37.createElement)("p", { role: "alert", style: { margin: "0 0 10px", color: "var(--bt-danger)" } }, error2) : null,
     (0, import_react37.createElement)(
       "div",
       { style: { display: "flex", gap: "8px", justifyContent: "flex-end" } },
       (0, import_react37.createElement)("button", {
         type: "button",
         onClick: onCancel,
-        style: { height: "30px", padding: "0 14px", border: 0, borderRadius: "999px", cursor: "pointer", background: "var(--bt-hover)", color: "var(--bt-ink)", fontSize: "13px" }
+        disabled: busy,
+        style: { height: "30px", padding: "0 14px", border: 0, borderRadius: "999px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.5 : 1, background: "var(--bt-hover)", color: "var(--bt-ink)", fontSize: "13px" }
       }, copy2.cancel),
       (0, import_react37.createElement)("button", {
         type: "button",
         onClick: onConfirm,
-        style: { height: "30px", padding: "0 14px", border: 0, borderRadius: "999px", cursor: "pointer", background: "var(--bt-accent)", color: "var(--bt-user-ink)", fontSize: "13px" }
-      }, copy2.confirm)
+        disabled: busy,
+        "aria-busy": busy,
+        style: { height: "30px", padding: "0 14px", border: 0, borderRadius: "999px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.5 : 1, background: "var(--bt-accent)", color: "var(--bt-user-ink)", fontSize: "13px" }
+      }, busy ? t("Sending…") : error2 ? t("Try again") : copy2.confirm)
     )
   );
 }
@@ -65244,6 +65251,9 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const [hint, setHint] = (0, import_react38.useState)(true);
   const [preset, setPreset] = (0, import_react38.useState)("overview");
   const [egg, setEgg] = (0, import_react38.useState)(null);
+  const [greetTick, setGreetTick] = (0, import_react38.useState)(0);
+  const [sendError, setSendError] = (0, import_react38.useState)("");
+  const [sending, setSending] = (0, import_react38.useState)(false);
   const [touring, setTouring] = (0, import_react38.useState)(false);
   const tour = (0, import_react38.useRef)(null);
   const picks = (0, import_react38.useRef)({});
@@ -65367,6 +65377,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
             return;
           }
           selectOfficial(id);
+          setGreetTick((tick) => tick + 1);
           const kind = eggOf(building);
           if (kind) setEgg(kind);
         },
@@ -65445,7 +65456,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     picks.current[selected] = (picks.current[selected] ?? 0) + 1;
     const duty2 = readDuty(selected);
     scene.current.say(selected, greetingOf(person.state.kind, { task: duty2?.task ?? "", pick: picks.current[selected] }));
-  }, [selected, state.open]);
+  }, [selected, state.open, greetTick]);
   (0, import_react38.useEffect)(() => {
     scene.current?.setTime(hour * 60);
   }, [hour, state.open]);
@@ -65530,6 +65541,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     const bot = hit?.id ? roster.byId?.[hit.id] : null;
     if (!bot) return;
     const text = t("Take care of the errand in hand");
+    setSendError("");
     setDocket(dispatcher.current.ask({ bot, text }));
   };
   const pickView = (key) => {
@@ -65634,12 +65646,23 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       duty !== null ? (0, import_react38.createElement)(DutyCard, { name: roster.byId?.[duty]?.name ?? "", duty: readDuty(duty), onClose: () => setDuty(null) }) : null,
       docket !== null ? (0, import_react38.createElement)(DispatchCard, {
         copy: docket,
-        onConfirm: () => {
-          dispatcher.current.confirm();
+        error: sendError,
+        busy: sending,
+        onConfirm: async () => {
+          if (sending) return;
+          setSending(true);
+          const answer = await dispatcher.current.confirm();
+          setSending(false);
+          if (answer?.ok === false) {
+            setSendError(t("The message did not go out"));
+            return;
+          }
+          setSendError("");
           setDocket(null);
         },
         onCancel: () => {
           dispatcher.current.cancel();
+          setSendError("");
           setDocket(null);
         }
       }) : null,

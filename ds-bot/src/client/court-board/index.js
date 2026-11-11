@@ -142,6 +142,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const [hint, setHint] = useState(true)
   const [preset, setPreset] = useState('overview')
   const [egg, setEgg] = useState(null)
+  const [greetTick, setGreetTick] = useState(0)
+  const [sendError, setSendError] = useState('')
+  const [sending, setSending] = useState(false)
   const [touring, setTouring] = useState(false)
   const tour = useRef(null)
   const picks = useRef({})
@@ -255,6 +258,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
         onSelect: (id, building, pile) => {
           if (pile && id) { setDuty(id); setEgg(null); return }
           selectOfficial(id)
+          setGreetTick(tick => tick + 1)
           const kind = eggOf(building)
           if (kind) setEgg(kind)
         },
@@ -329,7 +333,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     picks.current[selected] = (picks.current[selected] ?? 0) + 1
     const duty = readDuty(selected)
     scene.current.say(selected, greetingOf(person.state.kind, { task: duty?.task ?? '', pick: picks.current[selected] }))
-  }, [selected, state.open])
+  }, [selected, state.open, greetTick])
   useEffect(() => {
     scene.current?.setTime(hour * 60)
   }, [hour, state.open])
@@ -422,6 +426,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     const bot = hit?.id ? roster.byId?.[hit.id] : null
     if (!bot) return
     const text = t('Take care of the errand in hand')
+    setSendError('')
     setDocket(dispatcher.current.ask({ bot, text }))
   }
   const pickView = (key) => { selectOfficial(null); setPreset(key); scene.current?.view(key) }
@@ -483,8 +488,18 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       duty !== null ? h(DutyCard, { name: roster.byId?.[duty]?.name ?? '', duty: readDuty(duty), onClose: () => setDuty(null) }) : null,
       docket !== null ? h(DispatchCard, {
         copy: docket,
-        onConfirm: () => { dispatcher.current.confirm(); setDocket(null) },
-        onCancel: () => { dispatcher.current.cancel(); setDocket(null) },
+        error: sendError,
+        busy: sending,
+        onConfirm: async () => {
+          if (sending) return
+          setSending(true)
+          const answer = await dispatcher.current.confirm()
+          setSending(false)
+          if (answer?.ok === false) { setSendError(t('The message did not go out')); return }
+          setSendError('')
+          setDocket(null)
+        },
+        onCancel: () => { dispatcher.current.cancel(); setSendError(''); setDocket(null) },
       }) : null,
       panel === 'feed' ? h(FeedPanel, { log, bots: cast.bots, onSelect: focus }) : null,
       panel === 'roster' ? h(RosterPanel, { bots: cast.bots, selected, onSelect: focus }) : null,

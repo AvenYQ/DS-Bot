@@ -1700,6 +1700,9 @@ const HOST_ZH = {
   'Minimap': '小地图',
   'Click the minimap to look there': '点小地图，一步就到',
   'Map of the court board, north up': '值房小地图，上方是北',
+  'The message did not go out': '没送出去，皇上再点一次「再试一次」。',
+  'Try again': '再试一次',
+  'Sending…': '送信中…',
   // 第三段的交互: 御驾巡视、奏折堆、拖拽派活。
   'Tour the court': '御驾巡视',
   'Memorial': '奏折',
