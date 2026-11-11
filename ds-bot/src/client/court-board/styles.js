@@ -92,7 +92,8 @@ body[data-ds-dark-theme] .bt-cb-pane{${COURT_TOKENS_DARK}}
    the scene, not the theme, so they keep their paper look in the dark. */
 .bt-cb-tags{position:absolute;z-index:1;inset:0;pointer-events:none;overflow:hidden}
 .cb-tag{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:0;border:0;background:none;font:inherit;cursor:pointer;pointer-events:auto;will-change:transform}
-.cb-bub{position:relative;display:inline-flex;align-items:center;gap:6px;max-width:172px;padding:4px 10px 4px 9px;border-radius:999px;background:var(--cb-tag-paper);color:var(--cb-tag-ink);font-size:12px;line-height:17px;font-weight:500;white-space:nowrap;box-shadow:0 6px 16px var(--cb-tag-shade),0 0 0 .5px var(--cb-tag-edge);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cb-bub{position:relative;display:inline-flex;align-items:center;gap:6px;max-width:264px;padding:5px 11px;border-radius:12px;background:var(--cb-tag-paper);color:var(--cb-tag-ink);font-size:13px;line-height:19px;font-weight:500;white-space:normal;text-align:left;box-shadow:0 6px 16px var(--cb-tag-shade),0 0 0 .5px var(--cb-tag-edge);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cb-tag[data-say="1"] .cb-bub{border-radius:12px;background:var(--bt-paper);color:var(--bt-ink);box-shadow:0 8px 22px var(--cb-tag-shade),0 0 0 1px var(--cb-tag-edge)}
 .cb-bub[hidden]{display:none}
 .cb-txt{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .cb-txt:empty{display:none}

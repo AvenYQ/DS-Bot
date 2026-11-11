@@ -19,6 +19,8 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
+import { CourtEgg, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf } from './play.js'
+import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { fetchWeather } from './weather.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
@@ -139,6 +141,16 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const [decreeWake, setDecreeWake] = useState(0)
   const [hint, setHint] = useState(true)
   const [preset, setPreset] = useState('overview')
+  const [egg, setEgg] = useState(null)
+  const [touring, setTouring] = useState(false)
+  const tour = useRef(null)
+  const picks = useRef({})
+  const [duty, setDuty] = useState(null)
+  const [docket, setDocket] = useState(null)
+  const dispatcher = useRef(null)
+  if (dispatcher.current === null) {
+    dispatcher.current = createDispatch({ send: (id, text, options) => dispatch(id, text, options?.confirmed === true) })
+  }
   const cycle = useRef({})
   const selected = state.selected
   // Nothing of the board outlives the theme: no scene, no card, no roster.
@@ -240,7 +252,12 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       scene.current = createCourtScene({
         container: stage.current,
         tags: tags.current,
-        onSelect: id => selectOfficial(id),
+        onSelect: (id, building, pile) => {
+          if (pile && id) { setDuty(id); setEgg(null); return }
+          selectOfficial(id)
+          const kind = eggOf(building)
+          if (kind) setEgg(kind)
+        },
         onOpen: id => { closeCourtBoard(); actions.openSession(id) },
         words: {
           pending: t('等皇上定夺'), question: t('等皇上答话'), done: t('已办，待阅'), court: t('议事'), speaking: t('发言中'),
@@ -285,6 +302,32 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   }, [cast, state.open])
   useEffect(() => {
     scene.current?.select(selected)
+  }, [selected, state.open])
+  // bridge.js reads what each official has in hand from this snapshot, and sends only
+  // through the host's own action after the confirmation card.
+  useEffect(() => {
+    wireBridge({
+      roster,
+      live: new Map(heldStates.map(item => [item.bot.id, item])),
+      work,
+      hour,
+      phrase: entry => workPhrase(entry?.detail ?? entry?.doing, entry?.bot),
+      words: { pending: t('等皇上定夺'), question: t('等皇上答话'), done: t('已办，待阅'), idle: t('候旨'), sleep: t('歇息') },
+      send: (botId, text) => {
+        const bot = roster.byId?.[botId]
+        return bot ? actions.send(currentPart(bot), text) : Promise.reject(new Error('Unknown Bot'))
+      },
+    })
+    return () => unwireBridge()
+  }, [roster, heldStates, work, hour])
+
+  // 回礼: a picked official says one line about the errand he is on, a different one each time.
+  useEffect(() => {
+    if (!state.open || !selected || scene.current === null) return
+    const person = cast.people.find(item => item.id === selected)
+    if (!person) return
+    picks.current[selected] = (picks.current[selected] ?? 0) + 1
+    scene.current.say(selected, greetingOf(person.state.kind, { task: '', pick: picks.current[selected] }))
   }, [selected, state.open])
   useEffect(() => {
     scene.current?.setTime(hour * 60)
@@ -359,18 +402,27 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     const onKey = (event) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
+      if (touring) { tour.current?.stop(); setTouring(false); return }
+      if (egg) { setEgg(null); return }
       if (board.selected) selectOfficial(null)
       else closeCourtBoard()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [state.open])
+  }, [state.open, touring, egg])
 
   const cardId = useExitValue(state.open ? selected : null)
   // After every hook: turning the theme off unmounts the board without changing the hook order.
   if (!themed || !state.open) return null
   const card = cardId === null ? null : cast.bots.find(item => item.bot.id === cardId) ?? null
   const focus = (id) => { selectOfficial(id); setPreset(null) }
+  const dropDocket = (x, y) => {
+    const hit = scene.current?.pickClient?.(x, y)
+    const bot = hit?.id ? roster.byId?.[hit.id] : null
+    if (!bot) return
+    const text = t('请把手上这件事办一办')
+    setDocket(dispatcher.current.ask({ bot, text }))
+  }
   const pickView = (key) => { selectOfficial(null); setPreset(key); scene.current?.view(key) }
   const tallies = TALLY.map(([kind, kinds]) => {
     const ids = cast.bots.filter(item => kinds.includes(item.court.kind)).map(item => item.bot.id)
@@ -400,6 +452,20 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           key, type: 'button', role: 'tab', 'aria-selected': panel === key, 'data-on': panel === key,
           onClick: () => setPanel(panel === key ? null : key),
         }, label))),
+      h(DocketChip, { onDrop: dropDocket }),
+      h('button', {
+        type: 'button', className: 'bt-cb-icon', title: t('Tour the court'), 'aria-label': t('Tour the court'),
+        'data-on': touring, 'aria-pressed': touring,
+        onClick: () => {
+          if (touring) { tour.current?.stop(); setTouring(false); return }
+          selectOfficial(null)
+          setEgg(null)
+          setPreset(null)
+          tour.current = createTour({ world: scene.current, onEnd: () => setTouring(false) })
+          tour.current.start()
+          setTouring(true)
+        },
+      }, h(TourIcon)),
       h('div', { className: 'bt-cb-seg', role: 'group', 'aria-label': t('Overview') },
         [['overview', t('Show the whole city')], ['cabinet', t('Show the Cabinet halls')], ['six', t('Show the Six Ministries')]].map(([key, hintText]) => h('button', {
           key, type: 'button', 'data-on': preset === key, title: hintText,
@@ -412,6 +478,13 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       h('div', { ref: tags, className: 'bt-cb-tags' }),
       broken ? h('div', { className: 'bt-cb-broken' }, t('这台机器没有可用的 WebGL，值房图显示不出来；奏事簿、名册和官员卡片照常可用。')) : null,
       !broken ? h(CourtMinimap, { world: scene, selected }) : null,
+      egg !== null ? h(CourtEgg, { hall: egg, onClose: () => setEgg(null) }) : null,
+      duty !== null ? h(DutyCard, { name: roster.byId?.[duty]?.name ?? '', duty: readDuty(duty), onClose: () => setDuty(null) }) : null,
+      docket !== null ? h(DispatchCard, {
+        copy: docket,
+        onConfirm: () => { dispatcher.current.confirm(); setDocket(null) },
+        onCancel: () => { dispatcher.current.cancel(); setDocket(null) },
+      }) : null,
       panel === 'feed' ? h(FeedPanel, { log, bots: cast.bots, onSelect: focus }) : null,
       panel === 'roster' ? h(RosterPanel, { bots: cast.bots, selected, onSelect: focus }) : null,
       card !== null ? h(OfficialCard, { item: card, live: heldStates.find(item => item.bot.id === card.bot.id), sessions, actions, closing: selected === null, onFly: () => scene.current?.flyTo(card.bot.id) }) : null,
@@ -667,4 +740,5 @@ function RosterPanel({ bots, selected, onSelect }) {
 }
 
 const svg = (children, size = 18) => h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, children)
+const TourIcon = () => svg([h('path', { key: 'a', d: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z' }), h('circle', { key: 'b', cx: 12, cy: 12, r: 3 })])
 const CloseIcon = () => svg([h('path', { key: 'a', d: 'M6 6l12 12' }), h('path', { key: 'b', d: 'M18 6L6 18' })])

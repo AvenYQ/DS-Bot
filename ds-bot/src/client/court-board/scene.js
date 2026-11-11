@@ -389,13 +389,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     tag.name.textContent = data.name
     tag.seal.textContent = seal ? seal.word : ''
     tag.seal.hidden = !seal
-    const line = kind === 'work' ? state.text
+    const said = p.say && p.say.until > performance.now() ? p.say.text : null
+    tag.el.dataset.say = said ? '1' : ''
+    const line = said ?? (kind === 'work' ? state.text
       : kind === 'court' ? (state.speaking ? words.speaking : '')
         : kind === 'pending' ? words.pending
           : kind === 'question' ? words.question
             : kind === 'done' ? words.done
               : kind === 'waiting' ? state.text
-                : ''
+                : '')
     tag.txt.textContent = line ?? ''
     tag.bub.hidden = !line && !seal
     tag.time.textContent = kind === 'work' && !p.ambient ? clock(state.since) : ''
@@ -411,7 +413,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     object.traverse((o) => { if (o.geometry && o.geometry !== pickGeo) o.geometry.dispose() })
   }
   function removePerson(p) {
-    scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick)
+    scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick, p.pile.pick)
     disposeTree(p.fig.g)
     disposeTree(p.desk.group)
     disposeTree(p.pile.group)
@@ -481,6 +483,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       scene.add(desk.group)
       const pile = makePile(home)
       scene.add(pile.group)
+      const pilePick = new THREE.Mesh(pickGeo, pickMat)
+      pilePick.position.set(home.x - 1.55, 0.5, home.z + 1.05)
+      pilePick.scale.set(0.9, 0.55, 0.9)
+      pilePick.userData.pile = data.id
+      scene.add(pilePick)
+      pile.pick = pilePick
       const easel = building === 'hanlin' ? makeEasel(home) : null
       if (easel) scene.add(easel)
       const pick = new THREE.Mesh(pickGeo, pickMat)
@@ -746,6 +754,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   marker.visible = false
   scene.add(marker)
 
+  // One line over an official's head for a moment — what he says when he is clicked.
+  function say(id, text, ms = 4200) {
+    const p = people.get(id)
+    if (!p || !text) return
+    p.say = { text, until: performance.now() + ms }
+    paintTag(p)
+    render?.wake(ms / 1000 + 0.3)
+  }
+
   function setHover(id) {
     if (hovered === id) return
     if (hovered) people.get(hovered)?.tag.el.classList.remove('hover')
@@ -775,12 +792,17 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     const rect = canvas.getBoundingClientRect()
     pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
     raycaster.setFromCamera(pointer, camera)
-    const targets = [...[...people.values()].filter(p => !p.ambient).map(p => p.pick), ...(palace?.pickables ?? [])]
+    const targets = [
+      ...[...people.values()].filter(p => !p.ambient).map(p => p.pick),
+      ...[...people.values()].filter(p => !p.ambient).map(p => p.pile.pick),
+      ...(palace?.pickables ?? []),
+    ]
     const hit = raycaster.intersectObjects(targets, false)[0]
-    if (!hit) return null
-    if (hit.object.userData.id) return hit.object.userData.id
+    if (!hit) return { id: null, building: null, pile: false }
+    if (hit.object.userData.pile) return { id: hit.object.userData.pile, building: null, pile: true }
+    if (hit.object.userData.id) return { id: hit.object.userData.id, building: null, pile: false }
     const bid = hit.object.userData.bid
-    return [...people.values()].find(p => p.building === bid && !p.ambient)?.id ?? null
+    return { id: [...people.values()].find(p => p.building === bid && !p.ambient)?.id ?? null, building: bid ?? null, pile: false }
   }
   let down = null
   const onDown = (event) => { down = { x: event.clientX, y: event.clientY }; fly = null }
@@ -789,10 +811,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y)
     down = null
     if (moved > 6 || event.button !== 0) return
-    onSelect?.(pickAt(event))
+    const hit = pickAt(event)
+    onSelect?.(hit.id, hit.building, hit.pile)
   }
-  const onMove = (event) => { if (event.buttons === 0) setHover(pickAt(event)) }
-  const onDouble = (event) => { const id = pickAt(event); if (id) onOpen?.(id) }
+  // The drag-and-drop asks the same question with plain coordinates.
+  function pickClient(x, y) {
+    return pickAt({ clientX: x, clientY: y })
+  }
+  const onMove = (event) => { if (event.buttons === 0) setHover(pickAt(event).id) }
+  const onDouble = (event) => { const hit = pickAt(event); if (hit.id) onOpen?.(hit.id) }
   const onLeave = () => setHover(null)
   canvas.addEventListener('pointerdown', onDown)
   canvas.addEventListener('pointerup', onUp)
@@ -838,6 +865,20 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (still) { controls.target.copy(target); camera.position.copy(position); controls.update(); return true }
     glide(target, position, 1.2)
     return true
+  }
+  // A leg of a scripted move (the 御驾巡视): the eye goes to `eye` looking at `target`.
+  function glideTo(target, eye, seconds = 1.2) {
+    if (!Array.isArray(target) || !Array.isArray(eye)) return
+    render?.wake(seconds + 0.4)
+    const to = new THREE.Vector3(target[0], target[1], target[2])
+    const at = new THREE.Vector3(eye[0], eye[1], eye[2])
+    if (still) {
+      controls.target.copy(to)
+      camera.position.copy(at)
+      controls.update()
+      return
+    }
+    glide(to, at, seconds)
   }
   // The minimap hands back a point on the ground: the eye keeps its height and angle.
   function lookAt(x, z) {
@@ -1174,7 +1215,10 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       halo.rotation.z += dt * 0.4
       if (!still) for (const c of palace.clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 190) c.position.x = -190 }
     }
-    for (const p of people.values()) animatePerson(p, dt, time)
+    for (const p of people.values()) {
+      if (p.say && p.say.until < time) { p.say = null; paintTag(p) }
+      animatePerson(p, dt, time)
+    }
     for (let i = runners.length - 1; i >= 0; i -= 1) {
       if (!stepRunner(runners[i], dt, tick)) { removeRunner(runners[i]); runners.splice(i, 1) }
     }
@@ -1288,9 +1332,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     setGlow,
     setWeather,
     select,
+    say,
+    pickClient,
     flyTo,
     view,
     lookAt,
+    glideTo,
     viewPoint,
     positions,
     frame: () => frame(false),
