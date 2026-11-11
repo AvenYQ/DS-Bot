@@ -151,6 +151,13 @@ html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail
    inside the page, which left the buttons 2px above the lights. */
 html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{box-sizing:border-box;height:40px;padding:0 0 0 76px;-webkit-app-region:drag}
 html[data-caption-lights] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
+/* In the band the buttons are toolbar glyphs, as macOS draws its own beside the lights:
+   28px, no ring or fill until the pointer is over them, on the lights' middle line. The
+   36px rounds of the open row would leave the band 2px above and below them. */
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{gap:4px}
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top>.bt-round{width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--bt-ink-2);transition:background-color .12s ease,color .12s ease,transform .12s ease}
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top>.bt-round:hover{background:var(--bt-hover);color:var(--bt-ink)}
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top>.bt-round svg{width:16px;height:16px}
 html[data-caption-lights] .bt-leftcol:not([data-left=rail]) .bt-side-collapse{display:inline-flex}
 html[data-caption-lights] body:has(.bt-leftcol) .bt-title-toggle{display:none}
 /* The shell's own sidebar switch and new-session button wait beside the lights while its
