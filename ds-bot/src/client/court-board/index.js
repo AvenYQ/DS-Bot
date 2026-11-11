@@ -15,6 +15,7 @@ import { SealIcon } from './icons.js'
 import { castOf } from './state.js'
 import { SEALS } from './data.js'
 import { courtTheme } from '../sources.js'
+import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
@@ -137,6 +138,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const decreeUntil = useRef(0)
   const [decreeWake, setDecreeWake] = useState(0)
   const [hint, setHint] = useState(true)
+  const [preset, setPreset] = useState('overview')
   const cycle = useRef({})
   const selected = state.selected
   // Nothing of the board outlives the theme: no scene, no card, no roster.
@@ -185,10 +187,15 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       phrase: entry => workPhrase(entry.detail ?? entry.doing, entry.bot),
       words: { done: t('已办') },
     })
-    // Who a waiting official looks towards: the first Bot he waits on.
+    // Who a waiting official looks towards: the first Bot he waits on. And how many
+    // 奏折 stand before his door: what waits on the Emperor plus what he waits on others.
     for (const person of value.people) {
       const live = heldStates.find(item => item.bot.id === person.id)
-      if (person.state.kind === 'waiting') person.state = { ...person.state, towards: live?.waits?.bots?.[0] }
+      const approval = (work?.approvals ?? []).filter(item => item.botId === person.id).length
+      const waiting = work?.waiting?.[person.id]
+      const backlog = approval + (waiting?.bots?.length ?? 0) + (waiting?.rooms?.length ?? 0)
+      if (person.state.kind === 'waiting') person.state = { ...person.state, towards: live?.waits?.bots?.[0], memorials: backlog }
+      else person.state = { ...person.state, memorials: backlog }
     }
     return value
   }, [roster, heldStates, hour])
@@ -363,7 +370,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   // After every hook: turning the theme off unmounts the board without changing the hook order.
   if (!themed || !state.open) return null
   const card = cardId === null ? null : cast.bots.find(item => item.bot.id === cardId) ?? null
-  const focus = (id) => { selectOfficial(id); scene.current?.flyTo(id) }
+  const focus = (id) => { selectOfficial(id); setPreset(null) }
+  const pickView = (key) => { selectOfficial(null); setPreset(key); scene.current?.view(key) }
   const tallies = TALLY.map(([kind, kinds]) => {
     const ids = cast.bots.filter(item => kinds.includes(item.court.kind)).map(item => item.bot.id)
     return { kind, ids }
@@ -392,16 +400,111 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           key, type: 'button', role: 'tab', 'aria-selected': panel === key, 'data-on': panel === key,
           onClick: () => setPanel(panel === key ? null : key),
         }, label))),
-      h('button', { type: 'button', className: 'bt-cb-icon', title: t('全景'), 'aria-label': t('全景'), onClick: () => { selectOfficial(null); scene.current?.frame() } }, h(FrameIcon)),
+      h('div', { className: 'bt-cb-seg', role: 'group', 'aria-label': t('Overview') },
+        [['overview', t('Show the whole city')], ['cabinet', t('Show the Cabinet halls')], ['six', t('Show the Six Ministries')]].map(([key, hintText]) => h('button', {
+          key, type: 'button', 'data-on': preset === key, title: hintText,
+          'aria-label': key === 'overview' ? t('Overview') : key === 'cabinet' ? t('The Cabinet') : t('The Six Ministries'),
+          onClick: () => pickView(key),
+        }, key === 'overview' ? t('Overview') : key === 'cabinet' ? t('The Cabinet') : t('The Six Ministries')))),
       h('button', { type: 'button', className: 'bt-cb-icon bt-cb-x', 'aria-label': t('关闭'), title: t('关闭'), onClick: closeCourtBoard }, h(CloseIcon))),
     h('div', { className: 'bt-cb-stage' },
       h('div', { ref: stage, className: 'bt-cb-world' }),
       h('div', { ref: tags, className: 'bt-cb-tags' }),
       broken ? h('div', { className: 'bt-cb-broken' }, t('这台机器没有可用的 WebGL，值房图显示不出来；奏事簿、名册和官员卡片照常可用。')) : null,
+      !broken ? h(CourtMinimap, { world: scene, selected }) : null,
       panel === 'feed' ? h(FeedPanel, { log, bots: cast.bots, onSelect: focus }) : null,
       panel === 'roster' ? h(RosterPanel, { bots: cast.bots, selected, onSelect: focus }) : null,
       card !== null ? h(OfficialCard, { item: card, live: heldStates.find(item => item.bot.id === card.bot.id), sessions, actions, closing: selected === null, onFly: () => scene.current?.flyTo(card.bot.id) }) : null,
       hint && !broken ? h('div', { className: 'bt-cb-hint' }, t('拖动转视角 · 右键拖动平移 · 滚轮缩放 · 点小人看详情 · 双击进对话')) : null)), document.body)
+}
+
+// 小地图: the whole city in a corner, with the officials walking on it and a mark for
+// where the eye is looking. Click a spot and the camera goes there, north up.
+const MAP = { x0: -92, x1: 92, z0: -88, z1: 72 }
+function CourtMinimap({ world, selected }) {
+  const canvas = useRef(null)
+  useEffect(() => {
+    const cv = canvas.current
+    if (!cv) return undefined
+    let frame = 0
+    let last = 0
+    const draw = (time) => {
+      frame = requestAnimationFrame(draw)
+      if (time - last < 120) return
+      last = time
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const w = cv.clientWidth || 132
+      const h = cv.clientHeight || 132
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+        cv.width = Math.round(w * dpr)
+        cv.height = Math.round(h * dpr)
+      }
+      const c = cv.getContext('2d')
+      if (!c) return
+      const ink = getComputedStyle(cv)
+      const paint = (name) => ink.getPropertyValue(name).trim() || 'transparent'
+      c.setTransform(dpr, 0, 0, dpr, 0, 0)
+      c.clearRect(0, 0, w, h)
+      const sx = x => (x - MAP.x0) / (MAP.x1 - MAP.x0) * w
+      const sz = z => (z - MAP.z0) / (MAP.z1 - MAP.z0) * h
+      c.fillStyle = paint('--bt-mini-ground')
+      c.fillRect(sx(-WALL.x), sz(WALL.north), sx(WALL.x) - sx(-WALL.x), sz(WALL.south) - sz(WALL.north))
+      c.globalAlpha = 0.9
+      for (const hall of BUILDINGS) {
+        if (hall.spare) continue
+        c.fillStyle = hall.roof ?? paint('--bt-mini-hall')
+        const bw = Math.max(2, (hall.w + 3) / (MAP.x1 - MAP.x0) * w)
+        const bd = Math.max(2, (hall.d + 3) / (MAP.z1 - MAP.z0) * h)
+        c.fillRect(sx(hall.x) - bw / 2, sz(hall.z) - bd / 2, bw, bd)
+      }
+      c.globalAlpha = 1
+      c.strokeStyle = paint('--bt-mini-wall')
+      c.lineWidth = 1
+      c.strokeRect(sx(-WALL.x) + 0.5, sz(WALL.north) + 0.5, sx(WALL.x) - sx(-WALL.x) - 1, sz(WALL.south) - sz(WALL.north) - 1)
+      const api = world?.current
+      const spot = api?.viewPoint?.()
+      if (spot) {
+        const vx = sx(spot.x)
+        const vz = sz(spot.z)
+        c.fillStyle = paint('--bt-mini-look')
+        c.beginPath()
+        c.moveTo(vx, vz)
+        c.arc(vx, vz, 17, Math.atan2(-Math.cos(spot.yaw), -Math.sin(spot.yaw)) - 0.42, Math.atan2(-Math.cos(spot.yaw), -Math.sin(spot.yaw)) + 0.42)
+        c.closePath()
+        c.fill()
+      }
+      for (const person of api?.positions?.() ?? []) {
+        c.fillStyle = person.id === selected ? paint('--bt-mini-mark') : paint('--bt-mini-dot')
+        c.beginPath()
+        c.arc(sx(person.x), sz(person.z), person.id === selected ? 2.8 : 1.8, 0, 7)
+        c.fill()
+      }
+    }
+    frame = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(frame)
+  }, [world, selected])
+  const pick = (event) => {
+    const cv = canvas.current
+    if (!cv) return
+    const rect = cv.getBoundingClientRect()
+    if (!rect.width || !rect.height) return
+    world?.current?.lookAt(
+      MAP.x0 + (event.clientX - rect.left) / rect.width * (MAP.x1 - MAP.x0),
+      MAP.z0 + (event.clientY - rect.top) / rect.height * (MAP.z1 - MAP.z0),
+    )
+  }
+  return h('canvas', {
+    ref: canvas, className: 'bt-cb-mini', role: 'button', tabIndex: 0,
+    'aria-label': `${t('Minimap')} · ${t('Map of the court board, north up')}`,
+    title: t('Click the minimap to look there'),
+    onClick: pick,
+    onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); world?.current?.view('overview') } },
+    style: {
+      position: 'absolute', right: '14px', bottom: '14px', width: '124px', height: '124px',
+      padding: 0, border: 0, borderRadius: '12px', zIndex: 3, cursor: 'crosshair',
+      background: 'var(--bt-card)', boxShadow: '0 0 0 .5px var(--bt-line-2), 0 8px 20px rgba(0,0,0,.16)',
+    },
+  })
 }
 
 function useExitValue(value) {
@@ -565,4 +668,3 @@ function RosterPanel({ bots, selected, onSelect }) {
 
 const svg = (children, size = 18) => h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, children)
 const CloseIcon = () => svg([h('path', { key: 'a', d: 'M6 6l12 12' }), h('path', { key: 'b', d: 'M18 6L6 18' })])
-const FrameIcon = () => svg([h('path', { key: 'a', d: 'M4 9V5a1 1 0 0 1 1-1h4' }), h('path', { key: 'b', d: 'M15 4h4a1 1 0 0 1 1 1v4' }), h('path', { key: 'c', d: 'M20 15v4a1 1 0 0 1-1 1h-4' }), h('path', { key: 'd', d: 'M9 20H5a1 1 0 0 1-1-1v-4' })])

@@ -5,6 +5,8 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BUILDINGS, LANE_X, WALL, footOf } from './layout.js'
+import { PLAQUE_LINE_MAX } from './plaques.js'
+import { instanced } from './render.js'
 
 const Y = '#f2b630'
 const RED = '#c4412e'
@@ -58,24 +60,25 @@ export function createMaterials() {
  * Builds the palace into `scene`.
  * @param {THREE.Scene} scene
  * @param {object} kit createMaterials()'s result
- * @param {{spares?: Map<string, string>, maxAniso?: number}} options the spare 衙门
- *   that have a Bot moved in, with the name on each one's plaque
+ * @param {{spares?: Map<string, string>, maxAniso?: number, plaques?: Map}} options the
+ *   spare 衙门 that have a Bot moved in, and the words on every 匾 (plaques.js)
  * @returns {object} what the scene needs afterwards: the lit windows and lanterns, the
  *   pick targets, the armillary, the halo before the throne, the clouds, the ground
  */
-export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {}) {
+export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4, plaques = null } = {}) {
   const { mat, toon } = kit
   const root = new THREE.Group()
   scene.add(root)
   const statics = new THREE.Group()
   const flats = new THREE.Group()
   const owned = []
-  const glowWin = toon({ color: 0xf1d48d, emissive: 0xffa53a, emissiveIntensity: 0.2 })
   const glowLan = toon({ color: 0xe2442e, emissive: 0xff5a2a, emissiveIntensity: 0.3 })
+  const windows = new Map()
   const pickMat = new THREE.MeshBasicMaterial({ visible: false })
-  owned.push(glowWin, glowLan, pickMat)
+  owned.push(glowLan, pickMat)
   const pickables = []
   const rnd = seeded(7)
+  let river = null
 
   const B = (w, h, d) => new THREE.BoxGeometry(w, h, d)
   const C = (rt, rb, h, s = 10) => new THREE.CylinderGeometry(rt, rb, h, s)
@@ -116,6 +119,151 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     g.computeVertexNormals()
     return g
   }
+  // 瓦垄, 走兽, 栏杆 and the trees repeat: one unit shape each, one instance matrix per
+  // copy, drawn as a single InstancedMesh per shape and colour (render.js's instanced()).
+  const UNIT = {
+    box: new THREE.BoxGeometry(1, 1, 1),
+    ico: new THREE.IcosahedronGeometry(1, 0),
+    cone: new THREE.ConeGeometry(1, 1.4, 7),
+    trunk: new THREE.CylinderGeometry(0.16, 0.3, 1.5, 6),
+  }
+  const batches = new Map()
+  const parentMatrices = new WeakMap()
+  const Z_AXIS = new THREE.Vector3(0, 0, 1)
+  const scratch = new THREE.Matrix4()
+  const scratchQ = new THREE.Quaternion()
+  const scratchE = new THREE.Euler()
+  const scratchV = new THREE.Vector3()
+  function worldOf(parent) {
+    if (!parent) return scratch.identity()
+    if (!parentMatrices.has(parent)) {
+      parent.updateWorldMatrix(true, false)
+      parentMatrices.set(parent, parent.matrixWorld.clone())
+    }
+    return parentMatrices.get(parent)
+  }
+  function batch(parent, shape, colour, matrix, cast) {
+    const key = `${shape}|${new THREE.Color(colour).getHex()}|${cast ? 1 : 0}`
+    if (!batches.has(key)) batches.set(key, { shape, colour, cast, matrices: [], base: worldOf(parent) })
+    const entry = batches.get(key)
+    const copy = matrix.clone()
+    copy.premultiply(entry.base)
+    entry.matrices.push(copy)
+  }
+  // A bar from one point to another, in the parent's own space.
+  function seg(parent, a, b, thick, depth, colour, cast = true) {
+    const dx = b[0] - a[0]
+    const dy = b[1] - a[1]
+    const dz = b[2] - a[2]
+    const len = Math.hypot(dx, dy, dz)
+    if (len < 0.01) return
+    scratchQ.setFromUnitVectors(Z_AXIS, scratchV.set(dx, dy, dz).normalize())
+    scratch.compose(
+      scratchV.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2),
+      scratchQ,
+      scratchV.clone().set(thick, depth, len),
+    )
+    batch(parent, 'box', colour, scratch, cast)
+  }
+  // A copy of a unit shape, scaled and placed, in the parent's own space.
+  function shapeAt(parent, shape, colour, x, y, z, sx, sy, sz, cast = true) {
+    scratchQ.identity()
+    scratch.compose(scratchV.set(x, y, z), scratchQ, new THREE.Vector3(sx, sy, sz))
+    batch(parent, shape, colour, scratch, cast)
+  }
+  // An upright box, in the parent's own space.
+  function cube(parent, w, h, d, x, y, z, colour, cast = false, ry = 0) {
+    scratchE.set(0, ry, 0)
+    scratchQ.setFromEuler(scratchE)
+    scratch.compose(scratchV.set(x, y, z), scratchQ, new THREE.Vector3(w, h, d))
+    batch(parent, 'box', colour, scratch, cast)
+  }
+
+  // 瓦垄: the tile ridges running down each slope of a hipped roof, from the eave to the
+  // crest. `top` is where the eave sits; `ridge` is the half-length of the crest.
+  function tiles(p, w, d, top, h, ridge, colour) {
+    const light = shade(colour, -0.24)
+    const in0 = 0.06
+    const n = Math.max(4, Math.min(34, Math.round(w / 0.62)))
+    for (let i = 0; i < n; i += 1) {
+      const x = -w / 2 + w * (i + 0.5) / n
+      const crest = Math.max(-ridge, Math.min(ridge, x))
+      for (const s of [1, -1]) {
+        seg(p, [x, top + 0.02, s * (d / 2 - in0)], [crest, top + h - 0.03, 0], 0.075, 0.06, s > 0 ? light : shade(light, -0.05), false)
+      }
+    }
+    const m = Math.max(3, Math.min(12, Math.round(d / 0.8)))
+    for (const s of [1, -1]) {
+      for (let i = 0; i < m; i += 1) {
+        const z0 = -d / 2 + d * (i + 0.5) / m
+        seg(p, [s * (w / 2 - in0), top + 0.02, z0], [s * ridge, top + h - 0.03, 0], 0.06, 0.075, light, false)
+      }
+    }
+  }
+
+  // 檐角走兽: three little beasts walking up each corner of the eave.
+  function beasts(p, w, d, y, colour = '#e8b23a') {
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        for (let i = 0; i < 3; i += 1) {
+          const k = i / 2
+          const x = sx * (w / 2 - 0.16 - k * 0.46)
+          const z = sz * (d / 2 - 0.16 - k * 0.46)
+          cube(p, 0.13, 0.17, 0.17, x, y + 0.12 + k * 0.1, z, colour)
+          cube(p, 0.1, 0.1, 0.1, x, y + 0.26 + k * 0.1, z, shade(colour, 0.08))
+        }
+      }
+    }
+  }
+
+  // 汉白玉栏杆: the balustrade round a terrace, open before the steps.
+  function rails(g, tw, td, y, gap = 3.6) {
+    const h = 0.4
+    const line = (a, b, along) => {
+      const len = Math.hypot(b[0] - a[0], b[2] - a[2])
+      if (len < 0.35) return
+      const mid = [(a[0] + b[0]) / 2, y + h, (a[2] + b[2]) / 2]
+      if (along === 'x') {
+        cube(g, len, 0.07, 0.1, mid[0], mid[1], mid[2], '#f7f4ec')
+        cube(g, len, 0.05, 0.08, mid[0], y + h * 0.5, mid[2], '#ece6d8')
+      } else {
+        cube(g, 0.1, 0.07, len, mid[0], mid[1], mid[2], '#f7f4ec')
+        cube(g, 0.08, 0.05, len, mid[0], y + h * 0.5, mid[2], '#ece6d8')
+      }
+      const n = Math.max(2, Math.round(len / 1.1) + 1)
+      for (let i = 0; i < n; i += 1) {
+        const t = i / (n - 1)
+        cube(g, 0.1, h, 0.1, a[0] + (b[0] - a[0]) * t, y + h / 2, a[2] + (b[2] - a[2]) * t, '#f7f4ec')
+      }
+    }
+    const hx = tw / 2
+    const hz = td / 2
+    line([-hx, y, hz], [-gap / 2, y, hz], 'x')
+    line([gap / 2, y, hz], [hx, y, hz], 'x')
+    line([-hx, y, -hz], [hx, y, -hz], 'x')
+    line([-hx, y, -hz], [-hx, y, hz], 'z')
+    line([hx, y, -hz], [hx, y, hz], 'z')
+  }
+
+  // The tile courses of the lower roof: the same ridges, running up the skirt.
+  function courses(p, w, d, w1, d1, y, h, colour) {
+    const line = shade(colour, -0.3)
+    const n = Math.max(4, Math.min(30, Math.round(w / 0.62)))
+    for (let i = 0; i < n; i += 1) {
+      const t = (i + 0.5) / n
+      const x = -w / 2 + w * t
+      const xt = -w1 / 2 + w1 * t
+      for (const s of [1, -1]) seg(p, [x, y + 0.03, s * d / 2], [xt, y + h - 0.02, s * d1 / 2], 0.075, 0.06, line, false)
+    }
+    const m = Math.max(3, Math.min(14, Math.round(d / 0.62)))
+    for (let i = 0; i < m; i += 1) {
+      const t = (i + 0.5) / m
+      const z = -d / 2 + d * t
+      const zt = -d1 / 2 + d1 * t
+      for (const s of [1, -1]) seg(p, [s * w / 2, y + 0.03, z], [s * w1 / 2, y + h - 0.02, zt], 0.06, 0.075, line, false)
+    }
+  }
+
   function roof(p, w, d, y, colour, hh) {
     const dark = shade(colour, -0.16)
     add(p, B(w, 0.28, d), dark, 0, y + 0.14, 0)
@@ -123,10 +271,13 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     const w1 = w - d * 0.3
     const d1 = d * 0.7
     add(p, frustum(w, d, w1, d1, sk), colour, 0, y + 0.28, 0)
+    courses(p, w, d, w1, d1, y + 0.28, sk, colour)
     const top = y + 0.28 + sk
     const rh = hh * 0.72
     add(p, hipGeo(w1, d1, rh), colour, 0, top, 0)
     const r = Math.max(0, (w1 - d1) / 2)
+    tiles(p, w1, d1, top, rh, r, colour)
+    beasts(p, w, d, y + 0.28)
     if (r > 0.2) {
       add(p, B(2 * r + 0.5, 0.32, 0.32), dark, 0, top + rh, 0)
       add(p, B(0.32, 0.8, 0.32), dark, r + 0.15, top + rh + 0.3, 0)
@@ -134,7 +285,8 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     } else add(p, new THREE.SphereGeometry(0.35, 8, 6), '#e8b23a', 0, top + rh + 0.1, 0)
     return top + rh
   }
-  function plaque(p, text, x, y, z, w) {
+  // The 匾: one line of words, or two when the 部名 and its officials run long.
+  function plaque(p, words, x, y, z, w) {
     const cv = document.createElement('canvas')
     cv.width = 512
     cv.height = 176
@@ -146,13 +298,28 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     c.strokeStyle = '#f4d27a'
     c.lineWidth = 4
     c.strokeRect(24, 24, 464, 128)
-    let fs = 96
-    c.font = `${fs}px ${SERIF}`
-    while (c.measureText(text).width > 430 && fs > 40) { fs -= 6; c.font = `${fs}px ${SERIF}` }
+    const spec = typeof words === 'string' ? { title: words, officers: [], text: words } : (words ?? { title: '', officers: [], text: '' })
+    const names = spec.officers ?? []
+    const two = names.length > 0 && !!spec.title && String(spec.text ?? '').length > PLAQUE_LINE_MAX
+    const fit = (text, max, start) => {
+      let fs = start
+      c.font = `${fs}px ${SERIF}`
+      while (c.measureText(text).width > max && fs > 28) { fs -= 4; c.font = `${fs}px ${SERIF}` }
+      return fs
+    }
     c.fillStyle = '#f6d47c'
     c.textAlign = 'center'
     c.textBaseline = 'middle'
-    c.fillText(text, 256, 92)
+    if (two) {
+      fit(spec.title, 410, 58)
+      c.fillText(spec.title, 256, 60)
+      fit(names.join('、'), 410, 50)
+      c.fillText(names.join('、'), 256, 124)
+    } else {
+      const line = spec.text || spec.title
+      fit(line, 430, 96)
+      c.fillText(line, 256, 92)
+    }
     const texture = new THREE.CanvasTexture(cv)
     texture.anisotropy = maxAniso
     const material = new THREE.MeshBasicMaterial({ map: texture })
@@ -176,7 +343,10 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     pickables.push(m)
   }
 
-  function hall(b, name) {
+  function hall(b, words) {
+    const glowWin = toon({ color: 0xf1d48d, emissive: 0xffa53a, emissiveIntensity: 0.2 })
+    owned.push(glowWin)
+    windows.set(b.id, glowWin)
     const g = new THREE.Group()
     g.position.set(b.x, 0, b.z)
     statics.add(g)
@@ -193,6 +363,7 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
       add(g, B(tw, th, td), MARBLE, 0, y + th / 2, 0)
       add(g, B(tw + 0.1, 0.12, td + 0.1), '#e2dbcc', 0, y + th - 0.06, 0)
       y += th
+      rails(g, tw, td, y)
       topD = td
     }
     const run = y * 1.7
@@ -225,10 +396,10 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
       add(g, B(uw, 1.5, ud), wall, 0, yr + 1.9, 0)
       add(g, B(uw + 1, 0.4, ud + 1), BAND, 0, yr + 2.75, 0)
       top = roof(g, uw + 2.6, ud + 2.6, yr + 2.95, b.roof, hh)
-      plaque(g, name, 0, yr + 1.95, ud / 2 + 0.04, Math.min(3.6, uw * 0.4))
+      plaque(g, words, 0, yr + 1.95, ud / 2 + 0.04, Math.min(3.6, uw * 0.4))
     } else {
       top = roof(g, w + 3, d + 3, yr, b.roof, hh)
-      if (name) plaque(g, name, 0, y + h - 0.55, cz + 0.24, Math.min(3.4, w * 0.42))
+      if (words) plaque(g, words, 0, y + h - 0.55, cz + 0.24, Math.min(3.4, w * 0.42))
     }
     const fz = footOf(b) / 2 + 0.5 - run * 0.15
     lantern(g, 2.3, fz)
@@ -268,7 +439,7 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
   // 钦天监's 观星台: a stone platform with battlements and, on top, an armillary sphere
   // the scene turns while the 监正 works.
   const armillary = new THREE.Group()
-  function tower(b) {
+  function tower(b, words = b.name) {
     const g = new THREE.Group()
     g.position.set(b.x, 0, b.z)
     statics.add(g)
@@ -287,7 +458,7 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     add(g, C(0.15, 0.3, 1.4, 8), bronze, 0, 5.3, -0.8)
     add(g, C(0.15, 0.15, 1.6, 6), bronze, 2.3, 5.4, 1.6, { rz: 0.5 })
     add(g, B(1.2, 0.1, 1.2), bronze, 2.4, 5, 2, { rx: 0.4 })
-    plaque(g, b.name, 0, 3.25, 3.97, 2.6).rotation.x = -0.19
+    plaque(g, words, 0, 3.25, 3.97, 2.6).rotation.x = -0.19
     lantern(g, 2.2, 6)
     lantern(g, -2.2, 6)
     pick(g, B(9, 8, 9), 0, 4, 0, b.id)
@@ -306,9 +477,10 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
   for (const b of BUILDINGS) {
     if (b.spare && !spares.has(b.id)) continue
     const name = b.spare ? spares.get(b.id) : b.name
-    if (b.type === 'oct') octPavilion(b, 1, name)
-    else if (b.type === 'tower') tower(b)
-    else hall(b, name)
+    const words = plaques?.get(b.id) ?? name
+    if (b.type === 'oct') octPavilion(b, 1, words)
+    else if (b.type === 'tower') tower(b, words)
+    else hall(b, words)
   }
 
   // The throne on the 太和殿's terrace, empty: the Emperor is the one looking on.
@@ -474,11 +646,27 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     const reach = Math.abs(b.x) - (LANE_X - 2) + 5
     flat(reach, 3, (reach / 2 + LANE_X - 2) * Math.sign(b.x), hz)
   }
+  // Water: a ripple pattern that scrolls along the 金水河, a still sheen on the moat.
+  const waveTex = tex((c, s) => {
+    c.fillStyle = '#7cc3d8'
+    c.fillRect(0, 0, s, s)
+    for (let i = 0; i < 26; i += 1) {
+      const y = (i + 0.5) * s / 26
+      const w = s * (0.12 + ((i * 37) % 7) / 28)
+      c.strokeStyle = i % 3 ? 'rgba(196,236,247,.5)' : 'rgba(63,140,166,.45)'
+      c.lineWidth = i % 3 ? 2.4 : 3.4
+      c.beginPath()
+      c.moveTo(((i * 61) % s) - w / 2, y)
+      c.quadraticCurveTo(((i * 61) % s), y - 3.2, ((i * 61) % s) + w / 2, y)
+      c.stroke()
+    }
+  }, 256)
+  waveTex.repeat.set(6, 2)
+  const moatMat = toon({ color: 0xffffff, emissive: 0x2a6d86, emissiveIntensity: 0.12, map: waveTex })
+  owned.push(moatMat)
   {
-    const water = toon({ color: 0x7cc3d8, emissive: 0x2a6d86, emissiveIntensity: 0.15 })
-    owned.push(water)
     for (const [w, d, x, z] of [[2 * OX + 16, 5, 0, ON - 5.5], [5, OS - ON + 11, -OX - 5.5, (ON + OS) / 2], [5, OS - ON + 11, OX + 5.5, (ON + OS) / 2]]) {
-      const m = new THREE.Mesh(B(w, 0.2, d), water)
+      const m = new THREE.Mesh(B(w, 0.2, d), moatMat)
       m.position.set(x, 0.06, z)
       m.receiveShadow = true
       root.add(m)
@@ -491,8 +679,9 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     const f = x => 31.5 - x * x / 70
     const xs = []
     for (let x = -18; x <= 18; x += 1) xs.push(x)
-    const ribbon = (wd, y, material) => {
+    const ribbon = (wd, y, material, uv = false) => {
       const arr = []
+      const uvs = []
       const normal = (x) => { const dz = -2 * x / 70; const l = Math.hypot(1, dz); return [-dz / l, 1 / l] }
       for (let i = 0; i < xs.length - 1; i += 1) {
         const a = xs[i]
@@ -504,21 +693,31 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
         const B1 = [b + nbx * wd, y, f(b) + nbz * wd]
         const B2 = [b - nbx * wd, y, f(b) - nbz * wd]
         arr.push(...A1, ...A2, ...B1, ...B1, ...A2, ...B2)
+        const ua = (a + 18) / 36
+        const ub = (b + 18) / 36
+        uvs.push(ua, 0, ua, 1, ub, 0, ub, 0, ua, 1, ub, 1)
       }
       const g = new THREE.BufferGeometry()
       g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3))
+      if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
       g.computeVertexNormals()
       const nn = g.attributes.normal
       for (let i = 0; i < nn.count; i += 1) nn.setXYZ(i, 0, 1, 0)
       const m = new THREE.Mesh(g, material)
       m.receiveShadow = true
       root.add(m)
+      return m
     }
     const bank = toon({ color: 0xf3efe6, side: THREE.DoubleSide })
-    const water = toon({ color: 0x7cc3d8, emissive: 0x2a6d86, emissiveIntensity: 0.15, side: THREE.DoubleSide })
-    owned.push(bank, water)
+    const riverTex = waveTex.clone()
+    riverTex.needsUpdate = true
+    riverTex.wrapS = riverTex.wrapT = THREE.RepeatWrapping
+    riverTex.repeat.set(7, 1)
+    riverTex.anisotropy = maxAniso
+    const water = toon({ color: 0xffffff, emissive: 0x2a6d86, emissiveIntensity: 0.16, side: THREE.DoubleSide, map: riverTex })
+    owned.push(bank, water, riverTex)
     ribbon(1.9, 0.08, bank)
-    ribbon(1.45, 0.1, water)
+    river = ribbon(1.45, 0.1, water, true)
     for (const x of [-8, -4, 0, 4, 8]) {
       const z = f(x)
       const g = new THREE.Group()
@@ -538,11 +737,25 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
 
   // Woods outside the moat, a few trees inside, the garden's rocks and flower beds.
   const lowIco = r => new THREE.IcosahedronGeometry(r, 0)
+  // 树: a broad-leaved tree, now and then a pine or a flowering one, in three crowns so
+  // the leafage catches the light the way the painted roofs do.
   function tree(x, z, s, ci) {
-    const c = CROWNS[ci ?? Math.floor(rnd() * CROWNS.length)]
-    add(statics, C(0.18 * s, 0.28 * s, 1.6 * s, 6), '#8a5a3a', x, 0.8 * s, z)
-    add(statics, lowIco(1.4 * s), c, x, 2.4 * s, z)
-    add(statics, lowIco(0.95 * s), shade(c, 0.06), x + 0.6 * s, 3.1 * s, z - 0.3 * s)
+    const kind = ci ?? Math.floor(rnd() * 9)
+    const c = CROWNS[kind % CROWNS.length]
+    shapeAt(statics, 'trunk', '#7d5133', x, 0.75 * s, z, s, s, s)
+    if (kind % 9 === 7) {
+      for (let i = 0; i < 3; i += 1) {
+        const r = (1.5 - i * 0.3) * s
+        shapeAt(statics, 'cone', shade('#3f7d4f', i * 0.05), x, (2.05 + i * 0.72) * s, z, r, s, r)
+      }
+    } else if (kind % 9 === 8) {
+      shapeAt(statics, 'ico', '#f0c3cc', x, 2.35 * s, z, 1.2 * s, 1.2 * s, 1.2 * s)
+      shapeAt(statics, 'ico', '#f8e0e3', x - 0.5 * s, 2.9 * s, z + 0.3 * s, 0.76 * s, 0.76 * s, 0.76 * s)
+    } else {
+      shapeAt(statics, 'ico', c, x, 2.35 * s, z, 1.35 * s, 1.35 * s, 1.35 * s)
+      shapeAt(statics, 'ico', shade(c, 0.07), x + 0.6 * s, 3.0 * s, z - 0.32 * s, 0.92 * s, 0.92 * s, 0.92 * s)
+      shapeAt(statics, 'ico', shade(c, -0.04), x - 0.56 * s, 2.85 * s, z + 0.28 * s, 0.6 * s, 0.6 * s, 0.6 * s)
+    }
   }
   let placed = 0
   let guard = 0
@@ -610,6 +823,16 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
   root.remove(statics)
   root.remove(flats)
 
+  // Every repeated shape goes in as one instanced draw call.
+  for (const entry of batches.values()) {
+    const mesh = instanced(UNIT[entry.shape], mat(entry.colour), entry.matrices)
+    if (!mesh) continue
+    mesh.castShadow = entry.cast
+    mesh.receiveShadow = true
+    mesh.name = `court-${entry.shape}`
+    root.add(mesh)
+  }
+
   // Clouds drifting high over the city.
   const cloudMat = toon({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.25 })
   owned.push(cloudMat)
@@ -633,7 +856,7 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
   }
 
   return {
-    root, pickables, glowWin, glowLan, armillary, halo, clouds, cloudMat, grass, pave,
+    root, pickables, windows, glowLan, armillary, halo, clouds, cloudMat, grass, pave, river,
     throne: { y: ty, z: tz },
     dispose() {
       scene.remove(root)

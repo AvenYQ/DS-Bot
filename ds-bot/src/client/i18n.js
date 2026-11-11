@@ -1687,6 +1687,19 @@ const HOST_ZH = {
   'Stop {name}': '停止 {name}',
   '{name} · foreground': '{name} · 前台',
   '{name} waits for the computer': '{name} 等你停手',
+
+  // 值房图 (the court board): the preset views over the city and the minimap. Aven's rule
+  // for every word here: 13px or larger, weight 400 or more — never smaller, never a
+  // light or thin cut. The sizes themselves live in court-board/styles.js.
+  'Overview': '全景',
+  'The Cabinet': '内阁',
+  'The Six Ministries': '六部',
+  'Show the whole city': '看整座紫禁城',
+  'Show the Cabinet halls': '去内阁转转',
+  'Show the Six Ministries': '去六部瞧瞧',
+  'Minimap': '小地图',
+  'Click the minimap to look there': '点小地图，一步就到',
+  'Map of the court board, north up': '值房小地图，上方是北',
 }
 Object.assign(ZH, HOST_ZH)
 

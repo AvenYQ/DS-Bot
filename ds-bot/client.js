@@ -1736,12 +1736,12 @@ var HOST_ZH = {
   "Overview": "全景",
   "The Cabinet": "内阁",
   "The Six Ministries": "六部",
-  "Show the whole city": "看整座城",
-  "Show the Cabinet halls": "看内阁一带",
-  "Show the Six Ministries": "看六部衙门",
+  "Show the whole city": "看整座紫禁城",
+  "Show the Cabinet halls": "去内阁转转",
+  "Show the Six Ministries": "去六部瞧瞧",
   "Minimap": "小地图",
-  "Click the minimap to look there": "点小地图，镜头就过去",
-  "Map of the court board, north up": "值房图小地图，上方是北"
+  "Click the minimap to look there": "点小地图，一步就到",
+  "Map of the court board, north up": "值房小地图，上方是北"
 };
 Object.assign(ZH, HOST_ZH);
 var fill = (text, params) => params ? text.replace(/\{(\w+)\}/g, (match, name) => name in params ? String(params[name]) : match) : text;
@@ -3287,7 +3287,7 @@ function writeSidebar(value, storage = globalThis.localStorage) {
 
 // src/client/styles.js
 var SHELL_CSS = `
-body{--bt-im-telegram:#229ed9;--bt-im-weixin:#07c160;--bt-im-feishu:#3370ff;--bt-im-dingtalk:#1e88e5;--bt-im-wecom:#0082ef;--bt-im-qq:#e03e3e;--bt-im-discord:#5865f2;--bt-im-slack:#4a154b;--bt-im-mark-ink:#ffffff;--bt-qr-paper:#ffffff;--bt-qr-ink:#141414;--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-glass-bg:color-mix(in srgb,var(--bt-main) 78%,transparent);--bt-glass-border:rgba(255,255,255,.72);--bt-glass-rim:rgba(20,20,20,.09);--bt-glass-shadow:0 8px 28px -6px rgba(0,0,0,.08),0 2px 6px -1px rgba(0,0,0,.04),inset 0 1px 0 rgba(255,255,255,.82);--bt-accent-soft:color-mix(in srgb,var(--bt-accent) 14%,transparent);--bt-danger-soft:color-mix(in srgb,var(--bt-danger) 14%,transparent);--bt-danger-glow:color-mix(in srgb,var(--bt-danger) 24%,transparent);--bt-star-ink:#ffffff;--bt-cinnabar:#c62f2f;--bt-paper:#fff8ec;--bt-seal-ink:#2b2d31;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
+body{--bt-im-telegram:#229ed9;--bt-im-weixin:#07c160;--bt-im-feishu:#3370ff;--bt-im-dingtalk:#1e88e5;--bt-im-wecom:#0082ef;--bt-im-qq:#e03e3e;--bt-im-discord:#5865f2;--bt-im-slack:#4a154b;--bt-im-mark-ink:#ffffff;--bt-qr-paper:#ffffff;--bt-qr-ink:#141414;--bt-ink:#141414;--bt-danger:#e02135;--bt-ink-2:rgba(20,20,20,.6);--bt-ink-3:rgba(20,20,20,.36);--bt-bubble:#eeeeee;--bt-sidebar:#f7f7f7;--bt-main:#fcfcfc;--bt-line:rgba(20,20,20,.08);--bt-line-2:rgba(20,20,20,.15);--bt-line-weak:rgba(20,20,20,.1);--bt-hover:rgba(119,119,119,.09);--bt-active:rgba(119,119,119,.17);--bt-card:#ffffff;--bt-accent:#4d6bfe;--bt-green:#00c972;--bt-star:#ff9800;--bt-user:#070707;--bt-user-ink:#fcfcfc;--bt-tag-bg:rgba(20,20,20,.06);--bt-tag-ink:rgba(20,20,20,.56);--bt-knob:#ffffff;--bt-glass-bg:color-mix(in srgb,var(--bt-main) 78%,transparent);--bt-glass-border:rgba(255,255,255,.72);--bt-glass-rim:rgba(20,20,20,.09);--bt-glass-shadow:0 8px 28px -6px rgba(0,0,0,.08),0 2px 6px -1px rgba(0,0,0,.04),inset 0 1px 0 rgba(255,255,255,.82);--bt-accent-soft:color-mix(in srgb,var(--bt-accent) 14%,transparent);--bt-danger-soft:color-mix(in srgb,var(--bt-danger) 14%,transparent);--bt-danger-glow:color-mix(in srgb,var(--bt-danger) 24%,transparent);--bt-star-ink:#ffffff;--bt-cinnabar:#c62f2f;--bt-paper:#fff8ec;--bt-seal-ink:#2b2d31;--bt-mini-ground:rgba(240,226,196,.6);--bt-mini-wall:rgba(150,60,40,.5);--bt-mini-look:rgba(200,64,47,.16);--bt-mini-mark:#c8402f;--bt-mini-dot:#4a3a2a;--bt-mini-hall:#b8573f;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;--bt-font:var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 /* Text as Grok Bot sets it: the conversation one px larger than the shell's setting (15px
    by default, 24px lines), drawn with macOS's own smoothing instead of the thinner
    antialiased rendering, so Chinese reads fuller and crisper. The shell's size setting
@@ -3301,7 +3301,7 @@ html[data-bt-surface] body :is(.dsr_text,.dsr_text :is(p,li)):not(:is(h1,h2,h3,h
 /* iOS waits out a double-tap zoom on buttons; the plugin's own controls never zoom. */
 :is(.bt-tool,.bt-uaction,.bt-menu button,.bt-menu-item,.bt-icon-btn,.bt-round,.bt-pill,.bt-account,.bt-set-row,.bt-settings-item,.bt-react-strip button,.bt-palette-row,.bt-palette-clear,.bt-tab,.bt-ptab,.bt-ptab-x,.bt-bcard-x,.bt-plus,.bt-q-btn,.bt-q-x,.bt-x,.bt-nc-send,.bt-send,.bt-soft,.bt-mini,.bt-side-send,.bt-shape,.bt-swatch,.bt-color,.bt-newchat,.bt-task-day,.bt-task-remove,.bt-fb-btn){touch-action:manipulation}
 :is(.bt-round,.bt-you,.bt-account,.bt-color,.bt-color span,.bt-swatch,.bt-icon-btn,.bt-avatar-trigger,.bt-avatar-pencil,.bt-plus,.bt-mic,.bt-voice){corner-shape:round}
-body[data-ds-dark-theme]{--bt-im-telegram:#2ea8de;--bt-im-weixin:#17c96a;--bt-im-feishu:#4d84ff;--bt-im-dingtalk:#3d99ed;--bt-im-wecom:#2898f2;--bt-im-qq:#e85555;--bt-im-discord:#6e7bf2;--bt-im-slack:#7c4380;--bt-im-mark-ink:#ffffff;--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-glass-bg:color-mix(in srgb,var(--bt-main) 74%,transparent);--bt-glass-border:rgba(255,255,255,.13);--bt-glass-rim:rgba(255,255,255,.11);--bt-glass-shadow:0 12px 32px -6px rgba(0,0,0,.42),0 2px 8px -1px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.12);--bt-accent-soft:color-mix(in srgb,var(--bt-accent) 18%,transparent);--bt-danger-soft:color-mix(in srgb,var(--bt-danger) 18%,transparent);--bt-danger-glow:color-mix(in srgb,var(--bt-danger) 28%,transparent);--bt-cinnabar:#ef5b52;--bt-paper:#f4e7cf;--bt-seal-ink:#d9d6cf}
+body[data-ds-dark-theme]{--bt-im-telegram:#2ea8de;--bt-im-weixin:#17c96a;--bt-im-feishu:#4d84ff;--bt-im-dingtalk:#3d99ed;--bt-im-wecom:#2898f2;--bt-im-qq:#e85555;--bt-im-discord:#6e7bf2;--bt-im-slack:#7c4380;--bt-im-mark-ink:#ffffff;--bt-ink:#f2f2f2;--bt-ink-2:rgba(242,242,242,.6);--bt-ink-3:rgba(242,242,242,.36);--bt-bubble:#262626;--bt-sidebar:#1b1b1b;--bt-main:#141414;--bt-line:rgba(255,255,255,.08);--bt-line-2:rgba(255,255,255,.15);--bt-line-weak:rgba(255,255,255,.1);--bt-hover:rgba(160,160,160,.12);--bt-active:rgba(160,160,160,.2);--bt-card:#1f1f1f;--bt-user:#f2f2f2;--bt-user-ink:#141414;--bt-tag-bg:rgba(255,255,255,.09);--bt-tag-ink:rgba(242,242,242,.62);--bt-glass-bg:color-mix(in srgb,var(--bt-main) 74%,transparent);--bt-glass-border:rgba(255,255,255,.13);--bt-glass-rim:rgba(255,255,255,.11);--bt-glass-shadow:0 12px 32px -6px rgba(0,0,0,.42),0 2px 8px -1px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.12);--bt-accent-soft:color-mix(in srgb,var(--bt-accent) 18%,transparent);--bt-danger-soft:color-mix(in srgb,var(--bt-danger) 18%,transparent);--bt-danger-glow:color-mix(in srgb,var(--bt-danger) 28%,transparent);--bt-cinnabar:#ef5b52;--bt-paper:#f4e7cf;--bt-seal-ink:#d9d6cf;--bt-mini-ground:rgba(236,226,206,.16);--bt-mini-wall:rgba(230,180,150,.45);--bt-mini-look:rgba(239,91,82,.2);--bt-mini-mark:#ef5b52;--bt-mini-dot:#e8e2d6;--bt-mini-hall:#8a6a58}
 ${Object.entries(INKS).map(([name, [light]]) => `body{--bt-ink-${name}:${light}}`).join("")}
 ${Object.entries(INKS).map(([name, [, dark]]) => `body[data-ds-dark-theme]{--bt-ink-${name}:${dark}}`).join("")}
 .bt-mark{display:inline-block;flex:none;position:relative;line-height:0}
@@ -16300,6 +16300,88 @@ var nameOf2 = (bot) => {
   const cut = name.lastIndexOf("·");
   return cut >= 0 && cut < name.length - 1 ? name.slice(cut + 1) : name;
 };
+
+// src/client/court-board/layout.js
+var WALL = { x: 60, north: -74, south: 41.4 };
+var LANE_X = 21;
+var CROSS_Z = 37;
+var Y = "#f2b630";
+var GREEN = "#3f9a6b";
+var SLATE = "#6f8aa6";
+var TEAL = "#3a8f95";
+var DARK = "#4b4c63";
+var RED = "#c4412e";
+var BUILDINGS = [
+  { id: "taihe", name: "太和殿", x: 0, z: -10, w: 22, d: 11, h: 4.2, roof: Y, tiers: 3, dbl: true, wall: RED, palace: true },
+  { id: "taihemen", name: "太和门", x: 0, z: 24, w: 12, d: 5, h: 3.2, roof: Y, tiers: 1, wall: RED, palace: true },
+  { id: "qianqing", name: "乾清宫", x: 0, z: -38, w: 15, d: 8, h: 3.6, roof: Y, tiers: 2, dbl: true, wall: RED, palace: true },
+  { id: "neige", name: "文渊阁", x: 37, z: -6, w: 12, d: 7, h: 3.4, roof: GREEN },
+  { id: "gongbu", name: "工部", x: 30, z: 14, roof: SLATE },
+  { id: "hubu", name: "户部", x: 44, z: 14, roof: SLATE },
+  { id: "xingbu", name: "刑部", x: 30, z: 30, roof: SLATE },
+  { id: "libu", name: "礼部", x: 44, z: 30, roof: SLATE },
+  { id: "nanshufang", name: "南书房", x: 30, z: -24, w: 8, d: 5.5, roof: Y, wall: RED },
+  { id: "jingyan", name: "文华殿", x: 44, z: -24, roof: GREEN, wall: RED },
+  { id: "neiwufu", name: "内承运库", x: 30, z: -44, roof: Y, wall: RED },
+  { id: "duzhi", name: "都知监", x: 44, z: -44, roof: Y, wall: RED },
+  { id: "zhenfu", name: "锦衣卫", x: -37, z: 30, w: 13, d: 7, roof: DARK },
+  { id: "jinzou", name: "通政司", x: -30, z: -6, roof: TEAL },
+  { id: "tongwen", name: "四夷馆", x: -44, z: -6, roof: GREEN },
+  { id: "liju", name: "历局", x: -30, z: -24, roof: TEAL },
+  { id: "sitian", name: "钦天监", x: -44, z: -24, type: "tower" },
+  { id: "hanlin", name: "翰林院", x: -30, z: 14, roof: GREEN },
+  { id: "guozi", name: "国子监", x: -44, z: 14, roof: GREEN },
+  { id: "taiyi", name: "太医院", x: -30, z: -44, roof: TEAL },
+  { id: "taishi", name: "御用监", x: -44, z: -44, type: "oct", roof: TEAL },
+  { id: "spare1", name: "", x: 30, z: -60, roof: SLATE, spare: true },
+  { id: "spare2", name: "", x: -30, z: -60, roof: GREEN, spare: true },
+  { id: "spare3", name: "", x: 44, z: -60, roof: TEAL, spare: true },
+  { id: "spare4", name: "", x: -44, z: -60, roof: SLATE, spare: true }
+].map((b) => ({ w: 9, d: 6, h: 3, ...b }));
+var BUILDING = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
+var SPARES = BUILDINGS.filter((b) => b.spare).map((b) => b.id);
+function footOf(b) {
+  if (b.type === "oct" || b.type === "tower") return 9;
+  const tiers = b.tiers ?? 1;
+  const rise = tiers * 0.7;
+  return b.d + 2 + tiers * 1.6 * 0.8 + rise * 1.7 * 0.3;
+}
+function homeOf(b, offset = 0) {
+  return { x: b.x + offset, z: b.z + footOf(b) / 2 + 3.2 };
+}
+function footprint(b) {
+  if (b.type === "oct") return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 };
+  if (b.type === "tower") return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 };
+  const tiers = b.tiers ?? 1;
+  const w = b.w + 2 + tiers * 1.6;
+  const foot = footOf(b);
+  return { minX: b.x - w / 2, maxX: b.x + w / 2, minZ: b.z - (b.d + 3) / 2, maxZ: b.z + foot / 2 };
+}
+function courtSlot(room2, side, index) {
+  const s = side === "E" ? 1 : -1;
+  const base = room2 % 2 === 0 ? 4.2 : -26;
+  return { x: s * (4.6 + index % 2 * 3.6), z: base + Math.floor(index / 2) * 3.4 };
+}
+var sideOf = (x) => Math.abs(x) < 12 ? 0 : Math.sign(x);
+function walkPath(from, to) {
+  const a = sideOf(from.x);
+  const b = sideOf(to.x);
+  const laneA = (a || b || 1) * LANE_X;
+  const laneB = b === 0 ? laneA : b * LANE_X;
+  const path2 = [{ x: from.x, z: from.z }, { x: from.x, z: from.z + 3 }, { x: laneA, z: from.z + 3 }];
+  if (laneA !== laneB) path2.push({ x: laneA, z: CROSS_Z }, { x: laneB, z: CROSS_Z });
+  if (b === 0) path2.push({ x: laneB, z: to.z });
+  else path2.push({ x: laneB, z: to.z + 3 }, { x: to.x, z: to.z + 3 });
+  path2.push({ x: to.x, z: to.z });
+  return path2.filter((p, i, all) => i === 0 || Math.hypot(p.x - all[i - 1].x, p.z - all[i - 1].z) > 0.01);
+}
+var PATROL = [
+  { x: -WALL.x, z: WALL.south - 2 },
+  { x: -WALL.x, z: WALL.north },
+  { x: WALL.x, z: WALL.north },
+  { x: WALL.x, z: WALL.south - 2 }
+];
+var WALL_TOP = 4.5;
 
 // src/client/court-board/decree.js
 var WINDOW_MS = 1e4;
@@ -60964,88 +61046,6 @@ function interceptControlUp(event) {
   }
 }
 
-// src/client/court-board/layout.js
-var WALL = { x: 60, north: -74, south: 41.4 };
-var LANE_X = 21;
-var CROSS_Z = 37;
-var Y = "#f2b630";
-var GREEN = "#3f9a6b";
-var SLATE = "#6f8aa6";
-var TEAL = "#3a8f95";
-var DARK = "#4b4c63";
-var RED = "#c4412e";
-var BUILDINGS = [
-  { id: "taihe", name: "太和殿", x: 0, z: -10, w: 22, d: 11, h: 4.2, roof: Y, tiers: 3, dbl: true, wall: RED, palace: true },
-  { id: "taihemen", name: "太和门", x: 0, z: 24, w: 12, d: 5, h: 3.2, roof: Y, tiers: 1, wall: RED, palace: true },
-  { id: "qianqing", name: "乾清宫", x: 0, z: -38, w: 15, d: 8, h: 3.6, roof: Y, tiers: 2, dbl: true, wall: RED, palace: true },
-  { id: "neige", name: "文渊阁", x: 37, z: -6, w: 12, d: 7, h: 3.4, roof: GREEN },
-  { id: "gongbu", name: "工部", x: 30, z: 14, roof: SLATE },
-  { id: "hubu", name: "户部", x: 44, z: 14, roof: SLATE },
-  { id: "xingbu", name: "刑部", x: 30, z: 30, roof: SLATE },
-  { id: "libu", name: "礼部", x: 44, z: 30, roof: SLATE },
-  { id: "nanshufang", name: "南书房", x: 30, z: -24, w: 8, d: 5.5, roof: Y, wall: RED },
-  { id: "jingyan", name: "文华殿", x: 44, z: -24, roof: GREEN, wall: RED },
-  { id: "neiwufu", name: "内承运库", x: 30, z: -44, roof: Y, wall: RED },
-  { id: "duzhi", name: "都知监", x: 44, z: -44, roof: Y, wall: RED },
-  { id: "zhenfu", name: "锦衣卫", x: -37, z: 30, w: 13, d: 7, roof: DARK },
-  { id: "jinzou", name: "通政司", x: -30, z: -6, roof: TEAL },
-  { id: "tongwen", name: "四夷馆", x: -44, z: -6, roof: GREEN },
-  { id: "liju", name: "历局", x: -30, z: -24, roof: TEAL },
-  { id: "sitian", name: "钦天监", x: -44, z: -24, type: "tower" },
-  { id: "hanlin", name: "翰林院", x: -30, z: 14, roof: GREEN },
-  { id: "guozi", name: "国子监", x: -44, z: 14, roof: GREEN },
-  { id: "taiyi", name: "太医院", x: -30, z: -44, roof: TEAL },
-  { id: "taishi", name: "御用监", x: -44, z: -44, type: "oct", roof: TEAL },
-  { id: "spare1", name: "", x: 30, z: -60, roof: SLATE, spare: true },
-  { id: "spare2", name: "", x: -30, z: -60, roof: GREEN, spare: true },
-  { id: "spare3", name: "", x: 44, z: -60, roof: TEAL, spare: true },
-  { id: "spare4", name: "", x: -44, z: -60, roof: SLATE, spare: true }
-].map((b) => ({ w: 9, d: 6, h: 3, ...b }));
-var BUILDING = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
-var SPARES = BUILDINGS.filter((b) => b.spare).map((b) => b.id);
-function footOf(b) {
-  if (b.type === "oct" || b.type === "tower") return 9;
-  const tiers = b.tiers ?? 1;
-  const rise = tiers * 0.7;
-  return b.d + 2 + tiers * 1.6 * 0.8 + rise * 1.7 * 0.3;
-}
-function homeOf(b, offset = 0) {
-  return { x: b.x + offset, z: b.z + footOf(b) / 2 + 3.2 };
-}
-function footprint(b) {
-  if (b.type === "oct") return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 };
-  if (b.type === "tower") return { minX: b.x - 4.6, maxX: b.x + 4.6, minZ: b.z - 4.6, maxZ: b.z + 4.6 };
-  const tiers = b.tiers ?? 1;
-  const w = b.w + 2 + tiers * 1.6;
-  const foot = footOf(b);
-  return { minX: b.x - w / 2, maxX: b.x + w / 2, minZ: b.z - (b.d + 3) / 2, maxZ: b.z + foot / 2 };
-}
-function courtSlot(room2, side, index) {
-  const s = side === "E" ? 1 : -1;
-  const base = room2 % 2 === 0 ? 4.2 : -26;
-  return { x: s * (4.6 + index % 2 * 3.6), z: base + Math.floor(index / 2) * 3.4 };
-}
-var sideOf = (x) => Math.abs(x) < 12 ? 0 : Math.sign(x);
-function walkPath(from, to) {
-  const a = sideOf(from.x);
-  const b = sideOf(to.x);
-  const laneA = (a || b || 1) * LANE_X;
-  const laneB = b === 0 ? laneA : b * LANE_X;
-  const path2 = [{ x: from.x, z: from.z }, { x: from.x, z: from.z + 3 }, { x: laneA, z: from.z + 3 }];
-  if (laneA !== laneB) path2.push({ x: laneA, z: CROSS_Z }, { x: laneB, z: CROSS_Z });
-  if (b === 0) path2.push({ x: laneB, z: to.z });
-  else path2.push({ x: laneB, z: to.z + 3 }, { x: to.x, z: to.z + 3 });
-  path2.push({ x: to.x, z: to.z });
-  return path2.filter((p, i, all) => i === 0 || Math.hypot(p.x - all[i - 1].x, p.z - all[i - 1].z) > 0.01);
-}
-var PATROL = [
-  { x: -WALL.x, z: WALL.south - 2 },
-  { x: -WALL.x, z: WALL.north },
-  { x: WALL.x, z: WALL.north },
-  { x: WALL.x, z: WALL.south - 2 }
-];
-var WALL_TOP = 4.5;
-
 // node_modules/three/examples/jsm/utils/BufferGeometryUtils.js
 function computeMikkTSpaceTangents(geometry, MikkTSpace, negateSign = true) {
   if (!MikkTSpace || !MikkTSpace.isReady) {
@@ -61878,6 +61878,396 @@ function plaquesFor(cast = []) {
   return plaques;
 }
 
+// src/client/court-board/weather.js
+var URL2 = "https://api.open-meteo.com/v1/forecast?latitude=32.06&longitude=118.8&current=temperature_2m,weather_code&timezone=Asia%2FShanghai";
+function weatherOf(code) {
+  if (code === 0 || code === 1) return { kind: "clear", word: "晴" };
+  if (code === 2) return { kind: "cloudy", word: "多云" };
+  if (code === 3) return { kind: "cloudy", word: "阴" };
+  if (code === 45 || code === 48) return { kind: "fog", word: "雾" };
+  if (code >= 51 && code <= 57) return { kind: "rain", word: "毛毛雨" };
+  if (code === 61 || code === 80) return { kind: "rain", word: "小雨" };
+  if (code === 63 || code === 81 || code === 66) return { kind: "rain", word: "中雨" };
+  if (code === 65 || code === 82 || code === 67) return { kind: "rain", word: "大雨" };
+  if (code >= 71 && code <= 77 || code === 85 || code === 86) return { kind: "snow", word: code === 75 || code === 86 ? "大雪" : "小雪" };
+  if (code >= 95) return { kind: "storm", word: "雷雨" };
+  return { kind: "clear", word: "" };
+}
+var LOOKS = {
+  clear: { overcast: 0, fogNear: 170, fogFar: 380, fall: null },
+  cloudy: { overcast: 0.35, fogNear: 150, fogFar: 330, fall: null },
+  fog: { overcast: 0.5, fogNear: 55, fogFar: 210, fall: null },
+  rain: { overcast: 0.75, fogNear: 90, fogFar: 260, fall: { kind: "rain", count: 1600, speed: 55, size: 0.32, opacity: 0.55 } },
+  storm: { overcast: 0.9, fogNear: 70, fogFar: 230, fall: { kind: "rain", count: 2200, speed: 78, size: 0.3, opacity: 0.65 } },
+  snow: { overcast: 0.55, fogNear: 80, fogFar: 250, fall: { kind: "snow", count: 1800, speed: 4.2, size: 0.45, opacity: 0.95, sway: 0.7 } }
+};
+function weatherLook(weather) {
+  const look = LOOKS[weather?.kind] ?? LOOKS.clear;
+  return look.fall ? { ...look, fall: { ...look.fall } } : { ...look };
+}
+async function fetchWeather(fetcher = globalThis.fetch) {
+  try {
+    const response = await fetcher(URL2);
+    if (!response.ok) return null;
+    const body = await response.json();
+    const current = body?.current;
+    if (typeof current?.weather_code !== "number") return null;
+    return { ...weatherOf(current.weather_code), temp: Math.round(current.temperature_2m) };
+  } catch {
+    return null;
+  }
+}
+
+// src/client/court-board/render.js
+var smooth = (a, b, x) => {
+  const t2 = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t2 * t2 * (3 - 2 * t2);
+};
+var mixColour = (a, b, t2) => new Color(a).lerp(new Color(b), t2);
+var hexOf = (colour) => typeof colour === "number" ? colour : parseInt(String(colour).replace("#", ""), 16);
+var FAMILY_FLAG = "courtRenderFamily";
+var ADOPTED_FLAG = "courtRenderAdopted";
+var FAMILIES = null;
+function palette() {
+  if (FAMILIES) return FAMILIES;
+  FAMILIES = /* @__PURE__ */ new Map();
+  for (const colour of ROOF_COLOURS) FAMILIES.set(hexOf(colour), "roof");
+  for (const colour of CROWNS) FAMILIES.set(hexOf(colour), "roof");
+  for (const colour of ["#c4412e", "#b8573f", "#b3382a"]) FAMILIES.set(hexOf(colour), "wall");
+  FAMILIES.set(hexOf("#f3efe6"), "marble");
+  FAMILIES.set(hexOf("#ffffff"), "pave");
+  FAMILIES.set(hexOf("#a9cf87"), "grass");
+  return FAMILIES;
+}
+var GRADE = {
+  roof: { warm: 0.22, cool: 0.18, warmColour: "#ffb27a", coolColour: "#8fa0d6" },
+  wall: { warm: 0.16, cool: 0.2, warmColour: "#ff9a6a", coolColour: "#6d7bb3" },
+  marble: { warm: 0.24, cool: 0.22, warmColour: "#ffd9ae", coolColour: "#aeb8e0" }
+};
+var SNOW = { roof: 0.6, grass: "#e9eef1", pave: "#f1f3f5" };
+var GLOW = /* @__PURE__ */ new Map([
+  [hexOf("#f1d48d"), { low: 0.12, high: 0.9 }],
+  [hexOf("#e2442e"), { low: 0.25, high: 1.1 }]
+]);
+var QUALITY = {
+  high: { ratio: 2, shadow: 2048, fall: 1 },
+  low: { ratio: 1.25, shadow: 1024, fall: 0.5 }
+};
+function instanced(geometry, material, matrices = []) {
+  if (!geometry || !material) throw new TypeError("instanced() needs a geometry and a material");
+  const mesh = new InstancedMesh(geometry, material, Math.max(1, matrices.length));
+  const matrix = new Matrix4();
+  matrices.forEach((entry, index) => {
+    if (entry?.isMatrix4) matrix.copy(entry);
+    else matrix.fromArray(entry);
+    mesh.setMatrixAt(index, matrix);
+  });
+  mesh.count = matrices.length;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (matrices.length > 0) mesh.computeBoundingSphere();
+  return mesh;
+}
+var COURT2 = new Vector3(0, 0, -14);
+function createRenderKit({ renderer, scene, camera, still = false, glow = true } = {}) {
+  if (!renderer || !scene) throw new TypeError("createRenderKit needs a renderer and a scene");
+  const materials = /* @__PURE__ */ new Map();
+  const glowMaterials = /* @__PURE__ */ new Map();
+  let glowOn = glow !== false;
+  let sun = null;
+  let hemi = null;
+  let quality = "high";
+  let fall = null;
+  let awake = 1.2;
+  let fps = 60;
+  let slow = 0;
+  let clock4 = { hour: 12, weather: { kind: "clear" } };
+  let lastGrade = { kind: "clear", warm: 0, night: 0 };
+  let disposed = false;
+  let lastCameraMatrix = camera ? new Matrix4().copy(camera.matrixWorld) : null;
+  let battery = null;
+  let batteryListener = null;
+  scene.traverse((object) => {
+    if (object.isDirectionalLight && !sun) sun = object;
+    else if (object.isHemisphereLight && !hemi) hemi = object;
+  });
+  function materialsOf(object) {
+    const material = object.material;
+    if (!material) return [];
+    return Array.isArray(material) ? material : [material];
+  }
+  function convert(material) {
+    material.userData = material.userData || {};
+    material.userData[ADOPTED_FLAG] = true;
+    material.color.convertSRGBToLinear();
+    if (material.emissive?.isColor) material.emissive.convertSRGBToLinear();
+    if (material.specular?.isColor) material.specular.convertSRGBToLinear();
+    for (const map of [material.map, material.emissiveMap]) {
+      if (map && !map.isDataTexture) map.colorSpace = SRGBColorSpace;
+    }
+    const entry = materials.get(material.uuid);
+    if (entry) entry.base.copy(material.color);
+  }
+  function adopt() {
+    ColorManagement.enabled = false;
+    const pending = [];
+    scene.traverse((object) => {
+      for (const material of materialsOf(object)) {
+        if (!material.color || materials.has(material.uuid)) continue;
+        const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null;
+        materials.set(material.uuid, { material, family, base: material.color.clone() });
+        const lit = GLOW.get(material.color.getHex());
+        if (lit) glowMaterials.set(material.uuid, { material, lit });
+        if (!material.userData?.[ADOPTED_FLAG]) pending.push(material);
+      }
+    });
+    ColorManagement.enabled = true;
+    for (const material of pending) convert(material);
+  }
+  adopt();
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
+  applyQuality();
+  function grade(kind, warm, night) {
+    const snowing = kind === "snow";
+    for (const { material, family, base } of materials.values()) {
+      if (!family) continue;
+      if (family === "grass" || family === "pave") {
+        if (snowing) material.color.set(family === "grass" ? SNOW.grass : SNOW.pave);
+        else material.color.copy(base);
+        continue;
+      }
+      const gradeOf = GRADE[family];
+      if (!gradeOf) continue;
+      material.color.copy(base).lerp(new Color(gradeOf.warmColour), warm * gradeOf.warm).lerp(new Color(gradeOf.coolColour), night * gradeOf.cool);
+      if (family === "roof" && snowing) material.color.lerp(new Color("#ffffff"), SNOW.roof);
+    }
+  }
+  function applyGlow(night) {
+    for (const { material, lit } of glowMaterials.values()) {
+      material.emissiveIntensity = glowOn ? lit.low + lit.high * night : 0;
+    }
+  }
+  function setGlow(on = true) {
+    glowOn = on !== false;
+    applyGlow(lastGrade.night);
+    wake(0.3);
+  }
+  function setClock(hour = 12, weather = { kind: "clear" }) {
+    if (disposed) return;
+    clock4 = { hour, weather };
+    const look = weatherLook(weather);
+    const day = smooth(5.6, 7.2, hour) * (1 - smooth(17.2, 18.9, hour));
+    const dusk = Math.max(Math.exp(-((hour - 6.4) ** 2) / 0.5), Math.exp(-((hour - 17.9) ** 2) / 0.5));
+    const overcast = look.overcast;
+    const night = Math.max(1 - day, overcast * 0.4);
+    const warm = dusk * (1 - overcast);
+    if (sun) {
+      sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55) * Math.PI;
+      sun.color.copy(mixColour("#8ea4e0", "#ffffff", day).lerp(new Color("#ffb27a"), warm * 0.6));
+      const a = Math.min(1, Math.max(0, (hour - 6) / 12)) * Math.PI;
+      if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50);
+      else sun.position.set(-30, 80, 40);
+    }
+    if (hemi) {
+      hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2) * Math.PI;
+      hemi.color.copy(mixColour("#6d7bb3", "#dff2ff", day));
+      hemi.groundColor.copy(mixColour("#2c2a3d", "#b9a782", day));
+    }
+    renderer.toneMappingExposure = 1.08 + 0.16 * night;
+    const fogColour = mixColour("#33406e", "#eaf5f1", day).lerp(new Color("#fcd9ae"), warm * 0.7).lerp(mixColour("#1d2333", "#c5cdd3", day), overcast);
+    if (!scene.fog) scene.fog = new Fog(fogColour, look.fogNear, look.fogFar);
+    scene.fog.color.copy(fogColour);
+    scene.fog.near = look.fogNear;
+    scene.fog.far = look.fogFar;
+    lastGrade = { kind: weather?.kind ?? "clear", warm, night };
+    grade(lastGrade.kind, warm, night);
+    applyGlow(night);
+    setFall(look);
+    wake(0.4);
+  }
+  function clearFall() {
+    if (!fall) return;
+    scene.remove(fall.group);
+    fall.geometry.dispose();
+    fall.material.dispose();
+    fall = null;
+  }
+  function setFall(look, force = false) {
+    const want = look.fall;
+    if (!want) {
+      clearFall();
+      return;
+    }
+    const count = Math.max(120, Math.round(want.count * QUALITY[quality].fall));
+    if (!force && fall && fall.kind === want.kind && fall.count === count) return;
+    clearFall();
+    const group = new Group();
+    group.name = "court-fall";
+    const positions = new Float32Array(count * (want.kind === "snow" ? 3 : 6));
+    for (let i = 0; i < count; i += 1) {
+      const x = (Math.random() - 0.5) * 170 + COURT2.x;
+      const y = Math.random() * 60;
+      const z = (Math.random() - 0.5) * 160 + COURT2.z;
+      if (want.kind === "snow") positions.set([x, y, z], i * 3);
+      else positions.set([x, y, z, x - 0.16, y - 1.6, z + 0.12], i * 6);
+    }
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("position", new BufferAttribute(positions, 3));
+    const material = want.kind === "snow" ? new PointsMaterial({ color: 16777215, size: want.size, transparent: true, opacity: want.opacity, depthWrite: false }) : new LineBasicMaterial({ color: 12900070, transparent: true, opacity: want.opacity });
+    const object = want.kind === "snow" ? new Points(geometry, material) : new LineSegments(geometry, material);
+    object.frustumCulled = false;
+    group.add(object);
+    scene.add(group);
+    fall = {
+      kind: want.kind,
+      count,
+      group,
+      geometry,
+      material,
+      speed: want.speed,
+      sway: want.sway ?? 0,
+      phase: 0,
+      positions,
+      attribute: geometry.getAttribute("position")
+    };
+    wake();
+  }
+  function advance(dt) {
+    if (!fall) return;
+    const { positions, attribute, speed } = fall;
+    if (fall.kind === "snow") {
+      fall.phase += dt;
+      for (let i = 0; i < fall.count; i += 1) {
+        const at = i * 3;
+        positions[at + 1] -= speed * dt;
+        positions[at] += Math.sin(fall.phase * 0.8 + i) * fall.sway * dt;
+        if (positions[at + 1] < 0) {
+          positions[at + 1] += 60;
+          positions[at] = (Math.random() - 0.5) * 170 + COURT2.x;
+        }
+      }
+    } else {
+      const drop = speed * dt;
+      for (let i = 0; i < fall.count; i += 1) {
+        const at = i * 6;
+        positions[at + 1] -= drop;
+        positions[at + 4] -= drop;
+        if (positions[at + 1] < 0) {
+          positions[at + 1] += 60;
+          positions[at + 4] += 60;
+        }
+      }
+    }
+    attribute.needsUpdate = true;
+  }
+  function applyQuality() {
+    const level = QUALITY[quality];
+    const dpr = Math.min(globalThis.devicePixelRatio || 1, level.ratio);
+    if (renderer.setPixelRatio) renderer.setPixelRatio(dpr);
+    if (renderer.getSize && renderer.setSize) {
+      const size = renderer.getSize(new Vector2());
+      if (size.x > 0 && size.y > 0) renderer.setSize(size.x, size.y, false);
+    }
+    if (sun?.shadow) {
+      if (sun.shadow.mapSize.x !== level.shadow) {
+        sun.shadow.mapSize.set(level.shadow, level.shadow);
+        sun.shadow.map?.dispose();
+        sun.shadow.map = null;
+      }
+    }
+  }
+  function setQuality(next) {
+    if (next !== "high" && next !== "low") throw new RangeError("quality is 'high' or 'low'");
+    if (next === quality) return;
+    quality = next;
+    applyQuality();
+    setFall(weatherLook(clock4.weather), true);
+    wake();
+  }
+  function wake(seconds = 1.2) {
+    awake = Math.max(awake, seconds);
+  }
+  function cameraMoved() {
+    if (!camera || !lastCameraMatrix) return false;
+    if (lastCameraMatrix.equals(camera.matrixWorld)) return false;
+    lastCameraMatrix.copy(camera.matrixWorld);
+    return true;
+  }
+  function shouldRender(dt = 0.016) {
+    const step = Math.min(0.1, Math.max(0, Number(dt) || 0));
+    if (step > 0) {
+      fps += (1 / step - fps) * 0.12;
+      if (quality === "high" && fps < 42) {
+        slow += 1;
+        if (slow >= 45) setQuality("low");
+      } else {
+        slow = 0;
+      }
+    }
+    if (cameraMoved()) wake(0.3);
+    const moving = fall !== null && !still;
+    if (moving) advance(step);
+    awake = Math.max(0, awake - step);
+    return moving || awake > 0;
+  }
+  function refresh() {
+    if (disposed) return 0;
+    let added = 0;
+    scene.traverse((object) => {
+      for (const material of materialsOf(object)) {
+        if (!material.color || materials.has(material.uuid)) continue;
+        const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null;
+        materials.set(material.uuid, { material, family, base: material.color.clone() });
+        const lit = GLOW.get(material.color.getHex());
+        if (lit) glowMaterials.set(material.uuid, { material, lit });
+        material.userData = material.userData || {};
+        material.userData[FAMILY_FLAG] = family;
+        material.userData[ADOPTED_FLAG] = true;
+        for (const map of [material.map, material.emissiveMap]) {
+          if (map && !map.isDataTexture) map.colorSpace = SRGBColorSpace;
+        }
+        added += 1;
+      }
+    });
+    if (added > 0) {
+      grade(lastGrade.kind, lastGrade.warm, lastGrade.night);
+      applyGlow(lastGrade.night);
+    }
+    return added;
+  }
+  function watchBattery() {
+    if (typeof navigator === "undefined" || typeof navigator.getBattery !== "function") return;
+    navigator.getBattery().then((manager) => {
+      if (disposed) return;
+      battery = manager;
+      batteryListener = () => {
+        if (!battery.charging && battery.level <= 0.35) setQuality("low");
+      };
+      battery.addEventListener?.("levelchange", batteryListener);
+      battery.addEventListener?.("chargingchange", batteryListener);
+      batteryListener();
+    }).catch(() => {
+    });
+  }
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    clearFall();
+    if (battery && batteryListener) {
+      battery.removeEventListener?.("levelchange", batteryListener);
+      battery.removeEventListener?.("chargingchange", batteryListener);
+    }
+    battery = null;
+    batteryListener = null;
+    materials.clear();
+  }
+  watchBattery();
+  return { setClock, wake, shouldRender, setQuality, refresh, setGlow, instanced, dispose };
+}
+
 // src/client/court-board/palace.js
 var Y2 = "#f2b630";
 var RED2 = "#c4412e";
@@ -61925,10 +62315,10 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   const statics = new Group();
   const flats = new Group();
   const owned = [];
-  const glowWin = toon({ color: 15848589, emissive: 16753978, emissiveIntensity: 0.2 });
   const glowLan = toon({ color: 14828590, emissive: 16734762, emissiveIntensity: 0.3 });
+  const windows = /* @__PURE__ */ new Map();
   const pickMat = new MeshBasicMaterial({ visible: false });
-  owned.push(glowWin, glowLan, pickMat);
+  owned.push(glowLan, pickMat);
   const pickables = [];
   const rnd = seeded(7);
   let river = null;
@@ -61971,20 +62361,59 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     g.computeVertexNormals();
     return g;
   }
+  const UNIT = {
+    box: new BoxGeometry(1, 1, 1),
+    ico: new IcosahedronGeometry(1, 0),
+    cone: new ConeGeometry(1, 1.4, 7),
+    trunk: new CylinderGeometry(0.16, 0.3, 1.5, 6)
+  };
+  const batches = /* @__PURE__ */ new Map();
+  const parentMatrices = /* @__PURE__ */ new WeakMap();
   const Z_AXIS = new Vector3(0, 0, 1);
+  const scratch = new Matrix4();
+  const scratchQ = new Quaternion();
+  const scratchE = new Euler();
+  const scratchV = new Vector3();
+  function worldOf(parent) {
+    if (!parent) return scratch.identity();
+    if (!parentMatrices.has(parent)) {
+      parent.updateWorldMatrix(true, false);
+      parentMatrices.set(parent, parent.matrixWorld.clone());
+    }
+    return parentMatrices.get(parent);
+  }
+  function batch(parent, shape, colour, matrix, cast) {
+    const key = `${shape}|${new Color(colour).getHex()}|${cast ? 1 : 0}`;
+    if (!batches.has(key)) batches.set(key, { shape, colour, cast, matrices: [], base: worldOf(parent) });
+    const entry = batches.get(key);
+    const copy2 = matrix.clone();
+    copy2.premultiply(entry.base);
+    entry.matrices.push(copy2);
+  }
   function seg(parent, a, b, thick, depth, colour, cast = true) {
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const dz = b[2] - a[2];
     const len = Math.hypot(dx, dy, dz);
-    if (len < 0.01) return null;
-    const m = new Mesh(new BoxGeometry(thick, depth, len), mat(colour));
-    m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
-    m.quaternion.setFromUnitVectors(Z_AXIS, new Vector3(dx, dy, dz).normalize());
-    m.castShadow = cast;
-    m.receiveShadow = true;
-    parent.add(m);
-    return m;
+    if (len < 0.01) return;
+    scratchQ.setFromUnitVectors(Z_AXIS, scratchV.set(dx, dy, dz).normalize());
+    scratch.compose(
+      scratchV.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2),
+      scratchQ,
+      scratchV.clone().set(thick, depth, len)
+    );
+    batch(parent, "box", colour, scratch, cast);
+  }
+  function shapeAt(parent, shape, colour, x, y, z, sx, sy, sz, cast = true) {
+    scratchQ.identity();
+    scratch.compose(scratchV.set(x, y, z), scratchQ, new Vector3(sx, sy, sz));
+    batch(parent, shape, colour, scratch, cast);
+  }
+  function cube(parent, w, h65, d, x, y, z, colour, cast = false, ry = 0) {
+    scratchE.set(0, ry, 0);
+    scratchQ.setFromEuler(scratchE);
+    scratch.compose(scratchV.set(x, y, z), scratchQ, new Vector3(w, h65, d));
+    batch(parent, "box", colour, scratch, cast);
   }
   function tiles(p, w, d, top, h65, ridge, colour) {
     const light = shade(colour, -0.24);
@@ -62012,29 +62441,9 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
           const k = i / 2;
           const x = sx * (w / 2 - 0.16 - k * 0.46);
           const z = sz * (d / 2 - 0.16 - k * 0.46);
-          add(p, B(0.13, 0.17, 0.17), colour, x, y + 0.12 + k * 0.1, z, { cast: false });
-          add(p, B(0.1, 0.1, 0.1), shade(colour, 0.08), x, y + 0.26 + k * 0.1, z, { cast: false });
+          cube(p, 0.13, 0.17, 0.17, x, y + 0.12 + k * 0.1, z, colour);
+          cube(p, 0.1, 0.1, 0.1, x, y + 0.26 + k * 0.1, z, shade(colour, 0.08));
         }
-      }
-    }
-  }
-  function brackets(p, w, d, y) {
-    const dark = "#8a3226";
-    const gold = "#d9a53c";
-    const nx = Math.max(4, Math.round(w / 0.85));
-    for (let i = 0; i < nx; i += 1) {
-      const x = -w / 2 + w * (i + 0.5) / nx;
-      for (const s of [1, -1]) {
-        add(p, B(0.24, 0.26, 0.5), dark, x, y, s * (d / 2 + 0.26), { cast: false });
-        add(p, B(0.36, 0.1, 0.56), gold, x, y + 0.09, s * (d / 2 + 0.28), { cast: false });
-      }
-    }
-    const nz = Math.max(3, Math.round(d / 0.85));
-    for (let i = 0; i < nz; i += 1) {
-      const z = -d / 2 + d * (i + 0.5) / nz;
-      for (const s of [1, -1]) {
-        add(p, B(0.5, 0.26, 0.24), dark, s * (w / 2 + 0.26), y, z, { cast: false });
-        add(p, B(0.56, 0.1, 0.36), gold, s * (w / 2 + 0.28), y + 0.09, z, { cast: false });
       }
     }
   }
@@ -62045,16 +62454,16 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
       if (len < 0.35) return;
       const mid = [(a[0] + b[0]) / 2, y + h65, (a[2] + b[2]) / 2];
       if (along === "x") {
-        add(g, B(len, 0.07, 0.1), "#f7f4ec", mid[0], mid[1], mid[2], { cast: false });
-        add(g, B(len, 0.05, 0.08), "#ece6d8", mid[0], y + h65 * 0.5, mid[2], { cast: false });
+        cube(g, len, 0.07, 0.1, mid[0], mid[1], mid[2], "#f7f4ec");
+        cube(g, len, 0.05, 0.08, mid[0], y + h65 * 0.5, mid[2], "#ece6d8");
       } else {
-        add(g, B(0.1, 0.07, len), "#f7f4ec", mid[0], mid[1], mid[2], { cast: false });
-        add(g, B(0.08, 0.05, len), "#ece6d8", mid[0], y + h65 * 0.5, mid[2], { cast: false });
+        cube(g, 0.1, 0.07, len, mid[0], mid[1], mid[2], "#f7f4ec");
+        cube(g, 0.08, 0.05, len, mid[0], y + h65 * 0.5, mid[2], "#ece6d8");
       }
       const n = Math.max(2, Math.round(len / 1.1) + 1);
       for (let i = 0; i < n; i += 1) {
         const t2 = i / (n - 1);
-        add(g, B(0.1, h65, 0.1), "#f7f4ec", a[0] + (b[0] - a[0]) * t2, y + h65 / 2, a[2] + (b[2] - a[2]) * t2, { cast: false });
+        cube(g, 0.1, h65, 0.1, a[0] + (b[0] - a[0]) * t2, y + h65 / 2, a[2] + (b[2] - a[2]) * t2, "#f7f4ec");
       }
     };
     const hx = tw / 2;
@@ -62163,6 +62572,9 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     pickables.push(m);
   }
   function hall(b, words) {
+    const glowWin = toon({ color: 15848589, emissive: 16753978, emissiveIntensity: 0.2 });
+    owned.push(glowWin);
+    windows.set(b.id, glowWin);
     const g = new Group();
     g.position.set(b.x, 0, b.z);
     statics.add(g);
@@ -62201,7 +62613,6 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     add(g, B(1.7, h65 * 0.38, 0.14), glowWin, wx, y + h65 * 0.55, d / 2 + 0.06);
     add(g, B(1.7, h65 * 0.38, 0.14), glowWin, -wx, y + h65 * 0.55, d / 2 + 0.06);
     add(g, B(w + 1.4, 0.45, d + 1.8), BAND, 0, y + h65 + 0.2, 0);
-    brackets(g, w + 0.2, d + 0.4, y + h65 - 0.04);
     const yr = y + h65 + 0.42;
     const hh = d * 0.45 + 1.2;
     let top;
@@ -62542,20 +62953,19 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   function tree(x, z, s, ci) {
     const kind = ci ?? Math.floor(rnd() * 9);
     const c = CROWNS[kind % CROWNS.length];
-    add(statics, C(0.16 * s, 0.3 * s, 1.5 * s, 6), "#7d5133", x, 0.75 * s, z);
-    add(statics, C(0.13 * s, 0.2 * s, 0.55 * s, 6), "#8a5a3a", x, 1.55 * s, z);
+    shapeAt(statics, "trunk", "#7d5133", x, 0.75 * s, z, s, s, s);
     if (kind % 9 === 7) {
       for (let i = 0; i < 3; i += 1) {
         const r = (1.5 - i * 0.3) * s;
-        add(statics, new ConeGeometry(r, 1.4 * s, 7), shade("#3f7d4f", i * 0.05), x, (2.05 + i * 0.72) * s, z);
+        shapeAt(statics, "cone", shade("#3f7d4f", i * 0.05), x, (2.05 + i * 0.72) * s, z, r, s, r);
       }
     } else if (kind % 9 === 8) {
-      add(statics, lowIco(1.2 * s), "#f0c3cc", x, 2.35 * s, z);
-      add(statics, lowIco(0.76 * s), "#f8e0e3", x - 0.5 * s, 2.9 * s, z + 0.3 * s);
+      shapeAt(statics, "ico", "#f0c3cc", x, 2.35 * s, z, 1.2 * s, 1.2 * s, 1.2 * s);
+      shapeAt(statics, "ico", "#f8e0e3", x - 0.5 * s, 2.9 * s, z + 0.3 * s, 0.76 * s, 0.76 * s, 0.76 * s);
     } else {
-      add(statics, lowIco(1.35 * s), c, x, 2.35 * s, z);
-      add(statics, lowIco(0.92 * s), shade(c, 0.07), x + 0.6 * s, 3 * s, z - 0.32 * s);
-      add(statics, lowIco(0.6 * s), shade(c, -0.04), x - 0.56 * s, 2.85 * s, z + 0.28 * s);
+      shapeAt(statics, "ico", c, x, 2.35 * s, z, 1.35 * s, 1.35 * s, 1.35 * s);
+      shapeAt(statics, "ico", shade(c, 0.07), x + 0.6 * s, 3 * s, z - 0.32 * s, 0.92 * s, 0.92 * s, 0.92 * s);
+      shapeAt(statics, "ico", shade(c, -0.04), x - 0.56 * s, 2.85 * s, z + 0.28 * s, 0.6 * s, 0.6 * s, 0.6 * s);
     }
   }
   let placed = 0;
@@ -62629,6 +63039,14 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   merge(flats, false);
   root.remove(statics);
   root.remove(flats);
+  for (const entry of batches.values()) {
+    const mesh = instanced(UNIT[entry.shape], mat(entry.colour), entry.matrices);
+    if (!mesh) continue;
+    mesh.castShadow = entry.cast;
+    mesh.receiveShadow = true;
+    mesh.name = `court-${entry.shape}`;
+    root.add(mesh);
+  }
   const cloudMat = toon({ color: 16777215, emissive: 16777215, emissiveIntensity: 0.25 });
   owned.push(cloudMat);
   const clouds = [];
@@ -62652,7 +63070,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   return {
     root,
     pickables,
-    glowWin,
+    windows,
     glowLan,
     armillary,
     halo,
@@ -62692,11 +63110,11 @@ var RING = {
   sleep: "#5b6aa8"
 };
 var CLAUDE = { id: "__nanshufang", name: "Claude", office: "南书房行走", robe: "#d97757", hat: "fj", cap: "#3b2a24", building: "nanshufang", side: "W" };
-var smooth = (a, b, x) => {
+var smooth2 = (a, b, x) => {
   const t2 = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t2 * t2 * (3 - 2 * t2);
 };
-var mixColour = (a, b, t2) => new Color(a).lerp(new Color(b), t2);
+var mixColour2 = (a, b, t2) => new Color(a).lerp(new Color(b), t2);
 var angLerp = (a, b, k) => {
   const d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
   return a + d * k;
@@ -62749,6 +63167,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     return thing;
   };
   let palace = null;
+  let render = null;
+  let glow = true;
   let lastHour = 12;
   const people = /* @__PURE__ */ new Map();
   const runners = [];
@@ -62776,6 +63196,121 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     parent.add(m);
     return m;
   }
+  const mouths = /* @__PURE__ */ new Map();
+  function mouthMaterial(kind) {
+    if (mouths.has(kind)) return mouths.get(kind);
+    const cv = document.createElement("canvas");
+    cv.width = 128;
+    cv.height = 64;
+    const c = cv.getContext("2d");
+    c.fillStyle = "#a8433d";
+    c.strokeStyle = "#a8433d";
+    c.lineCap = "round";
+    if (kind === "work") {
+      c.beginPath();
+      c.ellipse(64, 32, 10, 12, 0, 0, Math.PI * 2);
+      c.fill();
+    } else if (kind === "open") {
+      c.beginPath();
+      c.ellipse(64, 32, 16, 21, 0, 0, Math.PI * 2);
+      c.fill();
+    } else if (kind === "smile") {
+      c.lineWidth = 9;
+      c.beginPath();
+      c.arc(64, 20, 26, 0.35, Math.PI - 0.35);
+      c.stroke();
+    } else if (kind === "flat") {
+      c.lineWidth = 8;
+      c.beginPath();
+      c.moveTo(46, 34);
+      c.lineTo(82, 34);
+      c.stroke();
+    } else {
+      c.lineWidth = 8;
+      c.beginPath();
+      c.moveTo(50, 32);
+      c.lineTo(78, 32);
+      c.stroke();
+    }
+    const texture = keep(new CanvasTexture(cv));
+    const material = keep(new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }));
+    mouths.set(kind, material);
+    return material;
+  }
+  const BADGES = /* @__PURE__ */ new Map();
+  function badgeMaterial(kind) {
+    if (BADGES.has(kind)) return BADGES.get(kind);
+    const cv = document.createElement("canvas");
+    cv.width = 128;
+    cv.height = 128;
+    const c = cv.getContext("2d");
+    c.fillStyle = kind === "cat" ? "#2f2438" : "#22305c";
+    c.fillRect(0, 0, 128, 128);
+    c.strokeStyle = kind === "crane" ? "#f0d79a" : kind === "pheasant" ? "#e8a45a" : kind === "cat" ? "#d8a24a" : "#cfd6e6";
+    c.lineWidth = 5;
+    c.strokeRect(6, 6, 116, 116);
+    c.fillStyle = c.strokeStyle;
+    if (kind === "cat") {
+      c.beginPath();
+      c.ellipse(64, 82, 26, 14, 0, 0, Math.PI * 2);
+      c.fill();
+      c.beginPath();
+      c.arc(40, 70, 12, 0, Math.PI * 2);
+      c.fill();
+      c.beginPath();
+      c.moveTo(32, 62);
+      c.lineTo(28, 48);
+      c.lineTo(40, 58);
+      c.closePath();
+      c.fill();
+      c.lineWidth = 7;
+      c.beginPath();
+      c.moveTo(88, 84);
+      c.quadraticCurveTo(108, 74, 104, 52);
+      c.stroke();
+    } else {
+      c.beginPath();
+      c.ellipse(64, 76, 19, 12, -0.16, 0, Math.PI * 2);
+      c.fill();
+      c.beginPath();
+      c.moveTo(72, 68);
+      c.quadraticCurveTo(86, 52, 89, 40);
+      c.lineTo(80, 62);
+      c.closePath();
+      c.fill();
+      c.beginPath();
+      c.moveTo(88, 38);
+      c.lineTo(103, 42);
+      c.lineTo(88, 47);
+      c.closePath();
+      c.fill();
+      c.beginPath();
+      c.moveTo(58, 70);
+      c.quadraticCurveTo(32, 42, 24, 26);
+      c.quadraticCurveTo(50, 40, 63, 74);
+      c.closePath();
+      c.fill();
+      c.beginPath();
+      c.moveTo(48, 82);
+      c.lineTo(20, 98);
+      c.lineTo(46, 88);
+      c.closePath();
+      c.fill();
+    }
+    const texture = keep(new CanvasTexture(cv));
+    const material = keep(new MeshBasicMaterial({ map: texture }));
+    BADGES.set(kind, material);
+    return material;
+  }
+  function badgeOf2(look) {
+    if (look.hat === "nei") return null;
+    if (look.hat === "jyw") return "cat";
+    const title = String(look.title ?? look.office ?? "");
+    if (/首辅|次辅|尚书/.test(title)) return "crane";
+    if (/侍郎/.test(title)) return "pheasant";
+    if (/学士|讲官|掌院|监正|院使|祭酒/.test(title)) return "silver";
+    return null;
+  }
   function makeFigure(look) {
     const g = new Group();
     g.scale.setScalar(look.scale ?? 1.08);
@@ -62797,7 +63332,18 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       eyes.push(add(head, new SphereGeometry(0.075, 8, 6), INK, s * 0.21, 0.5, 0.55));
       add(head, new SphereGeometry(0.12, 8, 6), "#f4a3a0", s * 0.36, 0.33, 0.47, { s: [1, 0.55, 0.5], cast: false });
     }
-    add(head, B(0.14, 0.035, 0.03), "#b5524a", 0, 0.3, 0.6);
+    const brows = [];
+    for (const side of [-1, 1]) brows.push(add(head, B(0.2, 0.045, 0.05), "#3b2a24", side * 0.21, 0.63, 0.55, { rz: -side * 0.08 }));
+    const mouth = new Mesh(keep(new PlaneGeometry(0.27, 0.14)), mouthMaterial("neutral"));
+    mouth.position.set(0, 0.29, 0.605);
+    head.add(mouth);
+    const badgeKind = badgeOf2(look);
+    const badge = badgeKind ? new Mesh(keep(new PlaneGeometry(0.22, 0.22)), badgeMaterial(badgeKind)) : null;
+    if (badge) {
+      badge.position.set(0, 0.66, 0.705);
+      badge.rotation.x = -0.31;
+      body.add(badge);
+    }
     if (look.hat === "nei") {
       add(head, C(0.4, 0.58, 0.62, 18), "#2c3550", 0, 1.02, 0);
       add(head, B(0.26, 0.2, 0.05), "#e3a92a", 0, 0.98, 0.5);
@@ -62823,7 +63369,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.09;
     g.add(ring);
-    return { g, body, head, armL, armR, eyes, ring, ringMat };
+    return { g, body, head, armL, armR, eyes, brows, mouth, badge, ring, ringMat };
   }
   function makeDesk(home, abacus) {
     const d = new Group();
@@ -62890,6 +63436,17 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     g.visible = false;
     g.scale.set(1, 0.01, 1);
     return g;
+  }
+  function makePile(home) {
+    const g = new Group();
+    g.position.set(home.x - 1.55, 0, home.z + 1.05);
+    const planks = [];
+    for (let i = 0; i < 8; i += 1) {
+      const plank = add(g, B(0.62, 0.06, 0.44), i % 2 ? "#f7f0e1" : "#eedfc2", i % 2 ? 0.03 : -0.03, 0.05 + i * 0.066, i % 2 ? -0.03 : 0.03, { ry: (i % 3 - 1) * 0.07 });
+      plank.visible = false;
+      planks.push(plank);
+    }
+    return { group: g, planks };
   }
   function buildTag(id, selectable = true) {
     const el = document.createElement("button");
@@ -62960,9 +63517,10 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     });
   }
   function removePerson(p) {
-    scene.remove(p.fig.g, p.desk.group, p.pick);
+    scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick);
     disposeTree(p.fig.g);
     disposeTree(p.desk.group);
+    disposeTree(p.pile.group);
     if (p.easel) {
       scene.remove(p.easel);
       disposeTree(p.easel);
@@ -63005,7 +63563,6 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     })));
     for (const [id, data] of settler) plaques.set(id, plaqueOf(id, [{ name: data.name, office: data.office }]));
     palace = buildPalace(scene, kit, { spares, maxAniso, plaques });
-    roofOriginals.clear();
     applyWeather();
     const homes = /* @__PURE__ */ new Map();
     extra.forEach((id, i) => homes.set(id, { x: (i % 2 ? 1 : -1) * (10 + Math.floor(i / 2) * 3.4), z: 34 }));
@@ -63031,6 +63588,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       scene.add(fig.g);
       const desk = makeDesk(home, building === "neiwufu");
       scene.add(desk.group);
+      const pile = makePile(home);
+      scene.add(pile.group);
       const easel = building === "hanlin" ? makeEasel(home) : null;
       if (easel) scene.add(easel);
       const pick2 = new Mesh(pickGeo, pickMat);
@@ -63044,6 +63603,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
         fig,
         desk,
         easel,
+        pile,
         pick: pick2,
         ambient,
         home: new Vector3(home.x, 0, home.z),
@@ -63065,6 +63625,9 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     }
     placeMeetings(true);
     select(selected);
+    if (!render) render = createRenderKit({ renderer, scene, camera, still });
+    else render.refresh?.();
+    render.setClock(lastHour, weather);
   }
   function setPersonState(id, state) {
     const p = people.get(id);
@@ -63074,6 +63637,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     if (was && was.kind === state.kind && was.text === state.text && was.room === state.room && was.speaking === state.speaking && was.towards === state.towards && was.since === state.since) return;
     paintTag(p);
     if (!was || was.kind !== state.kind || was.room !== state.room) placeMeetings(false);
+    if (!was || was.kind !== state.kind) applySky(lastHour);
   }
   function claudeState(hour) {
     if (hour >= 21 + 20 / 60 && hour < 21 + 45 / 60) return { kind: "work", text: words.memorials ?? "" };
@@ -63159,6 +63723,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     if (!giver || !taker && !room2 || still || runners.length >= 6) return;
     const start2 = { x: giver.home.x + 1.6, z: giver.home.z };
     const end = taker ? { x: taker.home.x + 1.6, z: taker.home.z } : { x: 0, z: 2 };
+    render?.wake(4);
     const fig = makeFigure({ robe: "#6d7fa3", hat: "nei", scale: 0.9 });
     add(fig.body, B(0.55, 0.12, 0.38), "#f2c443", 0, 1.25, 0.72);
     fig.ring.visible = false;
@@ -63239,98 +63804,58 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     proclaimUntil = performance.now() + ms;
   }
   function decree({ from }) {
+    render?.wake(CEREMONY_MS / 1e3);
     banner(words.decree ?? "", CEREMONY_MS);
     const giver = people.get(from);
     if (giver) giver.hop = 1;
   }
   function greet() {
+    render?.wake(3.6);
     banner(words.arrive ?? "", 2800);
     greetUntil = performance.now() + 3600;
   }
   let weather = { kind: "clear" };
-  let fall = null;
-  const roofOriginals = /* @__PURE__ */ new Map();
   function setWeather(next) {
     weather = next ?? { kind: "clear" };
     applyWeather();
   }
   function applyWeather() {
-    const kind = weather.kind;
-    const want = kind === "rain" || kind === "storm" ? "rain" : kind === "snow" ? "snow" : null;
-    if (fall && fall.kind !== want) {
-      scene.remove(fall.obj);
-      fall.obj.geometry.dispose();
-      fall.obj.material.dispose();
-      fall = null;
-    }
-    if (want && !fall && !still) {
-      const snow = want === "snow";
-      const n = snow ? 3e3 : 2400;
-      const positions = new Float32Array(n * (snow ? 3 : 6));
-      for (let i = 0; i < n; i += 1) {
-        const x = (Math.random() - 0.5) * 170;
-        const y = Math.random() * 50;
-        const z = (Math.random() - 0.5) * 160 - 14;
-        if (snow) positions.set([x, y, z], i * 3);
-        else positions.set([x, y, z, x + 0.25, y - 1.6, z + 0.15], i * 6);
-      }
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(positions, 3));
-      const obj = snow ? new Points(geometry, new PointsMaterial({ color: 16777215, size: 0.45, transparent: true, opacity: 0.95, depthWrite: false })) : new LineSegments(geometry, new LineBasicMaterial({ color: 12900070, transparent: true, opacity: 0.6 }));
-      scene.add(obj);
-      fall = { kind: want, obj, n };
-    }
-    const keys = /* @__PURE__ */ new Set();
-    for (const c of ROOF_COLOURS) {
-      keys.add(new Color(c).getHex());
-      keys.add(shade(c, -0.16));
-    }
-    for (const c of CROWNS) {
-      keys.add(new Color(c).getHex());
-      keys.add(shade(c, 0.06));
-    }
-    for (const [key, material] of kit.byColour) {
-      if (!keys.has(key)) continue;
-      if (!roofOriginals.has(key)) roofOriginals.set(key, material.color.clone());
-      material.color.copy(roofOriginals.get(key));
-      if (kind === "snow") material.color.lerp(new Color("#ffffff"), 0.72);
-    }
-    if (palace) {
-      palace.grass.material.color.set(kind === "snow" ? "#e9eef1" : "#a9cf87");
-      palace.pave.material.color.set(kind === "snow" ? "#f1f3f5" : "#ffffff");
-    }
     applySky(lastHour);
   }
   function applySky(hour) {
     lastHour = hour;
-    const day = smooth(5.6, 7.2, hour) * (1 - smooth(17.2, 18.9, hour));
+    const day = smooth2(5.6, 7.2, hour) * (1 - smooth2(17.2, 18.9, hour));
     const dusk = Math.max(Math.exp(-((hour - 6.4) ** 2) / 0.5), Math.exp(-((hour - 17.9) ** 2) / 0.5));
     const overcast = { rain: 0.75, storm: 0.9, snow: 0.55, cloudy: 0.35, fog: 0.5 }[weather.kind] ?? 0;
-    let top = mixColour("#18213f", "#7fc3ea", day).lerp(new Color("#f0a98a"), dusk * 0.55 * (1 - overcast));
-    let bottom = mixColour("#33406e", "#eaf5f1", day).lerp(new Color("#fcd9ae"), dusk * 0.7 * (1 - overcast));
+    let top = mixColour2("#18213f", "#7fc3ea", day).lerp(new Color("#f0a98a"), dusk * 0.55 * (1 - overcast));
+    let bottom = mixColour2("#33406e", "#eaf5f1", day).lerp(new Color("#fcd9ae"), dusk * 0.7 * (1 - overcast));
     const grey = weather.kind === "snow" ? ["#aeb9c6", "#e9edf1"] : ["#7d8b9b", "#c5cdd3"];
-    top = top.lerp(mixColour("#1d2333", grey[0], day), overcast);
-    bottom = bottom.lerp(mixColour("#2f3548", grey[1], day), overcast);
+    top = top.lerp(mixColour2("#1d2333", grey[0], day), overcast);
+    bottom = bottom.lerp(mixColour2("#2f3548", grey[1], day), overcast);
     container.style.background = `linear-gradient(#${top.getHexString()},#${bottom.getHexString()})`;
-    scene.fog.color.copy(bottom);
-    scene.fog.near = weather.kind === "fog" ? 60 : 170;
-    scene.fog.far = weather.kind === "fog" ? 220 : 380;
-    sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55) * LIGHT_GAIN;
-    sun.color.copy(mixColour("#8ea4e0", "#ffffff", day).lerp(new Color("#ffb27a"), dusk * 0.6 * (1 - overcast)));
-    hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2) * LIGHT_GAIN;
-    hemi.color.copy(mixColour("#6d7bb3", "#dff2ff", day));
-    const a = Math.min(1, Math.max(0, (hour - 6) / 12)) * Math.PI;
-    if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50);
-    else sun.position.set(-30, 80, 40);
+    render?.setClock(hour, weather);
     const night = Math.max(1 - day, overcast * 0.4);
     if (palace) {
-      palace.glowWin.emissiveIntensity = 0.12 + 0.9 * night;
-      palace.glowLan.emissiveIntensity = 0.25 + 1.1 * night;
+      const busy = /* @__PURE__ */ new Set();
+      for (const p of people.values()) {
+        if (!p.building) continue;
+        const kind = p.state.kind;
+        if (kind === "work" || kind === "pending" || kind === "question" || kind === "court") busy.add(p.building);
+      }
+      for (const [id, material] of palace.windows ?? []) {
+        material.emissiveIntensity = glow ? busy.has(id) ? 0.3 + 1.2 * night : 0.05 + 0.26 * night : 0;
+      }
+      palace.glowLan.emissiveIntensity = glow ? 0.25 + 1.1 * night : 0;
       palace.cloudMat.emissiveIntensity = 0.25 - 0.15 * (1 - day);
       palace.cloudMat.color.set(overcast > 0.3 ? weather.kind === "snow" ? "#e4e8ee" : "#9aa6b2" : "#ffffff");
     }
   }
   const setTime = (minutes) => applySky(minutes / 60);
+  function setGlow(on) {
+    glow = on !== false;
+    render?.setGlow?.(glow);
+    applySky(lastHour);
+  }
   const markerMat = keep(kit.toon({ color: 13780271, emissive: 13780271, emissiveIntensity: 0.3 }));
   const marker = new Mesh(keep(new ConeGeometry(0.35, 0.7, 4)), markerMat);
   marker.rotation.x = Math.PI;
@@ -63344,8 +63869,12 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     canvas.style.cursor = id && !people.get(id)?.ambient ? "pointer" : "";
   }
   function select(id) {
-    selected = id && people.has(id) && !people.get(id).ambient ? id : null;
+    render?.wake(1.5);
+    const next = id && people.has(id) && !people.get(id).ambient ? id : null;
+    const changed = next !== selected;
+    selected = next;
     for (const p of people.values()) p.tag.el.classList.toggle("sel", p.id === selected);
+    if (changed && selected) pushIn(selected);
   }
   const raycaster = new Raycaster();
   const pointer = new Vector2();
@@ -63390,6 +63919,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   });
   let fly = null;
   function glide(target, position, duration = 1.1) {
+    render?.wake(2);
     if (still) {
       controls.target.copy(target);
       camera.position.copy(position);
@@ -63412,16 +63942,66 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     }
     glide(target, position, 1.4);
   }
-  function flyTo(id) {
+  const VIEWS = {
+    overview: () => overview(),
+    cabinet: () => ({ target: new Vector3(37, 1.5, -8), position: new Vector3(64, 32, 26) }),
+    six: () => ({ target: new Vector3(37, 1, 22), position: new Vector3(60, 29, 58) })
+  };
+  function view(name) {
+    const make = VIEWS[name];
+    if (!make) return false;
+    const { target, position } = make();
+    select(null);
+    if (still) {
+      controls.target.copy(target);
+      camera.position.copy(position);
+      controls.update();
+      return true;
+    }
+    glide(target, position, 1.2);
+    return true;
+  }
+  function lookAt(x, z) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    render?.wake(1.2);
+    const target = new Vector3(x, controls.target.y, z);
+    if (still) {
+      controls.target.copy(target);
+      controls.update();
+      return;
+    }
+    const offset = camera.position.clone().sub(controls.target);
+    glide(target, target.clone().add(offset), 0.8);
+  }
+  function positions() {
+    const out = [];
+    for (const p of people.values()) {
+      const g = p.fig.g.position;
+      out.push({ id: p.id, x: g.x, y: g.y, z: g.z });
+    }
+    return out;
+  }
+  function viewPoint() {
+    const target = controls.target;
+    return {
+      x: target.x,
+      z: target.z,
+      yaw: Math.atan2(camera.position.x - target.x, camera.position.z - target.z),
+      distance: camera.position.distanceTo(target)
+    };
+  }
+  function pushIn(id) {
     const p = people.get(id);
     if (!p) return;
-    const target = p.fig.g.position.clone().add(new Vector3(0, 1.5, 0));
-    const dir = camera.position.clone().sub(controls.target).normalize();
-    if (dir.y < 0.5) {
-      dir.y = 0.5;
-      dir.normalize();
-    }
-    glide(target, target.clone().add(dir.multiplyScalar(28)));
+    const at = p.fig.g.position;
+    const side = at.x >= -4 && at.x <= 4 ? 1 : -Math.sign(at.x) || 1;
+    const offset = new Vector3(side * 9.5, 11.5, 9.5);
+    const target = at.clone();
+    target.y = 1.6;
+    glide(target, target.clone().add(offset), 1.1);
+  }
+  function flyTo(id) {
+    pushIn(id);
   }
   let inset = 0;
   let insetNow = 0;
@@ -63518,10 +64098,12 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       }
     }
     let moving = !!p.patrol;
+    if (moving) render?.wake(0.4);
     if (target) {
       tmp3.set(target.x - g.position.x, 0, target.z - g.position.z);
       const dl = tmp3.length();
       if (dl > 0.05) {
+        render?.wake(0.4);
         const step = Math.min(dl, speed * dt);
         g.position.addScaledVector(tmp3.normalize(), step);
         g.position.y = 0;
@@ -63532,6 +64114,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
         if (p.path.length === 0) p.mode = p.mode === "toCourt" ? "court" : "home";
       }
     }
+    const memorials = Math.max(0, Math.min(8, Number(st.memorials ?? (kind === "pending" || kind === "question" ? 1 : 0)) || 0));
+    for (let i = 0; i < p.pile.planks.length; i += 1) p.pile.planks[i].visible = i < memorials;
     if (!moving) {
       let face = null;
       if (p.mode === "court") face = Math.PI;
@@ -63584,6 +64168,16 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     } else armL.position.z = bowing ? 0.4 : 0.08;
     const blink = T2 % 4.3 < 0.12;
     for (const e of eyes) e.scale.y = kind === "sleep" ? 0.2 : blink ? 0.15 : 1;
+    const expr = kind === "work" ? "work" : kind === "pending" || kind === "question" ? "open" : kind === "done" ? "smile" : kind === "sleep" ? "flat" : "neutral";
+    const mouthMat = mouthMaterial(expr);
+    if (p.fig.mouth.material !== mouthMat) p.fig.mouth.material = mouthMat;
+    p.fig.brows.forEach((brow, i) => {
+      const side = i === 0 ? -1 : 1;
+      const tilt = kind === "work" ? side * 0.24 : kind === "pending" || kind === "question" ? -side * 0.14 : -side * 0.06;
+      brow.rotation.z = tilt;
+      brow.position.y = 0.63 + (kind === "pending" || kind === "question" ? 0.03 : 0);
+      brow.visible = kind !== "sleep";
+    });
     const colour = RING[p.mode === "court" || p.mode === "toCourt" ? "court" : kind] ?? RING.idle;
     ringMat.color.set(colour);
     const pulse = kind === "pending" || kind === "question";
@@ -63644,25 +64238,6 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
         if (c.position.x > 190) c.position.x = -190;
       }
     }
-    if (fall) {
-      const pos = fall.obj.geometry.attributes.position;
-      if (fall.kind === "snow") {
-        for (let i = 0; i < fall.n; i += 1) {
-          let y = pos.getY(i) - dt * 3;
-          if (y < 0) y += 50;
-          pos.setY(i, y);
-          pos.setX(i, pos.getX(i) + Math.sin(y * 0.3 + i) * dt * 0.4);
-        }
-      } else {
-        for (let i = 0; i < fall.n; i += 1) {
-          let y = pos.getY(i * 2) - dt * 38;
-          if (y < 1.6) y += 48;
-          pos.setY(i * 2, y);
-          pos.setY(i * 2 + 1, y - 1.6);
-        }
-      }
-      pos.needsUpdate = true;
-    }
     for (const p of people.values()) animatePerson(p, dt, time);
     for (let i = runners.length - 1; i >= 0; i -= 1) {
       if (!stepRunner(runners[i], dt, tick)) {
@@ -63677,8 +64252,11 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       marker.rotation.y += dt * 2;
     } else marker.visible = false;
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true;
-    renderer.render(scene, camera);
-    placeTags();
+    if (!render || render.shouldRender(dt)) {
+      if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1;
+      renderer.render(scene, camera);
+      placeTags();
+    }
     if (time - clockTick > 1e3) {
       clockTick = time;
       for (const p of people.values()) if (p.state.kind === "work" && !p.ambient) p.tag.time.textContent = clock4(p.state.since);
@@ -63758,10 +64336,6 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     for (const label of rooms.values()) label.el.remove();
     rooms.clear();
     proclaim.remove();
-    if (fall) {
-      fall.obj.geometry.dispose();
-      fall.obj.material.dispose();
-    }
     palace?.dispose();
     for (const m of kit.byColour.values()) m.dispose();
     kit.ramp.dispose();
@@ -63778,9 +64352,14 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     setPeople,
     setPersonState,
     setTime,
+    setGlow,
     setWeather,
     select,
     flyTo,
+    view,
+    lookAt,
+    viewPoint,
+    positions,
     frame: () => frame(false),
     setInset,
     start,
@@ -63792,46 +64371,6 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     dispose,
     isRunning: () => running2
   };
-}
-
-// src/client/court-board/weather.js
-var URL2 = "https://api.open-meteo.com/v1/forecast?latitude=32.06&longitude=118.8&current=temperature_2m,weather_code&timezone=Asia%2FShanghai";
-function weatherOf(code) {
-  if (code === 0 || code === 1) return { kind: "clear", word: "晴" };
-  if (code === 2) return { kind: "cloudy", word: "多云" };
-  if (code === 3) return { kind: "cloudy", word: "阴" };
-  if (code === 45 || code === 48) return { kind: "fog", word: "雾" };
-  if (code >= 51 && code <= 57) return { kind: "rain", word: "毛毛雨" };
-  if (code === 61 || code === 80) return { kind: "rain", word: "小雨" };
-  if (code === 63 || code === 81 || code === 66) return { kind: "rain", word: "中雨" };
-  if (code === 65 || code === 82 || code === 67) return { kind: "rain", word: "大雨" };
-  if (code >= 71 && code <= 77 || code === 85 || code === 86) return { kind: "snow", word: code === 75 || code === 86 ? "大雪" : "小雪" };
-  if (code >= 95) return { kind: "storm", word: "雷雨" };
-  return { kind: "clear", word: "" };
-}
-var LOOKS = {
-  clear: { overcast: 0, fogNear: 170, fogFar: 380, fall: null },
-  cloudy: { overcast: 0.35, fogNear: 150, fogFar: 330, fall: null },
-  fog: { overcast: 0.5, fogNear: 55, fogFar: 210, fall: null },
-  rain: { overcast: 0.75, fogNear: 90, fogFar: 260, fall: { kind: "rain", count: 1600, speed: 55, size: 0.32, opacity: 0.55 } },
-  storm: { overcast: 0.9, fogNear: 70, fogFar: 230, fall: { kind: "rain", count: 2200, speed: 78, size: 0.3, opacity: 0.65 } },
-  snow: { overcast: 0.55, fogNear: 80, fogFar: 250, fall: { kind: "snow", count: 1800, speed: 4.2, size: 0.45, opacity: 0.95, sway: 0.7 } }
-};
-function weatherLook(weather) {
-  const look = LOOKS[weather?.kind] ?? LOOKS.clear;
-  return look.fall ? { ...look, fall: { ...look.fall } } : { ...look };
-}
-async function fetchWeather(fetcher = globalThis.fetch) {
-  try {
-    const response = await fetcher(URL2);
-    if (!response.ok) return null;
-    const body = await response.json();
-    const current = body?.current;
-    if (typeof current?.weather_code !== "number") return null;
-    return { ...weatherOf(current.weather_code), temp: Math.round(current.temperature_2m) };
-  } catch {
-    return null;
-  }
 }
 
 // src/client/court-board/index.js
@@ -63974,6 +64513,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const decreeUntil = (0, import_react37.useRef)(0);
   const [decreeWake, setDecreeWake] = (0, import_react37.useState)(0);
   const [hint, setHint] = (0, import_react37.useState)(true);
+  const [preset, setPreset] = (0, import_react37.useState)("overview");
   const cycle = (0, import_react37.useRef)({});
   const selected = state.selected;
   const themed = courtTheme(roster);
@@ -64025,7 +64565,11 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     });
     for (const person of value.people) {
       const live = heldStates.find((item) => item.bot.id === person.id);
-      if (person.state.kind === "waiting") person.state = { ...person.state, towards: live?.waits?.bots?.[0] };
+      const approval = (work?.approvals ?? []).filter((item) => item.botId === person.id).length;
+      const waiting = work?.waiting?.[person.id];
+      const backlog = approval + (waiting?.bots?.length ?? 0) + (waiting?.rooms?.length ?? 0);
+      if (person.state.kind === "waiting") person.state = { ...person.state, towards: live?.waits?.bots?.[0], memorials: backlog };
+      else person.state = { ...person.state, memorials: backlog };
     }
     return value;
   }, [roster, heldStates, hour]);
@@ -64199,7 +64743,12 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const card = cardId === null ? null : cast.bots.find((item) => item.bot.id === cardId) ?? null;
   const focus = (id) => {
     selectOfficial(id);
-    scene.current?.flyTo(id);
+    setPreset(null);
+  };
+  const pickView = (key) => {
+    selectOfficial(null);
+    setPreset(key);
+    scene.current?.view(key);
   };
   const tallies = TALLY.map(([kind, kinds]) => {
     const ids = cast.bots.filter((item) => kinds.includes(item.court.kind)).map((item) => item.bot.id);
@@ -64251,10 +64800,18 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           onClick: () => setPanel(panel === key ? null : key)
         }, label))
       ),
-      (0, import_react37.createElement)("button", { type: "button", className: "bt-cb-icon", title: t("全景"), "aria-label": t("全景"), onClick: () => {
-        selectOfficial(null);
-        scene.current?.frame();
-      } }, (0, import_react37.createElement)(FrameIcon)),
+      (0, import_react37.createElement)(
+        "div",
+        { className: "bt-cb-seg", role: "group", "aria-label": t("Overview") },
+        [["overview", t("Show the whole city")], ["cabinet", t("Show the Cabinet halls")], ["six", t("Show the Six Ministries")]].map(([key, hintText]) => (0, import_react37.createElement)("button", {
+          key,
+          type: "button",
+          "data-on": preset === key,
+          title: hintText,
+          "aria-label": key === "overview" ? t("Overview") : key === "cabinet" ? t("The Cabinet") : t("The Six Ministries"),
+          onClick: () => pickView(key)
+        }, key === "overview" ? t("Overview") : key === "cabinet" ? t("The Cabinet") : t("The Six Ministries")))
+      ),
       (0, import_react37.createElement)("button", { type: "button", className: "bt-cb-icon bt-cb-x", "aria-label": t("关闭"), title: t("关闭"), onClick: closeCourtBoard }, (0, import_react37.createElement)(CloseIcon3))
     ),
     (0, import_react37.createElement)(
@@ -64263,12 +64820,116 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       (0, import_react37.createElement)("div", { ref: stage, className: "bt-cb-world" }),
       (0, import_react37.createElement)("div", { ref: tags, className: "bt-cb-tags" }),
       broken ? (0, import_react37.createElement)("div", { className: "bt-cb-broken" }, t("这台机器没有可用的 WebGL，值房图显示不出来；奏事簿、名册和官员卡片照常可用。")) : null,
+      !broken ? (0, import_react37.createElement)(CourtMinimap, { world: scene, selected }) : null,
       panel === "feed" ? (0, import_react37.createElement)(FeedPanel, { log: log2, bots: cast.bots, onSelect: focus }) : null,
       panel === "roster" ? (0, import_react37.createElement)(RosterPanel, { bots: cast.bots, selected, onSelect: focus }) : null,
       card !== null ? (0, import_react37.createElement)(OfficialCard, { item: card, live: heldStates.find((item) => item.bot.id === card.bot.id), sessions, actions, closing: selected === null, onFly: () => scene.current?.flyTo(card.bot.id) }) : null,
       hint && !broken ? (0, import_react37.createElement)("div", { className: "bt-cb-hint" }, t("拖动转视角 · 右键拖动平移 · 滚轮缩放 · 点小人看详情 · 双击进对话")) : null
     )
   ), document.body);
+}
+var MAP = { x0: -92, x1: 92, z0: -88, z1: 72 };
+function CourtMinimap({ world, selected }) {
+  const canvas = (0, import_react37.useRef)(null);
+  (0, import_react37.useEffect)(() => {
+    const cv = canvas.current;
+    if (!cv) return void 0;
+    let frame = 0;
+    let last = 0;
+    const draw = (time) => {
+      frame = requestAnimationFrame(draw);
+      if (time - last < 120) return;
+      last = time;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = cv.clientWidth || 132;
+      const h65 = cv.clientHeight || 132;
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h65 * dpr)) {
+        cv.width = Math.round(w * dpr);
+        cv.height = Math.round(h65 * dpr);
+      }
+      const c = cv.getContext("2d");
+      if (!c) return;
+      const ink = getComputedStyle(cv);
+      const paint = (name) => ink.getPropertyValue(name).trim() || "transparent";
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.clearRect(0, 0, w, h65);
+      const sx = (x) => (x - MAP.x0) / (MAP.x1 - MAP.x0) * w;
+      const sz = (z) => (z - MAP.z0) / (MAP.z1 - MAP.z0) * h65;
+      c.fillStyle = paint("--bt-mini-ground");
+      c.fillRect(sx(-WALL.x), sz(WALL.north), sx(WALL.x) - sx(-WALL.x), sz(WALL.south) - sz(WALL.north));
+      c.globalAlpha = 0.9;
+      for (const hall of BUILDINGS) {
+        if (hall.spare) continue;
+        c.fillStyle = hall.roof ?? paint("--bt-mini-hall");
+        const bw = Math.max(2, (hall.w + 3) / (MAP.x1 - MAP.x0) * w);
+        const bd = Math.max(2, (hall.d + 3) / (MAP.z1 - MAP.z0) * h65);
+        c.fillRect(sx(hall.x) - bw / 2, sz(hall.z) - bd / 2, bw, bd);
+      }
+      c.globalAlpha = 1;
+      c.strokeStyle = paint("--bt-mini-wall");
+      c.lineWidth = 1;
+      c.strokeRect(sx(-WALL.x) + 0.5, sz(WALL.north) + 0.5, sx(WALL.x) - sx(-WALL.x) - 1, sz(WALL.south) - sz(WALL.north) - 1);
+      const api = world?.current;
+      const spot = api?.viewPoint?.();
+      if (spot) {
+        const vx = sx(spot.x);
+        const vz = sz(spot.z);
+        c.fillStyle = paint("--bt-mini-look");
+        c.beginPath();
+        c.moveTo(vx, vz);
+        c.arc(vx, vz, 17, Math.atan2(-Math.cos(spot.yaw), -Math.sin(spot.yaw)) - 0.42, Math.atan2(-Math.cos(spot.yaw), -Math.sin(spot.yaw)) + 0.42);
+        c.closePath();
+        c.fill();
+      }
+      for (const person of api?.positions?.() ?? []) {
+        c.fillStyle = person.id === selected ? paint("--bt-mini-mark") : paint("--bt-mini-dot");
+        c.beginPath();
+        c.arc(sx(person.x), sz(person.z), person.id === selected ? 2.8 : 1.8, 0, 7);
+        c.fill();
+      }
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, [world, selected]);
+  const pick2 = (event) => {
+    const cv = canvas.current;
+    if (!cv) return;
+    const rect = cv.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    world?.current?.lookAt(
+      MAP.x0 + (event.clientX - rect.left) / rect.width * (MAP.x1 - MAP.x0),
+      MAP.z0 + (event.clientY - rect.top) / rect.height * (MAP.z1 - MAP.z0)
+    );
+  };
+  return (0, import_react37.createElement)("canvas", {
+    ref: canvas,
+    className: "bt-cb-mini",
+    role: "button",
+    tabIndex: 0,
+    "aria-label": `${t("Minimap")} · ${t("Map of the court board, north up")}`,
+    title: t("Click the minimap to look there"),
+    onClick: pick2,
+    onKeyDown: (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        world?.current?.view("overview");
+      }
+    },
+    style: {
+      position: "absolute",
+      right: "14px",
+      bottom: "14px",
+      width: "124px",
+      height: "124px",
+      padding: 0,
+      border: 0,
+      borderRadius: "12px",
+      zIndex: 3,
+      cursor: "crosshair",
+      background: "var(--bt-card)",
+      boxShadow: "0 0 0 .5px var(--bt-line-2), 0 8px 20px rgba(0,0,0,.16)"
+    }
+  });
 }
 function useExitValue(value) {
   const [retained, setRetained] = (0, import_react37.useState)(value);
@@ -64468,7 +65129,6 @@ function RosterPanel({ bots, selected, onSelect }) {
 }
 var svg2 = (children, size = 18) => (0, import_react37.createElement)("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, children);
 var CloseIcon3 = () => svg2([(0, import_react37.createElement)("path", { key: "a", d: "M6 6l12 12" }), (0, import_react37.createElement)("path", { key: "b", d: "M18 6L6 18" })]);
-var FrameIcon = () => svg2([(0, import_react37.createElement)("path", { key: "a", d: "M4 9V5a1 1 0 0 1 1-1h4" }), (0, import_react37.createElement)("path", { key: "b", d: "M15 4h4a1 1 0 0 1 1 1v4" }), (0, import_react37.createElement)("path", { key: "c", d: "M20 15v4a1 1 0 0 1-1 1h-4" }), (0, import_react37.createElement)("path", { key: "d", d: "M9 20H5a1 1 0 0 1-1-1v-4" })]);
 
 // src/client/activity-row.js
 var import_react38 = require("react");
@@ -74244,13 +74904,13 @@ function useMicLevel(enabled) {
       analyser.fftSize = 256;
       audio.createMediaStreamSource(media).connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
-      let smooth2 = 0;
+      let smooth3 = 0;
       const tick = () => {
         analyser.getByteTimeDomainData(data);
         let sum = 0;
         for (const value of data) sum += ((value - 128) / 128) ** 2;
-        smooth2 = smooth2 * 0.8 + Math.min(1, Math.sqrt(sum / data.length) * 4) * 0.2;
-        setLevel(Math.round(smooth2 * 100) / 100);
+        smooth3 = smooth3 * 0.8 + Math.min(1, Math.sqrt(sum / data.length) * 4) * 0.2;
+        setLevel(Math.round(smooth3 * 100) / 100);
         frame = requestAnimationFrame(tick);
       };
       tick();
@@ -74342,7 +75002,7 @@ function VoiceMode({ sessionId, paneLeft, roster, actions, useSessions, useSessi
     let capture = null;
     let frame = 0;
     let stopped = false;
-    let smooth2 = 0;
+    let smooth3 = 0;
     const detect = turnDetector();
     const limit = Math.max(1, catalog.maxDurationSeconds - 1) * 1e3;
     const finish = async (current) => {
@@ -74369,8 +75029,8 @@ function VoiceMode({ sessionId, paneLeft, roster, actions, useSessions, useSessi
       const tick = () => {
         const now = performance.now();
         const level2 = capture.level();
-        smooth2 = smooth2 * 0.8 + level2 * 0.2;
-        setServiceLevel(Math.round(smooth2 * 100) / 100);
+        smooth3 = smooth3 * 0.8 + level2 * 0.2;
+        setServiceLevel(Math.round(smooth3 * 100) / 100);
         const state = detect(level2, now);
         if (state === "done" || state === "speech" && now - began >= limit) {
           const current = capture;

@@ -13,7 +13,9 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { SEALS } from './data.js'
 import { BUILDING, PATROL, SPARES, WALL_TOP, courtSlot, homeOf, walkPath } from './layout.js'
-import { CROWNS, ROOF_COLOURS, buildPalace, createMaterials, shade } from './palace.js'
+import { buildPalace, createMaterials, shade } from './palace.js'
+import { plaqueOf, plaquesFor } from './plaques.js'
+import { createRenderKit } from './render.js'
 
 // r128 passed colours through untouched, with no colour management and a linear output.
 // Current three does both by default, so both are switched back off to keep every tone.
@@ -99,6 +101,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   const keep = (thing) => { owned.push(thing); return thing }
 
   let palace = null
+  let render = null
+  let glow = true
   let lastHour = 12
   const people = new Map()
   const runners = []
@@ -130,6 +134,81 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     return m
   }
 
+  // 表情: one small canvas per look, shared by every figure.
+  const mouths = new Map()
+  function mouthMaterial(kind) {
+    if (mouths.has(kind)) return mouths.get(kind)
+    const cv = document.createElement('canvas')
+    cv.width = 128
+    cv.height = 64
+    const c = cv.getContext('2d')
+    c.fillStyle = '#a8433d'
+    c.strokeStyle = '#a8433d'
+    c.lineCap = 'round'
+    if (kind === 'work') {
+      c.beginPath(); c.ellipse(64, 32, 10, 12, 0, 0, Math.PI * 2); c.fill()
+    } else if (kind === 'open') {
+      c.beginPath(); c.ellipse(64, 32, 16, 21, 0, 0, Math.PI * 2); c.fill()
+    } else if (kind === 'smile') {
+      c.lineWidth = 9
+      c.beginPath(); c.arc(64, 20, 26, 0.35, Math.PI - 0.35); c.stroke()
+    } else if (kind === 'flat') {
+      c.lineWidth = 8
+      c.beginPath(); c.moveTo(46, 34); c.lineTo(82, 34); c.stroke()
+    } else {
+      c.lineWidth = 8
+      c.beginPath(); c.moveTo(50, 32); c.lineTo(78, 32); c.stroke()
+    }
+    const texture = keep(new THREE.CanvasTexture(cv))
+    const material = keep(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))
+    mouths.set(kind, material)
+    return material
+  }
+
+  // 补子: the square on the breast, a bird for the civil ranks and a cat for the guard.
+  const BADGES = new Map()
+  function badgeMaterial(kind) {
+    if (BADGES.has(kind)) return BADGES.get(kind)
+    const cv = document.createElement('canvas')
+    cv.width = 128
+    cv.height = 128
+    const c = cv.getContext('2d')
+    c.fillStyle = kind === 'cat' ? '#2f2438' : '#22305c'
+    c.fillRect(0, 0, 128, 128)
+    c.strokeStyle = kind === 'crane' ? '#f0d79a' : kind === 'pheasant' ? '#e8a45a' : kind === 'cat' ? '#d8a24a' : '#cfd6e6'
+    c.lineWidth = 5
+    c.strokeRect(6, 6, 116, 116)
+    c.fillStyle = c.strokeStyle
+    if (kind === 'cat') {
+      c.beginPath(); c.ellipse(64, 82, 26, 14, 0, 0, Math.PI * 2); c.fill()
+      c.beginPath(); c.arc(40, 70, 12, 0, Math.PI * 2); c.fill()
+      c.beginPath(); c.moveTo(32, 62); c.lineTo(28, 48); c.lineTo(40, 58); c.closePath(); c.fill()
+      c.lineWidth = 7
+      c.beginPath(); c.moveTo(88, 84); c.quadraticCurveTo(108, 74, 104, 52); c.stroke()
+    } else {
+      c.beginPath(); c.ellipse(64, 76, 19, 12, -0.16, 0, Math.PI * 2); c.fill()
+      c.beginPath(); c.moveTo(72, 68); c.quadraticCurveTo(86, 52, 89, 40); c.lineTo(80, 62); c.closePath(); c.fill()
+      c.beginPath(); c.moveTo(88, 38); c.lineTo(103, 42); c.lineTo(88, 47); c.closePath(); c.fill()
+      c.beginPath(); c.moveTo(58, 70); c.quadraticCurveTo(32, 42, 24, 26); c.quadraticCurveTo(50, 40, 63, 74); c.closePath(); c.fill()
+      c.beginPath(); c.moveTo(48, 82); c.lineTo(20, 98); c.lineTo(46, 88); c.closePath(); c.fill()
+    }
+    const texture = keep(new THREE.CanvasTexture(cv))
+    const material = keep(new THREE.MeshBasicMaterial({ map: texture }))
+    BADGES.set(kind, material)
+    return material
+  }
+
+  // Which bird a 衙门 wears: the ranks have their own, and the 内廷 wears none.
+  function badgeOf(look) {
+    if (look.hat === 'nei') return null
+    if (look.hat === 'jyw') return 'cat'
+    const title = String(look.title ?? look.office ?? '')
+    if (/首辅|次辅|尚书/.test(title)) return 'crane'
+    if (/侍郎/.test(title)) return 'pheasant'
+    if (/学士|讲官|掌院|监正|院使|祭酒/.test(title)) return 'silver'
+    return null
+  }
+
   function makeFigure(look) {
     const g = new THREE.Group()
     g.scale.setScalar(look.scale ?? 1.08)
@@ -151,7 +230,18 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       eyes.push(add(head, new THREE.SphereGeometry(0.075, 8, 6), INK, s * 0.21, 0.5, 0.55))
       add(head, new THREE.SphereGeometry(0.12, 8, 6), '#f4a3a0', s * 0.36, 0.33, 0.47, { s: [1, 0.55, 0.5], cast: false })
     }
-    add(head, B(0.14, 0.035, 0.03), '#b5524a', 0, 0.3, 0.6)
+    const brows = []
+    for (const side of [-1, 1]) brows.push(add(head, B(0.2, 0.045, 0.05), '#3b2a24', side * 0.21, 0.63, 0.55, { rz: -side * 0.08 }))
+    const mouth = new THREE.Mesh(keep(new THREE.PlaneGeometry(0.27, 0.14)), mouthMaterial('neutral'))
+    mouth.position.set(0, 0.29, 0.605)
+    head.add(mouth)
+    const badgeKind = badgeOf(look)
+    const badge = badgeKind ? new THREE.Mesh(keep(new THREE.PlaneGeometry(0.22, 0.22)), badgeMaterial(badgeKind)) : null
+    if (badge) {
+      badge.position.set(0, 0.66, 0.705)
+      badge.rotation.x = -0.31
+      body.add(badge)
+    }
     if (look.hat === 'nei') {
       add(head, C(0.4, 0.58, 0.62, 18), '#2c3550', 0, 1.02, 0)
       add(head, B(0.26, 0.2, 0.05), '#e3a92a', 0, 0.98, 0.5)
@@ -177,7 +267,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     ring.rotation.x = -Math.PI / 2
     ring.position.y = 0.09
     g.add(ring)
-    return { g, body, head, armL, armR, eyes, ring, ringMat }
+    return { g, body, head, armL, armR, eyes, brows, mouth, badge, ring, ringMat }
   }
 
   // A desk before each official; the 内承运库's carries an abacus.
@@ -231,6 +321,19 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     g.visible = false
     g.scale.set(1, 0.01, 1)
     return g
+  }
+
+  // 奏折: the pile before a 衙门's door, one folio for each thing waiting.
+  function makePile(home) {
+    const g = new THREE.Group()
+    g.position.set(home.x - 1.55, 0, home.z + 1.05)
+    const planks = []
+    for (let i = 0; i < 8; i += 1) {
+      const plank = add(g, B(0.62, 0.06, 0.44), i % 2 ? '#f7f0e1' : '#eedfc2', (i % 2 ? 0.03 : -0.03), 0.05 + i * 0.066, (i % 2 ? -0.03 : 0.03), { ry: (i % 3 - 1) * 0.07 })
+      plank.visible = false
+      planks.push(plank)
+    }
+    return { group: g, planks }
   }
 
   // ---------------------------------------------------------------------------
@@ -308,9 +411,10 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     object.traverse((o) => { if (o.geometry && o.geometry !== pickGeo) o.geometry.dispose() })
   }
   function removePerson(p) {
-    scene.remove(p.fig.g, p.desk.group, p.pick)
+    scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick)
     disposeTree(p.fig.g)
     disposeTree(p.desk.group)
+    disposeTree(p.pile.group)
     if (p.easel) { scene.remove(p.easel); disposeTree(p.easel) }
     p.tag.el.remove()
   }
@@ -318,16 +422,22 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   // Which 衙门 each Bot works in: its official's own, else the first spare one free.
   function assignBuildings(list) {
     const spares = new Map()
+    const settler = new Map()
     const placed = new Map()
     const free = [...SPARES]
     const extra = []
     for (const data of list) {
       if (data.building && BUILDING[data.building]) { placed.set(data.id, data.building); continue }
       const spare = free.shift()
-      if (spare) { placed.set(data.id, spare); spares.set(spare, data.office || data.name); continue }
+      if (spare) {
+        placed.set(data.id, spare)
+        spares.set(spare, data.office || data.name)
+        settler.set(spare, data)
+        continue
+      }
       extra.push(data.id)
     }
-    return { spares, placed, extra }
+    return { spares, settler, placed, extra }
   }
 
   function setPeople(list) {
@@ -335,10 +445,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     const before = new Map([...people].map(([id, p]) => [id, p.state]))
     for (const p of people.values()) removePerson(p)
     people.clear()
-    const { spares, placed, extra } = assignBuildings(cast)
+    const { spares, settler, placed, extra } = assignBuildings(cast)
     palace?.dispose()
-    palace = buildPalace(scene, kit, { spares, maxAniso })
-    roofOriginals.clear()
+    const plaques = plaquesFor([...cast, CLAUDE].map(data => ({
+      name: data.name, office: data.office, building: data === CLAUDE ? 'nanshufang' : placed.get(data.id) ?? data.building,
+    })))
+    for (const [id, data] of settler) plaques.set(id, plaqueOf(id, [{ name: data.name, office: data.office }]))
+    palace = buildPalace(scene, kit, { spares, maxAniso, plaques })
     applyWeather()
     // Bots past the spare 衙门 wait in a row before the 太和门.
     const homes = new Map()
@@ -366,6 +479,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       scene.add(fig.g)
       const desk = makeDesk(home, building === 'neiwufu')
       scene.add(desk.group)
+      const pile = makePile(home)
+      scene.add(pile.group)
       const easel = building === 'hanlin' ? makeEasel(home) : null
       if (easel) scene.add(easel)
       const pick = new THREE.Mesh(pickGeo, pickMat)
@@ -373,7 +488,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       scene.add(pick)
       const ambient = data === CLAUDE
       const p = {
-        id: data.id, data, building, fig, desk, easel, pick, ambient,
+        id: data.id, data, building, fig, desk, easel, pile, pick, ambient,
         home: new THREE.Vector3(home.x, 0, home.z),
         tag: buildTag(data.id, !ambient),
         state: before.get(data.id) ?? data.state ?? { kind: 'idle', text: '' },
@@ -386,6 +501,11 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     }
     placeMeetings(true)
     select(selected)
+    // The kit reads the palette off the built world, so it is born after the first build;
+    // later casts add materials of their own, which it takes in without regrading them.
+    if (!render) render = createRenderKit({ renderer, scene, camera, still })
+    else render.refresh?.()
+    render.setClock(lastHour, weather)
   }
 
   // ---------------------------------------------------------------------------
@@ -398,6 +518,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (was && was.kind === state.kind && was.text === state.text && was.room === state.room && was.speaking === state.speaking && was.towards === state.towards && was.since === state.since) return
     paintTag(p)
     if (!was || was.kind !== state.kind || was.room !== state.room) placeMeetings(false)
+    if (!was || was.kind !== state.kind) applySky(lastHour)
   }
 
   function claudeState(hour) {
@@ -475,6 +596,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (!giver || (!taker && !room) || still || runners.length >= 6) return
     const start = { x: giver.home.x + 1.6, z: giver.home.z }
     const end = taker ? { x: taker.home.x + 1.6, z: taker.home.z } : { x: 0, z: 2 }
+    render?.wake(4)
     const fig = makeFigure({ robe: '#6d7fa3', hat: 'nei', scale: 0.9 })
     add(fig.body, B(0.55, 0.12, 0.38), '#f2c443', 0, 1.25, 0.72)
     fig.ring.visible = false
@@ -552,6 +674,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   }
 
   function decree({ from }) {
+    render?.wake(CEREMONY_MS / 1000)
     banner(words.decree ?? '', CEREMONY_MS)
     const giver = people.get(from)
     if (giver) giver.hop = 1
@@ -559,56 +682,19 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
 
   // 皇上驾到: the officials with nothing in hand turn to the Emperor and bow.
   function greet() {
+    render?.wake(3.6)
     banner(words.arrive ?? '', 2800)
     greetUntil = performance.now() + 3600
   }
 
   // ---------------------------------------------------------------------------
-  // Weather: rain or snow over the city; snow lies white on the roofs and the trees.
+  // Weather: the kit paints the sky, the rain and the snow; the board keeps the word.
   let weather = { kind: 'clear' }
-  let fall = null
-  const roofOriginals = new Map()
   function setWeather(next) {
     weather = next ?? { kind: 'clear' }
     applyWeather()
   }
   function applyWeather() {
-    const kind = weather.kind
-    const want = kind === 'rain' || kind === 'storm' ? 'rain' : kind === 'snow' ? 'snow' : null
-    if (fall && fall.kind !== want) { scene.remove(fall.obj); fall.obj.geometry.dispose(); fall.obj.material.dispose(); fall = null }
-    if (want && !fall && !still) {
-      const snow = want === 'snow'
-      const n = snow ? 3000 : 2400
-      const positions = new Float32Array(n * (snow ? 3 : 6))
-      for (let i = 0; i < n; i += 1) {
-        const x = (Math.random() - 0.5) * 170
-        const y = Math.random() * 50
-        const z = (Math.random() - 0.5) * 160 - 14
-        if (snow) positions.set([x, y, z], i * 3)
-        else positions.set([x, y, z, x + 0.25, y - 1.6, z + 0.15], i * 6)
-      }
-      const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-      const obj = snow
-        ? new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.45, transparent: true, opacity: 0.95, depthWrite: false }))
-        : new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xc4d6e6, transparent: true, opacity: 0.6 }))
-      scene.add(obj)
-      fall = { kind: want, obj, n }
-    }
-    // Snow on the roofs and the leaves, put back when it melts.
-    const keys = new Set()
-    for (const c of ROOF_COLOURS) { keys.add(new THREE.Color(c).getHex()); keys.add(shade(c, -0.16)) }
-    for (const c of CROWNS) { keys.add(new THREE.Color(c).getHex()); keys.add(shade(c, 0.06)) }
-    for (const [key, material] of kit.byColour) {
-      if (!keys.has(key)) continue
-      if (!roofOriginals.has(key)) roofOriginals.set(key, material.color.clone())
-      material.color.copy(roofOriginals.get(key))
-      if (kind === 'snow') material.color.lerp(new THREE.Color('#ffffff'), 0.72)
-    }
-    if (palace) {
-      palace.grass.material.color.set(kind === 'snow' ? '#e9eef1' : '#a9cf87')
-      palace.pave.material.color.set(kind === 'snow' ? '#f1f3f5' : '#ffffff')
-    }
     applySky(lastHour)
   }
 
@@ -625,25 +711,32 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     top = top.lerp(mixColour('#1d2333', grey[0], day), overcast)
     bottom = bottom.lerp(mixColour('#2f3548', grey[1], day), overcast)
     container.style.background = `linear-gradient(#${top.getHexString()},#${bottom.getHexString()})`
-    scene.fog.color.copy(bottom)
-    scene.fog.near = weather.kind === 'fog' ? 60 : 170
-    scene.fog.far = weather.kind === 'fog' ? 220 : 380
-    sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55) * LIGHT_GAIN
-    sun.color.copy(mixColour('#8ea4e0', '#ffffff', day).lerp(new THREE.Color('#ffb27a'), dusk * 0.6 * (1 - overcast)))
-    hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2) * LIGHT_GAIN
-    hemi.color.copy(mixColour('#6d7bb3', '#dff2ff', day))
-    const a = Math.min(1, Math.max(0, (hour - 6) / 12)) * Math.PI
-    if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50)
-    else sun.position.set(-30, 80, 40)
+    // The kit owns the sun, the fog, the grade and the fall; the gradient above is the CSS sky.
+    render?.setClock(hour, weather)
     const night = Math.max(1 - day, overcast * 0.4)
     if (palace) {
-      palace.glowWin.emissiveIntensity = 0.12 + 0.9 * night
-      palace.glowLan.emissiveIntensity = 0.25 + 1.1 * night
+      // Only the halls with someone on duty keep their windows lit after dark.
+      const busy = new Set()
+      for (const p of people.values()) {
+        if (!p.building) continue
+        const kind = p.state.kind
+        if (kind === 'work' || kind === 'pending' || kind === 'question' || kind === 'court') busy.add(p.building)
+      }
+      for (const [id, material] of palace.windows ?? []) {
+        material.emissiveIntensity = glow ? (busy.has(id) ? 0.3 + 1.2 * night : 0.05 + 0.26 * night) : 0
+      }
+      palace.glowLan.emissiveIntensity = glow ? 0.25 + 1.1 * night : 0
       palace.cloudMat.emissiveIntensity = 0.25 - 0.15 * (1 - day)
       palace.cloudMat.color.set(overcast > 0.3 ? (weather.kind === 'snow' ? '#e4e8ee' : '#9aa6b2') : '#ffffff')
     }
   }
   const setTime = minutes => applySky(minutes / 60)
+  // The title bar's switch: the kit owns the lamps it knows, the halls keep their windows.
+  function setGlow(on) {
+    glow = on !== false
+    render?.setGlow?.(glow)
+    applySky(lastHour)
+  }
 
   // ---------------------------------------------------------------------------
   // Selection, hover, picking.
@@ -662,8 +755,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   }
 
   function select(id) {
-    selected = id && people.has(id) && !people.get(id).ambient ? id : null
+    render?.wake(1.5)
+    const next = id && people.has(id) && !people.get(id).ambient ? id : null
+    const changed = next !== selected
+    selected = next
     for (const p of people.values()) p.tag.el.classList.toggle('sel', p.id === selected)
+    // Picking an official walks the eye up to him; closing the card leaves the eye be.
+    if (changed && selected) pushIn(selected)
   }
 
   const raycaster = new THREE.Raycaster()
@@ -702,6 +800,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   // Camera.
   let fly = null
   function glide(target, position, duration = 1.1) {
+    render?.wake(2)
     if (still) {
       controls.target.copy(target)
       camera.position.copy(position)
@@ -720,13 +819,61 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (instant) { controls.target.copy(target); camera.position.copy(position); controls.update(); return }
     glide(target, position, 1.4)
   }
-  function flyTo(id) {
+  // The three ways into the city: the whole board, the 内阁's halls, the 六部's 衙门.
+  const VIEWS = {
+    overview: () => overview(),
+    cabinet: () => ({ target: new THREE.Vector3(37, 1.5, -8), position: new THREE.Vector3(64, 32, 26) }),
+    six: () => ({ target: new THREE.Vector3(37, 1, 22), position: new THREE.Vector3(60, 29, 58) }),
+  }
+  function view(name) {
+    const make = VIEWS[name]
+    if (!make) return false
+    const { target, position } = make()
+    select(null)
+    if (still) { controls.target.copy(target); camera.position.copy(position); controls.update(); return true }
+    glide(target, position, 1.2)
+    return true
+  }
+  // The minimap hands back a point on the ground: the eye keeps its height and angle.
+  function lookAt(x, z) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return
+    render?.wake(1.2)
+    const target = new THREE.Vector3(x, controls.target.y, z)
+    if (still) { controls.target.copy(target); controls.update(); return }
+    const offset = camera.position.clone().sub(controls.target)
+    glide(target, target.clone().add(offset), 0.8)
+  }
+  // Where everyone stands, for the minimap: meetings and walks included.
+  function positions() {
+    const out = []
+    for (const p of people.values()) {
+      const g = p.fig.g.position
+      out.push({ id: p.id, x: g.x, y: g.y, z: g.z })
+    }
+    return out
+  }
+  function viewPoint() {
+    const target = controls.target
+    return {
+      x: target.x, z: target.z,
+      yaw: Math.atan2(camera.position.x - target.x, camera.position.z - target.z),
+      distance: camera.position.distanceTo(target),
+    }
+  }
+  // Close on one official: from the courtyard side and a little high, so the eye looks
+  // over his desk at him with his 衙门 and its 匾 behind — no neighbour's roof in the way.
+  function pushIn(id) {
     const p = people.get(id)
     if (!p) return
-    const target = p.fig.g.position.clone().add(new THREE.Vector3(0, 1.5, 0))
-    const dir = camera.position.clone().sub(controls.target).normalize()
-    if (dir.y < 0.5) { dir.y = 0.5; dir.normalize() }
-    glide(target, target.clone().add(dir.multiplyScalar(28)))
+    const at = p.fig.g.position
+    const side = at.x >= -4 && at.x <= 4 ? 1 : -Math.sign(at.x) || 1
+    const offset = new THREE.Vector3(side * 9.5, 11.5, 9.5)
+    const target = at.clone()
+    target.y = 1.6
+    glide(target, target.clone().add(offset), 1.1)
+  }
+  function flyTo(id) {
+    pushIn(id)
   }
 
   let inset = 0
@@ -818,10 +965,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       } else { target = p.home; speed = 2 }
     }
     let moving = !!p.patrol
+    if (moving) render?.wake(0.4)
     if (target) {
       tmp.set(target.x - g.position.x, 0, target.z - g.position.z)
       const dl = tmp.length()
       if (dl > 0.05) {
+        render?.wake(0.4)
         const step = Math.min(dl, speed * dt)
         g.position.addScaledVector(tmp.normalize(), step)
         g.position.y = 0
@@ -832,6 +981,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
         if (p.path.length === 0) p.mode = p.mode === 'toCourt' ? 'court' : 'home'
       }
     }
+    const memorials = Math.max(0, Math.min(8, Number(st.memorials ?? ((kind === 'pending' || kind === 'question') ? 1 : 0)) || 0))
+    for (let i = 0; i < p.pile.planks.length; i += 1) p.pile.planks[i].visible = i < memorials
     if (!moving) {
       let face = null
       if (p.mode === 'court') face = Math.PI
@@ -883,9 +1034,19 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       armR.position.z = 0.08 + Math.sin(T2 * 12) * 0.18
       armL.position.z = 0.08 - Math.sin(T2 * 12) * 0.18
     } else armL.position.z = bowing ? 0.4 : 0.08
-    // Eyes shut in sleep, a blink now and then.
+    // Eyes shut in sleep, a blink now and then; the mouth and the brows say the rest.
     const blink = (T2 % 4.3) < 0.12
     for (const e of eyes) e.scale.y = kind === 'sleep' ? 0.2 : blink ? 0.15 : 1
+    const expr = kind === 'work' ? 'work' : kind === 'pending' || kind === 'question' ? 'open' : kind === 'done' ? 'smile' : kind === 'sleep' ? 'flat' : 'neutral'
+    const mouthMat = mouthMaterial(expr)
+    if (p.fig.mouth.material !== mouthMat) p.fig.mouth.material = mouthMat
+    p.fig.brows.forEach((brow, i) => {
+      const side = i === 0 ? -1 : 1
+      const tilt = kind === 'work' ? side * 0.24 : kind === 'pending' || kind === 'question' ? -side * 0.14 : -side * 0.06
+      brow.rotation.z = tilt
+      brow.position.y = 0.63 + (kind === 'pending' || kind === 'question' ? 0.03 : 0)
+      brow.visible = kind !== 'sleep'
+    })
     const colour = RING[p.mode === 'court' || p.mode === 'toCourt' ? 'court' : kind] ?? RING.idle
     ringMat.color.set(colour)
     const pulse = kind === 'pending' || kind === 'question'
@@ -943,25 +1104,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       halo.rotation.z += dt * 0.4
       if (!still) for (const c of palace.clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 190) c.position.x = -190 }
     }
-    if (fall) {
-      const pos = fall.obj.geometry.attributes.position
-      if (fall.kind === 'snow') {
-        for (let i = 0; i < fall.n; i += 1) {
-          let y = pos.getY(i) - dt * 3
-          if (y < 0) y += 50
-          pos.setY(i, y)
-          pos.setX(i, pos.getX(i) + Math.sin(y * 0.3 + i) * dt * 0.4)
-        }
-      } else {
-        for (let i = 0; i < fall.n; i += 1) {
-          let y = pos.getY(i * 2) - dt * 38
-          if (y < 1.6) y += 48
-          pos.setY(i * 2, y)
-          pos.setY(i * 2 + 1, y - 1.6)
-        }
-      }
-      pos.needsUpdate = true
-    }
     for (const p of people.values()) animatePerson(p, dt, time)
     for (let i = runners.length - 1; i >= 0; i -= 1) {
       if (!stepRunner(runners[i], dt, tick)) { removeRunner(runners[i]); runners.splice(i, 1) }
@@ -973,8 +1115,11 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       marker.rotation.y += dt * 2
     } else marker.visible = false
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true
-    renderer.render(scene, camera)
-    placeTags()
+    if (!render || render.shouldRender(dt)) {
+      if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1
+      renderer.render(scene, camera)
+      placeTags()
+    }
     if (time - clockTick > 1000) {
       clockTick = time
       for (const p of people.values()) if (p.state.kind === 'work' && !p.ambient) p.tag.time.textContent = clock(p.state.since)
@@ -1052,7 +1197,6 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     for (const label of rooms.values()) label.el.remove()
     rooms.clear()
     proclaim.remove()
-    if (fall) { fall.obj.geometry.dispose(); fall.obj.material.dispose() }
     palace?.dispose()
     for (const m of kit.byColour.values()) m.dispose()
     kit.ramp.dispose()
@@ -1071,9 +1215,14 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     setPeople,
     setPersonState,
     setTime,
+    setGlow,
     setWeather,
     select,
     flyTo,
+    view,
+    lookAt,
+    viewPoint,
+    positions,
     frame: () => frame(false),
     setInset,
     start,
