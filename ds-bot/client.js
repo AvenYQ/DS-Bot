@@ -63874,6 +63874,13 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     const changed = next !== selected;
     selected = next;
     for (const p of people.values()) p.tag.el.classList.toggle("sel", p.id === selected);
+    if (selected) {
+      const picked = people.get(selected);
+      if (picked?.patrol) {
+        picked.patrol = null;
+        picked.fig.g.position.copy(picked.home);
+      }
+    }
     if (changed && selected) pushIn(selected);
   }
   const raycaster = new Raycaster();
@@ -64050,19 +64057,26 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   function pushIn(id) {
     const p = people.get(id);
     if (!p) return;
-    const at = p.building === "zhenfu" ? p.home : p.fig.g.position;
-    const side = at.x >= -4 && at.x <= 4 ? 1 : -Math.sign(at.x) || 1;
+    const at = p.fig.g.position;
     const target = at.clone();
-    target.y = 1.6;
-    let chosen = CLOSE_POINTS[CLOSE_POINTS.length - 1];
-    for (const point of CLOSE_POINTS) {
-      const camera_ = target.clone().add(new Vector3(side * point[0], point[1], point[2]));
-      if (!crossesHall(camera_, target, p.building)) {
-        chosen = point;
-        break;
+    target.y += 1.6;
+    let eye;
+    if (p.patrol) {
+      const inward = new Vector3(-at.x, 0, -14 - at.z);
+      if (inward.lengthSq() < 0.01) inward.set(0, 0, 1);
+      eye = target.clone().add(inward.normalize().multiplyScalar(6)).add(new Vector3(0, 9, 0));
+    } else {
+      const side = at.x >= -4 && at.x <= 4 ? 1 : -Math.sign(at.x) || 1;
+      let chosen = CLOSE_POINTS[CLOSE_POINTS.length - 1];
+      for (const point of CLOSE_POINTS) {
+        const camera_ = target.clone().add(new Vector3(side * point[0], point[1], point[2]));
+        if (!crossesHall(camera_, target, p.building)) {
+          chosen = point;
+          break;
+        }
       }
+      eye = target.clone().add(new Vector3(side * chosen[0], chosen[1], chosen[2]));
     }
-    const eye = target.clone().add(new Vector3(side * chosen[0], chosen[1], chosen[2]));
     eye.x = Math.max(-56, Math.min(56, eye.x));
     eye.z = Math.max(-70, Math.min(37, eye.z));
     eye.y = Math.max(eye.y, target.y + 4);
@@ -64137,7 +64151,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     const g = p.fig.g;
     const T2 = tick + p.phase;
     const bowing = now < greetUntil && kind === "idle" && p.mode === "home";
-    const patrolling = p.building === "zhenfu" && kind === "work" && p.mode === "home" && !still;
+    const patrolling = p.building === "zhenfu" && kind === "work" && p.mode === "home" && !still && p.id !== selected;
     if (patrolling && !p.patrol) p.patrol = { s: 4 };
     if (!patrolling && p.patrol) {
       p.patrol = null;
