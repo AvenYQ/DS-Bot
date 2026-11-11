@@ -822,7 +822,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     // An official or his pile wins over the hall behind him: the hall's pick box is a
     // rough block round the whole 衙门, and it would otherwise swallow everything.
     const hits = raycaster.intersectObjects(targets, false)
-    const hit = hits.find(one => one.object.userData.id || one.object.userData.pile) ?? hits[0]
+    const hit = hits.find(one => one.object.userData.id)
+      ?? hits.find(one => one.object.userData.pile)
+      ?? hits[0]
     if (!hit) return { id: null, building: null, pile: false }
     if (hit.object.userData.pile) return { id: hit.object.userData.pile, building: null, pile: true }
     if (hit.object.userData.id) return { id: hit.object.userData.id, building: null, pile: false }

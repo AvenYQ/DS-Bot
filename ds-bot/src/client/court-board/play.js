@@ -160,17 +160,23 @@ export function CourtEgg({ hall, onClose }) {
  */
 export function createDispatch({ send } = {}) {
   let pending = null
+  let sending = false
   return {
     ask({ bot, text }) {
       pending = { bot, text }
       return dispatchCopy({ name: bot?.name ?? '', text })
     },
     async confirm() {
+      if (sending) return { ok: false, reason: 'in-flight' }
       if (!pending) return { ok: false, reason: 'nothing-to-send' }
       const job = pending
+      sending = true
+      const answer = (await send?.(job.bot.id, job.text, { confirmed: true })) ?? { ok: true }
+      sending = false
+      // A send that failed keeps the 折子, so 再试一次 has something to send again.
+      if (answer?.ok === false) return answer
       pending = null
-      const answer = await send?.(job.bot.id, job.text, { confirmed: true })
-      return answer ?? { ok: true }
+      return answer
     },
     cancel() {
       const had = pending !== null
@@ -268,6 +274,13 @@ export function DispatchCard({ copy, error = '', busy = false, onConfirm, onCanc
       type: 'button', onClick: onConfirm, disabled: busy, 'aria-busy': busy,
       style: { height: '30px', padding: '0 14px', border: 0, borderRadius: '999px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, background: 'var(--bt-accent)', color: 'var(--bt-user-ink)', fontSize: '13px' },
     }, busy ? t('Sending…') : error ? t('Try again') : copy.confirm)))
+}
+
+/** How many times this official has been picked: the greeting walks its lines with it. */
+export function nextPick(counts, id) {
+  const at = (counts[id] ?? 0) + 1
+  counts[id] = at
+  return at
 }
 
 /** A tiny hook for index.js: which 衙门 has a 彩蛋, by building id. */

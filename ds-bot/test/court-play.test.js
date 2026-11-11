@@ -17,7 +17,7 @@ runInNewContext(outputFiles[0].text, {
     ? { createElement: () => null, useEffect: () => {}, useRef: () => ({ current: null }), useState: () => [null, () => {}] }
     : {}),
 })
-const { createDispatch, greetingOf } = bundled.exports
+const { createDispatch, greetingOf, nextPick } = bundled.exports
 
 const bot = { id: 'zgf', name: '曾国藩' }
 
@@ -52,12 +52,40 @@ test('confirming twice sends once: the pending 折子 is taken at the first pres
   assert.equal(calls, 1)
 })
 
+test('a failed send keeps the 折子, so 再试一次 sends it again and it goes out', async () => {
+  let calls = 0
+  const card = createDispatch({
+    send: () => {
+      calls += 1
+      return calls === 1 ? Promise.resolve({ ok: false, reason: 'send-failed' }) : Promise.resolve({ ok: true })
+    },
+  })
+  card.ask({ bot, text: '把瓦垄改圆' })
+  const first = await card.confirm()
+  assert.equal(first.ok, false)
+  assert.equal(calls, 1)
+  assert.notEqual(card.pending(), null, 'the 折子 is still there to try again')
+  const second = await card.confirm()
+  assert.equal(second.ok, true)
+  assert.equal(calls, 2, 'the retry is the second send, not a third')
+  assert.equal(card.pending(), null)
+  assert.equal((await card.confirm()).ok, false, 'nothing left to send')
+})
+
 test('the greeting changes on every pick, even for the same official', () => {
   const errand = '把瓦垄改圆'
   const lines = [0, 1, 2, 3, 4, 5].map(pick => greetingOf('work', { task: errand, pick }))
   assert.equal(new Set(lines).size, 6, 'six picks say six different things')
   assert.equal(greetingOf('work', { task: errand, pick: 0 }), greetingOf('work', { task: errand, pick: 0 }))
   assert.notEqual(greetingOf('work', { task: errand, pick: 0 }), greetingOf('work', { task: errand, pick: 1 }))
+  // Two picks of the same official walk two lines.
+  const counts = {}
+  assert.equal(nextPick(counts, 'zgf'), 1)
+  assert.equal(nextPick(counts, 'zgf'), 2)
+  assert.notEqual(
+    greetingOf('work', { task: errand, pick: nextPick({}, 'zgf') }),
+    greetingOf('work', { task: errand, pick: nextPick({ zgf: 1 }, 'zgf') }),
+  )
   // With no errand to name, the lines that want {task} step aside.
   assert.equal(new Set([0, 1, 2, 3, 4, 5].map(pick => greetingOf('work', { pick }))).size, 4)
 })

@@ -19,7 +19,7 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
-import { CourtEgg, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf } from './play.js'
+import { CourtEgg, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { fetchWeather } from './weather.js'
 
@@ -330,9 +330,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     if (!state.open || !selected || scene.current === null) return
     const person = cast.people.find(item => item.id === selected)
     if (!person) return
-    picks.current[selected] = (picks.current[selected] ?? 0) + 1
+    const pick = nextPick(picks.current, selected)
     const duty = readDuty(selected)
-    scene.current.say(selected, greetingOf(person.state.kind, { task: duty?.task ?? '', pick: picks.current[selected] }))
+    scene.current.say(selected, greetingOf(person.state.kind, { task: duty?.task ?? '', pick }))
   }, [selected, state.open, greetTick])
   useEffect(() => {
     scene.current?.setTime(hour * 60)

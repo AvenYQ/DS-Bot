@@ -63945,7 +63945,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       ...palace?.pickables ?? []
     ];
     const hits = raycaster.intersectObjects(targets, false);
-    const hit = hits.find((one) => one.object.userData.id || one.object.userData.pile) ?? hits[0];
+    const hit = hits.find((one) => one.object.userData.id) ?? hits.find((one) => one.object.userData.pile) ?? hits[0];
     if (!hit) return { id: null, building: null, pile: false };
     if (hit.object.userData.pile) return { id: hit.object.userData.pile, building: null, pile: true };
     if (hit.object.userData.id) return { id: hit.object.userData.id, building: null, pile: false };
@@ -64873,17 +64873,22 @@ function CourtEgg({ hall, onClose }) {
 }
 function createDispatch({ send } = {}) {
   let pending = null;
+  let sending = false;
   return {
     ask({ bot, text }) {
       pending = { bot, text };
       return dispatchCopy({ name: bot?.name ?? "", text });
     },
     async confirm() {
+      if (sending) return { ok: false, reason: "in-flight" };
       if (!pending) return { ok: false, reason: "nothing-to-send" };
       const job = pending;
+      sending = true;
+      const answer = await send?.(job.bot.id, job.text, { confirmed: true }) ?? { ok: true };
+      sending = false;
+      if (answer?.ok === false) return answer;
       pending = null;
-      const answer = await send?.(job.bot.id, job.text, { confirmed: true });
-      return answer ?? { ok: true };
+      return answer;
     },
     cancel() {
       const had = pending !== null;
@@ -65029,6 +65034,11 @@ function DispatchCard({ copy: copy2, error: error2 = "", busy = false, onConfirm
       }, busy ? t("Sending…") : error2 ? t("Try again") : copy2.confirm)
     )
   );
+}
+function nextPick(counts2, id) {
+  const at = (counts2[id] ?? 0) + 1;
+  counts2[id] = at;
+  return at;
 }
 function eggOf(building) {
   return Object.hasOwn(EGGS, building) ? building : null;
@@ -65453,9 +65463,9 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     if (!state.open || !selected || scene.current === null) return;
     const person = cast.people.find((item) => item.id === selected);
     if (!person) return;
-    picks.current[selected] = (picks.current[selected] ?? 0) + 1;
+    const pick2 = nextPick(picks.current, selected);
     const duty2 = readDuty(selected);
-    scene.current.say(selected, greetingOf(person.state.kind, { task: duty2?.task ?? "", pick: picks.current[selected] }));
+    scene.current.say(selected, greetingOf(person.state.kind, { task: duty2?.task ?? "", pick: pick2 }));
   }, [selected, state.open, greetTick]);
   (0, import_react38.useEffect)(() => {
     scene.current?.setTime(hour * 60);
