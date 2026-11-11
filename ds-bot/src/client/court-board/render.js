@@ -17,13 +17,21 @@ const hexOf = (colour) => (typeof colour === 'number' ? colour : parseInt(String
 // constants, copied here because that module keeps them private.
 const FAMILY_FLAG = 'courtRenderFamily'
 const ADOPTED_FLAG = 'courtRenderAdopted'
-const FAMILIES = new Map()
-for (const colour of ROOF_COLOURS) FAMILIES.set(hexOf(colour), 'roof')
-for (const colour of CROWNS) FAMILIES.set(hexOf(colour), 'roof')
-for (const colour of ['#c4412e', '#b8573f', '#b3382a']) FAMILIES.set(hexOf(colour), 'wall')
-FAMILIES.set(hexOf('#f3efe6'), 'marble')
-FAMILIES.set(hexOf('#ffffff'), 'pave')
-FAMILIES.set(hexOf('#a9cf87'), 'grass')
+// The palette is built on first use, not at import: palace.js imports instanced() from
+// this module, so the two form a cycle, and palace.js's colours are not ready while this
+// file is first evaluated.
+let FAMILIES = null
+function palette() {
+  if (FAMILIES) return FAMILIES
+  FAMILIES = new Map()
+  for (const colour of ROOF_COLOURS) FAMILIES.set(hexOf(colour), 'roof')
+  for (const colour of CROWNS) FAMILIES.set(hexOf(colour), 'roof')
+  for (const colour of ['#c4412e', '#b8573f', '#b3382a']) FAMILIES.set(hexOf(colour), 'wall')
+  FAMILIES.set(hexOf('#f3efe6'), 'marble')
+  FAMILIES.set(hexOf('#ffffff'), 'pave')
+  FAMILIES.set(hexOf('#a9cf87'), 'grass')
+  return FAMILIES
+}
 
 // How far each family leans to the dusk and the night, and to the snow.
 const GRADE = {
@@ -123,7 +131,7 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
     scene.traverse((object) => {
       for (const material of materialsOf(object)) {
         if (!material.color || materials.has(material.uuid)) continue
-        const family = material.userData?.[FAMILY_FLAG] ?? FAMILIES.get(material.color.getHex()) ?? null
+        const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null
         materials.set(material.uuid, { material, family, base: material.color.clone() })
         if (!material.userData?.[ADOPTED_FLAG]) pending.push(material)
       }
@@ -350,7 +358,7 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
     scene.traverse((object) => {
       for (const material of materialsOf(object)) {
         if (!material.color || materials.has(material.uuid)) continue
-        const family = material.userData?.[FAMILY_FLAG] ?? FAMILIES.get(material.color.getHex()) ?? null
+        const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null
         materials.set(material.uuid, { material, family, base: material.color.clone() })
         material.userData = material.userData || {}
         material.userData[FAMILY_FLAG] = family
