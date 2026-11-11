@@ -4820,17 +4820,17 @@ function installCompiledStyles(text, tag) {
   };
   render();
   let timer;
-  const schedule = () => {
+  const schedule2 = () => {
     clearTimeout(timer);
     timer = setTimeout(render, 120);
   };
   const onLoad = (event) => {
-    if (event.target instanceof HTMLLinkElement) schedule();
+    if (event.target instanceof HTMLLinkElement) schedule2();
   };
   const shell = (node) => node.dataset?.dshBot === void 0;
   const observer = new MutationObserver((records) => {
     if (records.some((record) => [...record.removedNodes].includes(style))) render();
-    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some(shell))) schedule();
+    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some(shell))) schedule2();
   });
   observer.observe(document.head, { childList: true });
   document.addEventListener("load", onLoad, true);
@@ -5953,7 +5953,7 @@ function liveStateOf({ bot, roster, marked = false, entry, active = false, doing
     state: botState(running2 || away, doing, alert)
   };
 }
-function createDoneHold(notify, confirm, schedule = setTimeout, cancel = clearTimeout) {
+function createDoneHold(notify, confirm, schedule2 = setTimeout, cancel = clearTimeout) {
   const pending = /* @__PURE__ */ new Map();
   const ready = /* @__PURE__ */ new Set();
   const start = (part) => {
@@ -5968,9 +5968,9 @@ function createDoneHold(notify, confirm, schedule = setTimeout, cancel = clearTi
           notify();
           return;
         }
-        request.timer = schedule(check, 1500);
+        request.timer = schedule2(check, 1500);
       }, () => {
-        if (pending.get(part) === request) request.timer = schedule(check, 1500);
+        if (pending.get(part) === request) request.timer = schedule2(check, 1500);
       });
     };
     check();
@@ -65120,6 +65120,112 @@ async function dispatch(botId, text, confirmed) {
   }
 }
 
+// src/client/court-board/sound.js
+var STORAGE_KEY = "ds-bot:court-sound";
+var MASTER_VOLUME = 0.5;
+var VOICES = {
+  // A temple bell: a low strike with two soft overtones ringing out.
+  bell: [
+    { type: "sine", frequency: 174.6, decay: 1.5, gain: 0.12 },
+    { type: "sine", frequency: 349.2, decay: 1.1, gain: 0.045, delay: 0.01 },
+    { type: "sine", frequency: 523.2, decay: 0.8, gain: 0.022, delay: 0.02 }
+  ],
+  // The drum at dusk: a low thud that falls in pitch, with a wooden tap on top.
+  drum: [
+    { type: "sine", frequency: 92, endFrequency: 54, decay: 0.42, gain: 0.24 },
+    { type: "triangle", frequency: 180, endFrequency: 120, decay: 0.07, gain: 0.05 }
+  ],
+  // A decree: two bright notes, one after the other, like a herald clearing his throat.
+  decree: [
+    { type: "triangle", frequency: 659.25, decay: 0.22, gain: 0.09 },
+    { type: "triangle", frequency: 987.77, decay: 0.32, gain: 0.075, delay: 0.11 }
+  ],
+  // The runner: four quick steps over the stones, the last one lighter.
+  runner: [
+    { type: "square", frequency: 1046.5, decay: 0.05, gain: 0.035 },
+    { type: "square", frequency: 1174.7, decay: 0.05, gain: 0.032, delay: 0.09 },
+    { type: "square", frequency: 1046.5, decay: 0.05, gain: 0.03, delay: 0.18 },
+    { type: "square", frequency: 1318.5, decay: 0.06, gain: 0.026, delay: 0.28 }
+  ]
+};
+function defaultStorage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+function readStored(storage) {
+  try {
+    return storage?.getItem(STORAGE_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+function writeStored(storage, on) {
+  try {
+    storage?.setItem(STORAGE_KEY, on ? "on" : "off");
+  } catch {
+  }
+}
+function schedule(context, master, voice, at) {
+  const oscillator = context.createOscillator();
+  const envelope2 = context.createGain();
+  oscillator.type = voice.type;
+  oscillator.frequency.setValueAtTime(voice.frequency, at);
+  if (voice.endFrequency !== void 0) {
+    oscillator.frequency.exponentialRampToValueAtTime(voice.endFrequency, at + voice.decay);
+  }
+  envelope2.gain.setValueAtTime(1e-4, at);
+  envelope2.gain.exponentialRampToValueAtTime(voice.gain, at + 8e-3);
+  envelope2.gain.exponentialRampToValueAtTime(1e-4, at + voice.decay);
+  oscillator.connect(envelope2);
+  envelope2.connect(master);
+  oscillator.start(at);
+  oscillator.stop(at + voice.decay + 0.02);
+}
+function createSound({ storage = defaultStorage(), AudioContextClass } = {}) {
+  let on = readStored(storage);
+  let context = null;
+  let master = null;
+  function audioContext() {
+    if (context) return context;
+    const Ctor = AudioContextClass ?? globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (typeof Ctor !== "function") return null;
+    try {
+      context = new Ctor();
+      master = context.createGain();
+      master.gain.value = MASTER_VOLUME;
+      master.connect(context.destination);
+      return context;
+    } catch {
+      context = null;
+      master = null;
+      return null;
+    }
+  }
+  function play(name) {
+    if (!on) return false;
+    const voices = VOICES[name];
+    if (!voices) return false;
+    const audio = audioContext();
+    if (!audio) return false;
+    try {
+      if (audio.state === "suspended") audio.resume?.();
+      const at = audio.currentTime + 0.01;
+      for (const voice of voices) schedule(audio, master, voice, at + (voice.delay ?? 0));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function setEnabled(next) {
+    on = next === true;
+    writeStored(storage, on);
+  }
+  return { play, setEnabled, enabled: () => on };
+}
+
 // src/client/court-board/index.js
 var import_react38 = require("react");
 var import_react_dom4 = require("react-dom");
@@ -65270,6 +65376,10 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const picks = (0, import_react38.useRef)({});
   const [duty, setDuty] = (0, import_react38.useState)(null);
   const [docket, setDocket] = (0, import_react38.useState)(null);
+  const sound = (0, import_react38.useRef)(null);
+  if (sound.current === null) sound.current = createSound();
+  const [soundOn, setSoundOn] = (0, import_react38.useState)(false);
+  const rang = (0, import_react38.useRef)({});
   const dispatcher = (0, import_react38.useRef)(null);
   if (dispatcher.current === null) {
     dispatcher.current = createDispatch({ send: (id, text, options) => dispatch(id, text, options?.confirmed === true) });
@@ -65446,6 +65556,20 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     scene.current?.select(selected);
   }, [selected, state.open]);
   (0, import_react38.useEffect)(() => {
+    setSoundOn(sound.current?.enabled?.() === true);
+  }, []);
+  (0, import_react38.useEffect)(() => {
+    if (!state.open || !soundOn) return;
+    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    for (const [name, from] of [["bell", 6], ["drum", 17]]) {
+      if (hour < from || hour >= from + 1) continue;
+      const key = `${day}:${name}`;
+      if (rang.current[key]) continue;
+      rang.current[key] = true;
+      sound.current?.play?.(name);
+    }
+  }, [hour, state.open, soundOn]);
+  (0, import_react38.useEffect)(() => {
     wireBridge({
       roster,
       live: new Map(heldStates.map((item) => [item.bot.id, item])),
@@ -65501,6 +65625,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     if (next === null) return void 0;
     playedDecree.current = { ...playedDecree.current, [next.kind]: next.at };
     decreeUntil.current = now + CEREMONY_MS;
+    sound.current?.play?.("decree");
     scene.current.decree(next.kind === "room" ? { from: next.from, room: next.room } : { from: next.from, to: next.to });
     const main = roster.byId?.[next.from]?.name ?? "";
     const named = next.kind === "room" ? roster.roomsById?.[next.room]?.name ?? "" : next.to.map((id) => roster.byId?.[id]?.name).filter(Boolean).join("、");
@@ -65512,12 +65637,17 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   (0, import_react38.useEffect)(() => {
     if (!state.open || scene.current === null) return;
     const now = Date.now();
+    let played = false;
     for (const entry of messages) {
       if (!entry || typeof entry.at !== "number" || now - entry.at > 15e3) continue;
       const key = `${entry.from}>${entry.to ?? entry.room}@${entry.at}`;
       if (sent.current.has(key)) continue;
       sent.current.add(key);
       scene.current.send({ from: entry.from, to: entry.to, room: entry.room });
+      if (!played) {
+        sound.current?.play?.("runner");
+        played = true;
+      }
     }
   }, [messages, state.open]);
   (0, import_react38.useEffect)(() => {
@@ -65610,6 +65740,19 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           onClick: () => setPanel(panel === key ? null : key)
         }, label))
       ),
+      (0, import_react38.createElement)("button", {
+        type: "button",
+        className: "bt-cb-icon",
+        "data-on": soundOn,
+        "aria-pressed": soundOn,
+        title: soundOn ? t("Sound is on") : t("Sound is off"),
+        "aria-label": soundOn ? t("Sound is on") : t("Sound is off"),
+        onClick: () => {
+          const next = !soundOn;
+          sound.current?.setEnabled?.(next);
+          setSoundOn(next);
+        }
+      }, (0, import_react38.createElement)(SoundIcon, { on: soundOn })),
       (0, import_react38.createElement)(DocketChip, { onDrop: dropDocket }),
       (0, import_react38.createElement)("button", {
         type: "button",
@@ -65984,6 +66127,12 @@ function RosterPanel({ bots, selected, onSelect }) {
   );
 }
 var svg2 = (children, size = 18) => (0, import_react38.createElement)("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, children);
+var SoundIcon = ({ on }) => svg2([
+  (0, import_react38.createElement)("path", { key: "a", d: "M4 10v4h3l4 3V7L7 10H4Z" }),
+  on ? (0, import_react38.createElement)("path", { key: "b", d: "M15 9a4 4 0 0 1 0 6" }) : null,
+  on ? (0, import_react38.createElement)("path", { key: "c", d: "M17.5 6.5a7.5 7.5 0 0 1 0 11" }) : null,
+  on ? null : (0, import_react38.createElement)("path", { key: "d", d: "M15 9l5 6M20 9l-5 6" })
+]);
 var TourIcon = () => svg2([(0, import_react38.createElement)("path", { key: "a", d: "M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" }), (0, import_react38.createElement)("circle", { key: "b", cx: 12, cy: 12, r: 3 })]);
 var CloseIcon3 = () => svg2([(0, import_react38.createElement)("path", { key: "a", d: "M6 6l12 12" }), (0, import_react38.createElement)("path", { key: "b", d: "M18 6L6 18" })]);
 
@@ -66237,7 +66386,7 @@ function installFrameWatch(frame) {
   let collapsedWidth = collapsedTrackWidth();
   let raf = 0;
   const watched = /* @__PURE__ */ new Set();
-  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => schedule()) : null;
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => schedule2()) : null;
   const read = () => {
     const column = document.querySelector('[class*="_sidebarCol"]');
     const animating = column?.closest("[data-animating]") != null;
@@ -66260,21 +66409,21 @@ function installFrameWatch(frame) {
     }
     read();
   };
-  const schedule = () => {
+  const schedule2 = () => {
     if (raf === 0) raf = requestAnimationFrame(() => {
       raf = 0;
       measure();
     });
   };
   measure();
-  const mutations = new MutationObserver(schedule);
+  const mutations = new MutationObserver(schedule2);
   mutations.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-sidebar-collapsed", "data-animating"] });
-  window.addEventListener("resize", schedule);
+  window.addEventListener("resize", schedule2);
   return () => {
     cancelAnimationFrame(raf);
     mutations.disconnect();
     observer?.disconnect();
-    window.removeEventListener("resize", schedule);
+    window.removeEventListener("resize", schedule2);
   };
 }
 
@@ -73864,7 +74013,7 @@ function useTranscriptView() {
   (0, import_react55.useEffect)(() => {
     let frame = 0;
     let watched = null;
-    const observer = new MutationObserver(() => schedule());
+    const observer = new MutationObserver(() => schedule2());
     const measure = () => {
       frame = 0;
       const scroller = document.querySelector("[data-conversation-scroll]");
@@ -73895,21 +74044,21 @@ function useTranscriptView() {
       };
       setView((prev) => prev && Object.keys(next).every((key) => prev[key] === next[key]) ? prev : next);
     };
-    const schedule = () => {
+    const schedule2 = () => {
       if (!frame) frame = requestAnimationFrame(measure);
     };
-    document.addEventListener("scroll", schedule, true);
-    window.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
-    schedule();
+    document.addEventListener("scroll", schedule2, true);
+    window.addEventListener("resize", schedule2);
+    window.visualViewport?.addEventListener("resize", schedule2);
+    window.visualViewport?.addEventListener("scroll", schedule2);
+    schedule2();
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      document.removeEventListener("scroll", schedule, true);
-      window.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
+      document.removeEventListener("scroll", schedule2, true);
+      window.removeEventListener("resize", schedule2);
+      window.visualViewport?.removeEventListener("resize", schedule2);
+      window.visualViewport?.removeEventListener("scroll", schedule2);
     };
   }, []);
   return view2;
@@ -74207,7 +74356,7 @@ function ComposerPlus({ sessionId, inputActions, useInput, useRoster, actions })
     setOpen(null);
     fileInput()?.click();
   };
-  const schedule = () => {
+  const schedule2 = () => {
     setOpen(null);
     actions.openSettings("schedules", target);
   };
@@ -74248,7 +74397,7 @@ function ComposerPlus({ sessionId, inputActions, useInput, useRoster, actions })
       shown.files ? (0, import_react56.createElement)("button", { type: "button", role: "menuitem", onClick: attach }, (0, import_react56.createElement)(PaperclipIcon), (0, import_react56.createElement)("span", { className: "bt-menu-label" }, t("Add files"))) : null,
       canReference ? (0, import_react56.createElement)("button", { type: "button", role: "menuitem", onMouseDown: keepComposerFocus, onClick: reference }, (0, import_react56.createElement)(ChatsIcon), (0, import_react56.createElement)("span", { className: "bt-menu-label" }, t("Reference a chat"))) : null,
       canSetGoal(room2, roster) ? (0, import_react56.createElement)("button", { type: "button", role: "menuitem", onClick: goal }, (0, import_react56.createElement)(GoalIcon), (0, import_react56.createElement)("span", { className: "bt-menu-label" }, t("Set a goal"))) : null,
-      (0, import_react56.createElement)("button", { type: "button", role: "menuitem", onClick: schedule }, (0, import_react56.createElement)(ClockIcon), (0, import_react56.createElement)("span", { className: "bt-menu-label" }, t("Scheduled task")))
+      (0, import_react56.createElement)("button", { type: "button", role: "menuitem", onClick: schedule2 }, (0, import_react56.createElement)(ClockIcon), (0, import_react56.createElement)("span", { className: "bt-menu-label" }, t("Scheduled task")))
     ), document.body) : null
   );
 }
@@ -77439,17 +77588,17 @@ function BrowserView({ bot, tabId, leaving, landed, actions, useBrowserPages, ho
       const box = element.getBoundingClientRect();
       void actions.browserShow(tabId, showGuest ? { left: box.left, top: box.top, width: box.width, height: box.height } : null);
     };
-    const schedule = () => {
+    const schedule2 = () => {
       if (!raf) raf = requestAnimationFrame(measure);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    window.addEventListener("resize", schedule);
+    window.addEventListener("resize", schedule2);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", schedule2);
     };
   }, [tabId, showGuest, leaving]);
   (0, import_react66.useEffect)(() => {

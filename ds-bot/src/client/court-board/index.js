@@ -21,6 +21,7 @@ import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
 import { CourtEgg, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
+import { createSound } from './sound.js'
 import { fetchWeather } from './weather.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
@@ -150,6 +151,10 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const picks = useRef({})
   const [duty, setDuty] = useState(null)
   const [docket, setDocket] = useState(null)
+  const sound = useRef(null)
+  if (sound.current === null) sound.current = createSound()
+  const [soundOn, setSoundOn] = useState(false)
+  const rang = useRef({})
   const dispatcher = useRef(null)
   if (dispatcher.current === null) {
     dispatcher.current = createDispatch({ send: (id, text, options) => dispatch(id, text, options?.confirmed === true) })
@@ -307,6 +312,20 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   useEffect(() => {
     scene.current?.select(selected)
   }, [selected, state.open])
+  useEffect(() => { setSoundOn(sound.current?.enabled?.() === true) }, [])
+  // 晨钟暮鼓: once each, on the hour, while the board is open and the sound is on.
+  useEffect(() => {
+    if (!state.open || !soundOn) return
+    const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+    for (const [name, from] of [['bell', 6], ['drum', 17]]) {
+      if (hour < from || hour >= from + 1) continue
+      const key = `${day}:${name}`
+      if (rang.current[key]) continue
+      rang.current[key] = true
+      sound.current?.play?.(name)
+    }
+  }, [hour, state.open, soundOn])
+
   // bridge.js reads what each official has in hand from this snapshot, and sends only
   // through the host's own action after the confirmation card.
   useEffect(() => {
@@ -375,6 +394,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     if (next === null) return undefined
     playedDecree.current = { ...playedDecree.current, [next.kind]: next.at }
     decreeUntil.current = now + CEREMONY_MS
+    sound.current?.play?.('decree')
     scene.current.decree(next.kind === 'room'
       ? { from: next.from, room: next.room }
       : { from: next.from, to: next.to })
@@ -393,12 +413,14 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   useEffect(() => {
     if (!state.open || scene.current === null) return
     const now = Date.now()
+    let played = false
     for (const entry of messages) {
       if (!entry || typeof entry.at !== 'number' || now - entry.at > 15_000) continue
       const key = `${entry.from}>${entry.to ?? entry.room}@${entry.at}`
       if (sent.current.has(key)) continue
       sent.current.add(key)
       scene.current.send({ from: entry.from, to: entry.to, room: entry.room })
+      if (!played) { sound.current?.play?.('runner'); played = true }
     }
   }, [messages, state.open])
 
@@ -458,6 +480,16 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           key, type: 'button', role: 'tab', 'aria-selected': panel === key, 'data-on': panel === key,
           onClick: () => setPanel(panel === key ? null : key),
         }, label))),
+      h('button', {
+        type: 'button', className: 'bt-cb-icon', 'data-on': soundOn, 'aria-pressed': soundOn,
+        title: soundOn ? t('Sound is on') : t('Sound is off'),
+        'aria-label': soundOn ? t('Sound is on') : t('Sound is off'),
+        onClick: () => {
+          const next = !soundOn
+          sound.current?.setEnabled?.(next)
+          setSoundOn(next)
+        },
+      }, h(SoundIcon, { on: soundOn })),
       h(DocketChip, { onDrop: dropDocket }),
       h('button', {
         type: 'button', className: 'bt-cb-icon', title: t('Tour the court'), 'aria-label': t('Tour the court'),
@@ -756,5 +788,11 @@ function RosterPanel({ bots, selected, onSelect }) {
 }
 
 const svg = (children, size = 18) => h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, children)
+const SoundIcon = ({ on }) => svg([
+  h('path', { key: 'a', d: 'M4 10v4h3l4 3V7L7 10H4Z' }),
+  on ? h('path', { key: 'b', d: 'M15 9a4 4 0 0 1 0 6' }) : null,
+  on ? h('path', { key: 'c', d: 'M17.5 6.5a7.5 7.5 0 0 1 0 11' }) : null,
+  on ? null : h('path', { key: 'd', d: 'M15 9l5 6M20 9l-5 6' }),
+])
 const TourIcon = () => svg([h('path', { key: 'a', d: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z' }), h('circle', { key: 'b', cx: 12, cy: 12, r: 3 })])
 const CloseIcon = () => svg([h('path', { key: 'a', d: 'M6 6l12 12' }), h('path', { key: 'b', d: 'M18 6L6 18' })])
