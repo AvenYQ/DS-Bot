@@ -15,6 +15,14 @@ import { SEALS } from './data.js'
 import { BUILDING, PATROL, SPARES, WALL_TOP, courtSlot, homeOf, walkPath } from './layout.js'
 import { CROWNS, ROOF_COLOURS, buildPalace, createMaterials, shade } from './palace.js'
 
+// r128 passed colours through untouched, with no colour management and a linear output.
+// Current three does both by default, so both are switched back off to keep every tone.
+THREE.ColorManagement.enabled = false
+
+// r128's toon shader did not divide light colours by PI the way current three does, so
+// both lights take PI times the old intensity to keep the same brightness.
+const LIGHT_GAIN = Math.PI
+
 export const CEREMONY_MS = 5200
 const WALK = 7
 const RUN = 9
@@ -46,6 +54,7 @@ const prefersStill = () => typeof window !== 'undefined' && window.matchMedia?.(
 export function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rendererFactory = options => new THREE.WebGLRenderer(options) }) {
   const still = prefersStill()
   const renderer = rendererFactory({ antialias: true, alpha: true, powerPreference: 'high-performance' })
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -72,9 +81,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   controls.screenSpacePanning = false
   controls.rotateSpeed = 0.6
 
-  const hemi = new THREE.HemisphereLight(0xdff2ff, 0xb9a782, 0.6)
+  const hemi = new THREE.HemisphereLight(0xdff2ff, 0xb9a782, 0.6 * LIGHT_GAIN)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight(0xffffff, 0.9)
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9 * LIGHT_GAIN)
   sun.position.set(40, 80, 50)
   sun.target.position.set(0, 0, -12)
   scene.add(sun, sun.target)
@@ -619,9 +628,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     scene.fog.color.copy(bottom)
     scene.fog.near = weather.kind === 'fog' ? 60 : 170
     scene.fog.far = weather.kind === 'fog' ? 220 : 380
-    sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55)
+    sun.intensity = (0.16 + 0.42 * day) * (1 - overcast * 0.55) * LIGHT_GAIN
     sun.color.copy(mixColour('#8ea4e0', '#ffffff', day).lerp(new THREE.Color('#ffb27a'), dusk * 0.6 * (1 - overcast)))
-    hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2)
+    hemi.intensity = (0.3 + 0.2 * day) * (1 + overcast * 0.2) * LIGHT_GAIN
     hemi.color.copy(mixColour('#6d7bb3', '#dff2ff', day))
     const a = Math.min(1, Math.max(0, (hour - 6) / 12)) * Math.PI
     if (day > 0.05) sun.position.set(Math.cos(a) * 70, 32 + 50 * Math.sin(a), 50)

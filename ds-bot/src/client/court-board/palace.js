@@ -3,7 +3,7 @@
 // layout.js; everything that never moves is merged into a handful of meshes. scene.js
 // owns the people and everything else that moves.
 import * as THREE from 'three'
-import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BUILDINGS, LANE_X, WALL, footOf } from './layout.js'
 
 const Y = '#f2b630'
@@ -594,7 +594,7 @@ export function buildPalace(scene, kit, { spares = new Map(), maxAniso = 4 } = {
     })
     for (const o of keep) { o.updateMatrixWorld(true); root.attach(o) }
     for (const { m, gs } of buckets.values()) {
-      const geometry = BufferGeometryUtils.mergeBufferGeometries(gs)
+      const geometry = mergeGeometries(gs)
       for (const g of gs) g.dispose()
       const mesh = new THREE.Mesh(geometry, m)
       mesh.castShadow = cast
