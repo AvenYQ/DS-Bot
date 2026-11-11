@@ -662,6 +662,9 @@ function frameless(height, material) {
   // DSH keeps the dialog mask off the caption band, which then stays bright above a dimmed
   // page; here the band is part of the page, so the mask covers it too.
   root.style.setProperty('--dsh-frame-chrome-top', '0px')
+  // macOS: the traffic lights stand at the band's left, so the Bot column's top row can
+  // share the band with them (Aven's build; see ds-bot's styles.js).
+  if (process.platform === 'darwin') root.dataset.captionLights = ''
   // The traffic lights take their colors from the system.
   if (process.platform === 'win32') captionColors(material === 'mica')
 }

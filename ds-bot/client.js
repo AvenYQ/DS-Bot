@@ -3401,6 +3401,16 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]){padding-top:calc(var(--bt-lc-clear) - 48px)}
 html[data-platform=darwin]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{padding-left:72px;-webkit-app-region:drag}
 html[data-platform=darwin] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
+/* The DeepSeek Bot app on macOS marks its caption band with the lights at its left
+   (data-caption-lights). There the open column's top row is the band itself: the lights,
+   then the column's four buttons, one row; the band's own switch shows only while the
+   column is hidden, as the rail's foot and the open row have theirs. */
+html[data-caption-lights]{--bt-caption-start:64px}
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]){padding-top:0}
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{box-sizing:border-box;height:var(--dsh-windows-titlebar-height,40px);padding:0 0 0 76px;-webkit-app-region:drag}
+html[data-caption-lights] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
+html[data-caption-lights] .bt-leftcol:not([data-left=rail]) .bt-side-collapse{display:inline-flex}
+html[data-caption-lights] body:has(.bt-leftcol) .bt-title-toggle{display:none}
 /* The shell's own sidebar switch and new-session button wait beside the lights while its
    sidebar is collapsed, as it always is under the Bot column. The Bot column has its own
    pair (the rail's foot, the open column's top row), so the shell's pair stays hidden. */
@@ -3414,8 +3424,13 @@ html[data-platform=darwin] .bt-side-top :is(button,a,[role=button],input){-webki
 .bt-side:not(.bt-rail)>.bt-list{margin-right:-12px;scrollbar-gutter:stable;scrollbar-width:auto;scrollbar-color:auto}
 .bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar{width:12px}
 .bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar-track{background:transparent}
-.bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar-thumb{border:4px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--bt-ink) 16%,transparent) padding-box}
-.bt-side:not(.bt-rail)>.bt-list:hover::-webkit-scrollbar-thumb{background-color:color-mix(in srgb,var(--bt-ink) 30%,transparent)}
+.bt-side:not(.bt-rail)>.bt-list::-webkit-scrollbar-thumb{border:4px solid transparent;border-radius:6px;background:transparent padding-box}
+/* The thumb shows only while the pointer is over the list, so a resting column has no
+   grey bar down its right edge. */
+.bt-side:not(.bt-rail)>.bt-list:hover::-webkit-scrollbar-thumb{background-color:color-mix(in srgb,var(--bt-ink) 22%,transparent)}
+/* The rail is a column of avatars: it scrolls without a bar. */
+.bt-side.bt-rail>.bt-list{scrollbar-width:none}
+.bt-side.bt-rail>.bt-list::-webkit-scrollbar{display:none;width:0}
 .bt-tile-wrap{display:flex;justify-content:center;padding:20px 0 15px}
 .bt-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 2px;padding:20px 0 15px}
 .bt-tiles>.bt-tile-wrap{padding:0}
