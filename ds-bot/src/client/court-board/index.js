@@ -327,7 +327,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     const person = cast.people.find(item => item.id === selected)
     if (!person) return
     picks.current[selected] = (picks.current[selected] ?? 0) + 1
-    scene.current.say(selected, greetingOf(person.state.kind, { task: '', pick: picks.current[selected] }))
+    const duty = readDuty(selected)
+    scene.current.say(selected, greetingOf(person.state.kind, { task: duty?.task ?? '', pick: picks.current[selected] }))
   }, [selected, state.open])
   useEffect(() => {
     scene.current?.setTime(hour * 60)
@@ -420,7 +421,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     const hit = scene.current?.pickClient?.(x, y)
     const bot = hit?.id ? roster.byId?.[hit.id] : null
     if (!bot) return
-    const text = t('请把手上这件事办一办')
+    const text = t('Take care of the errand in hand')
     setDocket(dispatcher.current.ask({ bot, text }))
   }
   const pickView = (key) => { selectOfficial(null); setPreset(key); scene.current?.view(key) }

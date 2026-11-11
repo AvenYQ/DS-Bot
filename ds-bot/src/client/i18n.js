@@ -1700,6 +1700,17 @@ const HOST_ZH = {
   'Minimap': '小地图',
   'Click the minimap to look there': '点小地图，一步就到',
   'Map of the court board, north up': '值房小地图，上方是北',
+  // 第三段的交互: 御驾巡视、奏折堆、拖拽派活。
+  'Tour the court': '御驾巡视',
+  'Memorial': '奏折',
+  'Drag a memorial onto an official': '把奏折拖到官员身上',
+  'Pending memorials': '案头待办',
+  'Nothing waits on him right now': '他这会儿手上清闲，没压着折子。',
+  'Close': '关闭',
+  'Take care of the errand in hand': '请把手上这件事办一办，办完回一声。',
+  'A star chart': '星图',
+  'A painting': '一幅画',
+  'A ledger': '一本账',
 }
 Object.assign(ZH, HOST_ZH)
 

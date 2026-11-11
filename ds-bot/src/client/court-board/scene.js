@@ -333,7 +333,14 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       plank.visible = false
       planks.push(plank)
     }
-    return { group: g, planks }
+    // The pile answers the pointer: a ring on the flags round it.
+    const ringMat = keep(new THREE.MeshBasicMaterial({ color: 0xe3a92a, transparent: true, opacity: 0.5, depthWrite: false }))
+    const ring = new THREE.Mesh(keep(new THREE.RingGeometry(1.05, 1.3, 30)), ringMat)
+    ring.rotation.x = -Math.PI / 2
+    ring.position.y = 0.05
+    ring.visible = false
+    g.add(ring)
+    return { group: g, planks, ring }
   }
 
   // ---------------------------------------------------------------------------
@@ -414,6 +421,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   }
   function removePerson(p) {
     scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick, p.pile.pick)
+    if (pileHover === p.id) pileHover = null
     disposeTree(p.fig.g)
     disposeTree(p.desk.group)
     disposeTree(p.pile.group)
@@ -484,8 +492,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       const pile = makePile(home)
       scene.add(pile.group)
       const pilePick = new THREE.Mesh(pickGeo, pickMat)
-      pilePick.position.set(home.x - 1.55, 0.5, home.z + 1.05)
-      pilePick.scale.set(0.9, 0.55, 0.9)
+      pilePick.position.set(home.x - 1.0, 0.6, home.z + 1.2)
+      pilePick.scale.set(2.6, 0.9, 2.6)
       pilePick.userData.pile = data.id
       scene.add(pilePick)
       pile.pick = pilePick
@@ -763,6 +771,20 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     render?.wake(ms / 1000 + 0.3)
   }
 
+  let pileHover = null
+  function setPileHover(id) {
+    if (pileHover === id) return
+    if (pileHover) {
+      const old = people.get(pileHover)
+      if (old) old.pile.ring.visible = false
+    }
+    pileHover = id
+    if (id) {
+      const now = people.get(id)
+      if (now) now.pile.ring.visible = true
+    }
+    render?.wake(1.2)
+  }
   function setHover(id) {
     if (hovered === id) return
     if (hovered) people.get(hovered)?.tag.el.classList.remove('hover')
@@ -797,7 +819,10 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       ...[...people.values()].filter(p => !p.ambient).map(p => p.pile.pick),
       ...(palace?.pickables ?? []),
     ]
-    const hit = raycaster.intersectObjects(targets, false)[0]
+    // An official or his pile wins over the hall behind him: the hall's pick box is a
+    // rough block round the whole 衙门, and it would otherwise swallow everything.
+    const hits = raycaster.intersectObjects(targets, false)
+    const hit = hits.find(one => one.object.userData.id || one.object.userData.pile) ?? hits[0]
     if (!hit) return { id: null, building: null, pile: false }
     if (hit.object.userData.pile) return { id: hit.object.userData.pile, building: null, pile: true }
     if (hit.object.userData.id) return { id: hit.object.userData.id, building: null, pile: false }
@@ -818,9 +843,15 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   function pickClient(x, y) {
     return pickAt({ clientX: x, clientY: y })
   }
-  const onMove = (event) => { if (event.buttons === 0) setHover(pickAt(event).id) }
+  const onMove = (event) => {
+    if (event.buttons !== 0) return
+    const hit = pickAt(event)
+    setHover(hit.id)
+    setPileHover(hit.pile ? hit.id : null)
+    if (hit.pile) canvas.style.cursor = 'pointer'
+  }
   const onDouble = (event) => { const hit = pickAt(event); if (hit.id) onOpen?.(hit.id) }
-  const onLeave = () => setHover(null)
+  const onLeave = () => { setHover(null); setPileHover(null) }
   canvas.addEventListener('pointerdown', onDown)
   canvas.addEventListener('pointerup', onUp)
   canvas.addEventListener('pointermove', onMove)
@@ -1217,6 +1248,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     }
     for (const p of people.values()) {
       if (p.say && p.say.until < time) { p.say = null; paintTag(p) }
+      if (p.pile.ring.visible) p.pile.ring.scale.setScalar(1 + Math.sin(tick * 4) * 0.05)
       animatePerson(p, dt, time)
     }
     for (let i = runners.length - 1; i >= 0; i -= 1) {

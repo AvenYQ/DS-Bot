@@ -1741,7 +1741,18 @@ var HOST_ZH = {
   "Show the Six Ministries": "去六部瞧瞧",
   "Minimap": "小地图",
   "Click the minimap to look there": "点小地图，一步就到",
-  "Map of the court board, north up": "值房小地图，上方是北"
+  "Map of the court board, north up": "值房小地图，上方是北",
+  // 第三段的交互: 御驾巡视、奏折堆、拖拽派活。
+  "Tour the court": "御驾巡视",
+  "Memorial": "奏折",
+  "Drag a memorial onto an official": "把奏折拖到官员身上",
+  "Pending memorials": "案头待办",
+  "Nothing waits on him right now": "他这会儿手上清闲，没压着折子。",
+  "Close": "关闭",
+  "Take care of the errand in hand": "请把手上这件事办一办，办完回一声。",
+  "A star chart": "星图",
+  "A painting": "一幅画",
+  "A ledger": "一本账"
 };
 Object.assign(ZH, HOST_ZH);
 var fill = (text, params) => params ? text.replace(/\{(\w+)\}/g, (match, name) => name in params ? String(params[name]) : match) : text;
@@ -63446,7 +63457,13 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       plank.visible = false;
       planks.push(plank);
     }
-    return { group: g, planks };
+    const ringMat = keep(new MeshBasicMaterial({ color: 14919978, transparent: true, opacity: 0.5, depthWrite: false }));
+    const ring = new Mesh(keep(new RingGeometry(1.05, 1.3, 30)), ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.05;
+    ring.visible = false;
+    g.add(ring);
+    return { group: g, planks, ring };
   }
   function buildTag(id, selectable = true) {
     const el = document.createElement("button");
@@ -63520,6 +63537,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   }
   function removePerson(p) {
     scene.remove(p.fig.g, p.desk.group, p.pile.group, p.pick, p.pile.pick);
+    if (pileHover === p.id) pileHover = null;
     disposeTree(p.fig.g);
     disposeTree(p.desk.group);
     disposeTree(p.pile.group);
@@ -63593,8 +63611,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       const pile = makePile(home);
       scene.add(pile.group);
       const pilePick = new Mesh(pickGeo, pickMat);
-      pilePick.position.set(home.x - 1.55, 0.5, home.z + 1.05);
-      pilePick.scale.set(0.9, 0.55, 0.9);
+      pilePick.position.set(home.x - 1, 0.6, home.z + 1.2);
+      pilePick.scale.set(2.6, 0.9, 2.6);
       pilePick.userData.pile = data.id;
       scene.add(pilePick);
       pile.pick = pilePick;
@@ -63876,6 +63894,20 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     paintTag(p);
     render?.wake(ms / 1e3 + 0.3);
   }
+  let pileHover = null;
+  function setPileHover(id) {
+    if (pileHover === id) return;
+    if (pileHover) {
+      const old = people.get(pileHover);
+      if (old) old.pile.ring.visible = false;
+    }
+    pileHover = id;
+    if (id) {
+      const now = people.get(id);
+      if (now) now.pile.ring.visible = true;
+    }
+    render?.wake(1.2);
+  }
   function setHover(id) {
     if (hovered === id) return;
     if (hovered) people.get(hovered)?.tag.el.classList.remove("hover");
@@ -63909,7 +63941,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       ...[...people.values()].filter((p) => !p.ambient).map((p) => p.pile.pick),
       ...palace?.pickables ?? []
     ];
-    const hit = raycaster.intersectObjects(targets, false)[0];
+    const hits = raycaster.intersectObjects(targets, false);
+    const hit = hits.find((one) => one.object.userData.id || one.object.userData.pile) ?? hits[0];
     if (!hit) return { id: null, building: null, pile: false };
     if (hit.object.userData.pile) return { id: hit.object.userData.pile, building: null, pile: true };
     if (hit.object.userData.id) return { id: hit.object.userData.id, building: null, pile: false };
@@ -63933,13 +63966,20 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     return pickAt({ clientX: x, clientY: y });
   }
   const onMove = (event) => {
-    if (event.buttons === 0) setHover(pickAt(event).id);
+    if (event.buttons !== 0) return;
+    const hit = pickAt(event);
+    setHover(hit.id);
+    setPileHover(hit.pile ? hit.id : null);
+    if (hit.pile) canvas.style.cursor = "pointer";
   };
   const onDouble = (event) => {
     const hit = pickAt(event);
     if (hit.id) onOpen?.(hit.id);
   };
-  const onLeave = () => setHover(null);
+  const onLeave = () => {
+    setHover(null);
+    setPileHover(null);
+  };
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointerup", onUp);
   canvas.addEventListener("pointermove", onMove);
@@ -64362,6 +64402,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
         p.say = null;
         paintTag(p);
       }
+      if (p.pile.ring.visible) p.pile.ring.scale.setScalar(1 + Math.sin(tick * 4) * 0.05);
       animatePerson(p, dt, time);
     }
     for (let i = runners.length - 1; i >= 0; i -= 1) {
@@ -65402,7 +65443,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     const person = cast.people.find((item) => item.id === selected);
     if (!person) return;
     picks.current[selected] = (picks.current[selected] ?? 0) + 1;
-    scene.current.say(selected, greetingOf(person.state.kind, { task: "", pick: picks.current[selected] }));
+    const duty2 = readDuty(selected);
+    scene.current.say(selected, greetingOf(person.state.kind, { task: duty2?.task ?? "", pick: picks.current[selected] }));
   }, [selected, state.open]);
   (0, import_react38.useEffect)(() => {
     scene.current?.setTime(hour * 60);
@@ -65487,7 +65529,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     const hit = scene.current?.pickClient?.(x, y);
     const bot = hit?.id ? roster.byId?.[hit.id] : null;
     if (!bot) return;
-    const text = t("请把手上这件事办一办");
+    const text = t("Take care of the errand in hand");
     setDocket(dispatcher.current.ask({ bot, text }));
   };
   const pickView = (key) => {
