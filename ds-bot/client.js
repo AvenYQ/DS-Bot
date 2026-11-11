@@ -1729,7 +1729,19 @@ var HOST_ZH = {
   "You control the computer": "你在操控电脑",
   "Stop {name}": "停止 {name}",
   "{name} · foreground": "{name} · 前台",
-  "{name} waits for the computer": "{name} 等你停手"
+  "{name} waits for the computer": "{name} 等你停手",
+  // 值房图 (the court board): the preset views over the city and the minimap. Aven's rule
+  // for every word here: 13px or larger, weight 400 or more — never smaller, never a
+  // light or thin cut. The sizes themselves live in court-board/styles.js.
+  "Overview": "全景",
+  "The Cabinet": "内阁",
+  "The Six Ministries": "六部",
+  "Show the whole city": "看整座城",
+  "Show the Cabinet halls": "看内阁一带",
+  "Show the Six Ministries": "看六部衙门",
+  "Minimap": "小地图",
+  "Click the minimap to look there": "点小地图，镜头就过去",
+  "Map of the court board, north up": "值房图小地图，上方是北"
 };
 Object.assign(ZH, HOST_ZH);
 var fill = (text, params) => params ? text.replace(/\{(\w+)\}/g, (match, name) => name in params ? String(params[name]) : match) : text;
@@ -7326,11 +7338,11 @@ function ComputerIndicator({ useComputer, useRoster, actions }) {
   const waiting = Object.entries(live.bots ?? {}).filter(([, entry]) => entry.waitingFor === "user-idle");
   if (leases.length === 0 && waiting.length === 0) return null;
   const botOf = (id) => roster.byId[id];
-  const nameOf3 = (id) => botOf(id)?.name ?? t("a Bot");
+  const nameOf4 = (id) => botOf(id)?.name ?? t("a Bot");
   const avatarOf = (id) => {
     const look = lookOf(botOf(id));
     if (typeof look.image === "string" && look.image.startsWith("data:image/")) return (0, import_react14.createElement)("img", { className: "bt-cbar-ava", src: look.image, alt: "" });
-    return (0, import_react14.createElement)("span", { className: "bt-cbar-ava bt-cbar-ava-dot", style: { background: look.color } }, String(nameOf3(id)).slice(0, 1));
+    return (0, import_react14.createElement)("span", { className: "bt-cbar-ava bt-cbar-ava-dot", style: { background: look.color } }, String(nameOf4(id)).slice(0, 1));
   };
   const entries2 = [
     ...leases.map((entry) => ({ key: `l:${entry.botId}`, botId: entry.botId, waiting: false, app: entry.kind === "foreground" ? t("In the foreground") : entry.appName })),
@@ -7349,7 +7361,7 @@ function ComputerIndicator({ useComputer, useRoster, actions }) {
         (0, import_react14.createElement)(
           "span",
           { className: "bt-cbar-text" },
-          (0, import_react14.createElement)("b", { className: "bt-cbar-name" }, nameOf3(entry.botId)),
+          (0, import_react14.createElement)("b", { className: "bt-cbar-name" }, nameOf4(entry.botId)),
           (0, import_react14.createElement)("i", { className: "bt-cbar-app" }, entry.app)
         ),
         entry.waiting ? (0, import_react14.createElement)("button", { type: "button", className: "bt-cbar-go", onClick: () => void actions.computerAllowForeground(entry.botId) }, t("Let it continue")) : (0, import_react14.createElement)(
@@ -61829,6 +61841,43 @@ function remapAttribute(attribute, sourceIndices, buffers = /* @__PURE__ */ new 
   return result;
 }
 
+// src/client/court-board/plaques.js
+var PLAQUE_NAMES = Object.fromEntries(
+  BUILDINGS.filter((hall) => hall.name).map((hall) => [hall.id, hall.name])
+);
+var PLAQUE_SEP = "·";
+var NAME_SEP = "、";
+var PLAQUE_LINE_MAX = 10;
+var nameOf3 = (who) => typeof who === "string" ? who.trim() : String(who?.name ?? "").trim();
+var officeOf2 = (who) => typeof who === "string" ? "" : String(who?.office ?? "").trim();
+function plaqueOf(buildingId, officers = []) {
+  const names = [];
+  for (const who of officers ?? []) {
+    const name = nameOf3(who);
+    if (name && !names.includes(name)) names.push(name);
+  }
+  let title = Object.hasOwn(PLAQUE_NAMES, buildingId) ? PLAQUE_NAMES[buildingId] : "";
+  if (!title) title = (officers ?? []).map(officeOf2).find(Boolean) ?? "";
+  if (names.length === 1 && title === names[0]) title = "";
+  const text = [title, names.join(NAME_SEP)].filter(Boolean).join(PLAQUE_SEP);
+  return { title, officers: names, text };
+}
+function plaquesFor(cast = []) {
+  const byHall = /* @__PURE__ */ new Map();
+  for (const hall of BUILDINGS) {
+    if (hall.name) byHall.set(hall.id, []);
+  }
+  for (const person of cast ?? []) {
+    const hall = person?.building;
+    if (!hall) continue;
+    if (!byHall.has(hall)) byHall.set(hall, []);
+    byHall.get(hall).push(person);
+  }
+  const plaques = /* @__PURE__ */ new Map();
+  for (const [hall, people] of byHall) plaques.set(hall, plaqueOf(hall, people));
+  return plaques;
+}
+
 // src/client/court-board/palace.js
 var Y2 = "#f2b630";
 var RED2 = "#c4412e";
@@ -61869,7 +61918,7 @@ function createMaterials() {
   const toon = (options) => new MeshToonMaterial({ gradientMap: ramp, ...options });
   return { ramp, mat, toon, byColour };
 }
-function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso = 4 } = {}) {
+function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso = 4, plaques = null } = {}) {
   const { mat, toon } = kit;
   const root = new Group();
   scene.add(root);
@@ -61882,6 +61931,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   owned.push(glowWin, glowLan, pickMat);
   const pickables = [];
   const rnd = seeded(7);
+  let river = null;
   const B = (w, h65, d) => new BoxGeometry(w, h65, d);
   const C = (rt, rb, h65, s = 10) => new CylinderGeometry(rt, rb, h65, s);
   function add(parent, geometry, colour, x = 0, y = 0, z = 0, o = {}) {
@@ -61921,6 +61971,117 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     g.computeVertexNormals();
     return g;
   }
+  const Z_AXIS = new Vector3(0, 0, 1);
+  function seg(parent, a, b, thick, depth, colour, cast = true) {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const dz = b[2] - a[2];
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 0.01) return null;
+    const m = new Mesh(new BoxGeometry(thick, depth, len), mat(colour));
+    m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+    m.quaternion.setFromUnitVectors(Z_AXIS, new Vector3(dx, dy, dz).normalize());
+    m.castShadow = cast;
+    m.receiveShadow = true;
+    parent.add(m);
+    return m;
+  }
+  function tiles(p, w, d, top, h65, ridge, colour) {
+    const light = shade(colour, -0.24);
+    const in0 = 0.06;
+    const n = Math.max(4, Math.min(34, Math.round(w / 0.62)));
+    for (let i = 0; i < n; i += 1) {
+      const x = -w / 2 + w * (i + 0.5) / n;
+      const crest = Math.max(-ridge, Math.min(ridge, x));
+      for (const s of [1, -1]) {
+        seg(p, [x, top + 0.02, s * (d / 2 - in0)], [crest, top + h65 - 0.03, 0], 0.075, 0.06, s > 0 ? light : shade(light, -0.05), false);
+      }
+    }
+    const m = Math.max(3, Math.min(12, Math.round(d / 0.8)));
+    for (const s of [1, -1]) {
+      for (let i = 0; i < m; i += 1) {
+        const z0 = -d / 2 + d * (i + 0.5) / m;
+        seg(p, [s * (w / 2 - in0), top + 0.02, z0], [s * ridge, top + h65 - 0.03, 0], 0.06, 0.075, light, false);
+      }
+    }
+  }
+  function beasts(p, w, d, y, colour = "#e8b23a") {
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        for (let i = 0; i < 3; i += 1) {
+          const k = i / 2;
+          const x = sx * (w / 2 - 0.16 - k * 0.46);
+          const z = sz * (d / 2 - 0.16 - k * 0.46);
+          add(p, B(0.13, 0.17, 0.17), colour, x, y + 0.12 + k * 0.1, z, { cast: false });
+          add(p, B(0.1, 0.1, 0.1), shade(colour, 0.08), x, y + 0.26 + k * 0.1, z, { cast: false });
+        }
+      }
+    }
+  }
+  function brackets(p, w, d, y) {
+    const dark = "#8a3226";
+    const gold = "#d9a53c";
+    const nx = Math.max(4, Math.round(w / 0.85));
+    for (let i = 0; i < nx; i += 1) {
+      const x = -w / 2 + w * (i + 0.5) / nx;
+      for (const s of [1, -1]) {
+        add(p, B(0.24, 0.26, 0.5), dark, x, y, s * (d / 2 + 0.26), { cast: false });
+        add(p, B(0.36, 0.1, 0.56), gold, x, y + 0.09, s * (d / 2 + 0.28), { cast: false });
+      }
+    }
+    const nz = Math.max(3, Math.round(d / 0.85));
+    for (let i = 0; i < nz; i += 1) {
+      const z = -d / 2 + d * (i + 0.5) / nz;
+      for (const s of [1, -1]) {
+        add(p, B(0.5, 0.26, 0.24), dark, s * (w / 2 + 0.26), y, z, { cast: false });
+        add(p, B(0.56, 0.1, 0.36), gold, s * (w / 2 + 0.28), y + 0.09, z, { cast: false });
+      }
+    }
+  }
+  function rails(g, tw, td, y, gap = 3.6) {
+    const h65 = 0.4;
+    const line = (a, b, along) => {
+      const len = Math.hypot(b[0] - a[0], b[2] - a[2]);
+      if (len < 0.35) return;
+      const mid = [(a[0] + b[0]) / 2, y + h65, (a[2] + b[2]) / 2];
+      if (along === "x") {
+        add(g, B(len, 0.07, 0.1), "#f7f4ec", mid[0], mid[1], mid[2], { cast: false });
+        add(g, B(len, 0.05, 0.08), "#ece6d8", mid[0], y + h65 * 0.5, mid[2], { cast: false });
+      } else {
+        add(g, B(0.1, 0.07, len), "#f7f4ec", mid[0], mid[1], mid[2], { cast: false });
+        add(g, B(0.08, 0.05, len), "#ece6d8", mid[0], y + h65 * 0.5, mid[2], { cast: false });
+      }
+      const n = Math.max(2, Math.round(len / 1.1) + 1);
+      for (let i = 0; i < n; i += 1) {
+        const t2 = i / (n - 1);
+        add(g, B(0.1, h65, 0.1), "#f7f4ec", a[0] + (b[0] - a[0]) * t2, y + h65 / 2, a[2] + (b[2] - a[2]) * t2, { cast: false });
+      }
+    };
+    const hx = tw / 2;
+    const hz = td / 2;
+    line([-hx, y, hz], [-gap / 2, y, hz], "x");
+    line([gap / 2, y, hz], [hx, y, hz], "x");
+    line([-hx, y, -hz], [hx, y, -hz], "x");
+    line([-hx, y, -hz], [-hx, y, hz], "z");
+    line([hx, y, -hz], [hx, y, hz], "z");
+  }
+  function courses(p, w, d, w1, d1, y, h65, colour) {
+    const line = shade(colour, -0.3);
+    const n = Math.max(4, Math.min(30, Math.round(w / 0.62)));
+    for (let i = 0; i < n; i += 1) {
+      const t2 = (i + 0.5) / n;
+      const x = -w / 2 + w * t2;
+      const xt = -w1 / 2 + w1 * t2;
+      for (const s of [1, -1]) seg(p, [x, y + 0.03, s * d / 2], [xt, y + h65 - 0.02, s * d1 / 2], 0.075, 0.06, line, false);
+    }
+    const m = Math.max(3, Math.min(14, Math.round(d / 0.62)));
+    for (let i = 0; i < m; i += 1) {
+      const t2 = (i + 0.5) / m;
+      const z = -d / 2 + d * t2;
+      const zt = -d1 / 2 + d1 * t2;
+      for (const s of [1, -1]) seg(p, [s * w / 2, y + 0.03, z], [s * w1 / 2, y + h65 - 0.02, zt], 0.06, 0.075, line, false);
+    }
+  }
   function roof(p, w, d, y, colour, hh) {
     const dark = shade(colour, -0.16);
     add(p, B(w, 0.28, d), dark, 0, y + 0.14, 0);
@@ -61928,10 +62089,13 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     const w1 = w - d * 0.3;
     const d1 = d * 0.7;
     add(p, frustum(w, d, w1, d1, sk), colour, 0, y + 0.28, 0);
+    courses(p, w, d, w1, d1, y + 0.28, sk, colour);
     const top = y + 0.28 + sk;
     const rh = hh * 0.72;
     add(p, hipGeo(w1, d1, rh), colour, 0, top, 0);
     const r = Math.max(0, (w1 - d1) / 2);
+    tiles(p, w1, d1, top, rh, r, colour);
+    beasts(p, w, d, y + 0.28);
     if (r > 0.2) {
       add(p, B(2 * r + 0.5, 0.32, 0.32), dark, 0, top + rh, 0);
       add(p, B(0.32, 0.8, 0.32), dark, r + 0.15, top + rh + 0.3, 0);
@@ -61939,7 +62103,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     } else add(p, new SphereGeometry(0.35, 8, 6), "#e8b23a", 0, top + rh + 0.1, 0);
     return top + rh;
   }
-  function plaque(p, text, x, y, z, w) {
+  function plaque(p, words, x, y, z, w) {
     const cv = document.createElement("canvas");
     cv.width = 512;
     cv.height = 176;
@@ -61951,16 +62115,31 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     c.strokeStyle = "#f4d27a";
     c.lineWidth = 4;
     c.strokeRect(24, 24, 464, 128);
-    let fs = 96;
-    c.font = `${fs}px ${SERIF}`;
-    while (c.measureText(text).width > 430 && fs > 40) {
-      fs -= 6;
+    const spec = typeof words === "string" ? { title: words, officers: [], text: words } : words ?? { title: "", officers: [], text: "" };
+    const names = spec.officers ?? [];
+    const two = names.length > 0 && !!spec.title && String(spec.text ?? "").length > PLAQUE_LINE_MAX;
+    const fit2 = (text, max, start) => {
+      let fs = start;
       c.font = `${fs}px ${SERIF}`;
-    }
+      while (c.measureText(text).width > max && fs > 28) {
+        fs -= 4;
+        c.font = `${fs}px ${SERIF}`;
+      }
+      return fs;
+    };
     c.fillStyle = "#f6d47c";
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.fillText(text, 256, 92);
+    if (two) {
+      fit2(spec.title, 410, 58);
+      c.fillText(spec.title, 256, 60);
+      fit2(names.join("、"), 410, 50);
+      c.fillText(names.join("、"), 256, 124);
+    } else {
+      const line = spec.text || spec.title;
+      fit2(line, 430, 96);
+      c.fillText(line, 256, 92);
+    }
     const texture = new CanvasTexture(cv);
     texture.anisotropy = maxAniso;
     const material = new MeshBasicMaterial({ map: texture });
@@ -61983,7 +62162,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     m.userData.bid = id;
     pickables.push(m);
   }
-  function hall(b, name) {
+  function hall(b, words) {
     const g = new Group();
     g.position.set(b.x, 0, b.z);
     statics.add(g);
@@ -62000,6 +62179,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
       add(g, B(tw, th, td), MARBLE, 0, y + th / 2, 0);
       add(g, B(tw + 0.1, 0.12, td + 0.1), "#e2dbcc", 0, y + th - 0.06, 0);
       y += th;
+      rails(g, tw, td, y);
       topD = td;
     }
     const run2 = y * 1.7;
@@ -62021,6 +62201,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     add(g, B(1.7, h65 * 0.38, 0.14), glowWin, wx, y + h65 * 0.55, d / 2 + 0.06);
     add(g, B(1.7, h65 * 0.38, 0.14), glowWin, -wx, y + h65 * 0.55, d / 2 + 0.06);
     add(g, B(w + 1.4, 0.45, d + 1.8), BAND, 0, y + h65 + 0.2, 0);
+    brackets(g, w + 0.2, d + 0.4, y + h65 - 0.04);
     const yr = y + h65 + 0.42;
     const hh = d * 0.45 + 1.2;
     let top;
@@ -62032,10 +62213,10 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
       add(g, B(uw, 1.5, ud), wall, 0, yr + 1.9, 0);
       add(g, B(uw + 1, 0.4, ud + 1), BAND, 0, yr + 2.75, 0);
       top = roof(g, uw + 2.6, ud + 2.6, yr + 2.95, b.roof, hh);
-      plaque(g, name, 0, yr + 1.95, ud / 2 + 0.04, Math.min(3.6, uw * 0.4));
+      plaque(g, words, 0, yr + 1.95, ud / 2 + 0.04, Math.min(3.6, uw * 0.4));
     } else {
       top = roof(g, w + 3, d + 3, yr, b.roof, hh);
-      if (name) plaque(g, name, 0, y + h65 - 0.55, cz + 0.24, Math.min(3.4, w * 0.42));
+      if (words) plaque(g, words, 0, y + h65 - 0.55, cz + 0.24, Math.min(3.4, w * 0.42));
     }
     const fz = footOf(b) / 2 + 0.5 - run2 * 0.15;
     lantern(g, 2.3, fz);
@@ -62070,7 +62251,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     return g;
   }
   const armillary = new Group();
-  function tower(b) {
+  function tower(b, words = b.name) {
     const g = new Group();
     g.position.set(b.x, 0, b.z);
     statics.add(g);
@@ -62089,7 +62270,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     add(g, C(0.15, 0.3, 1.4, 8), bronze, 0, 5.3, -0.8);
     add(g, C(0.15, 0.15, 1.6, 6), bronze, 2.3, 5.4, 1.6, { rz: 0.5 });
     add(g, B(1.2, 0.1, 1.2), bronze, 2.4, 5, 2, { rx: 0.4 });
-    plaque(g, b.name, 0, 3.25, 3.97, 2.6).rotation.x = -0.19;
+    plaque(g, words, 0, 3.25, 3.97, 2.6).rotation.x = -0.19;
     lantern(g, 2.2, 6);
     lantern(g, -2.2, 6);
     pick2(g, B(9, 8, 9), 0, 4, 0, b.id);
@@ -62107,9 +62288,10 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   for (const b of BUILDINGS) {
     if (b.spare && !spares.has(b.id)) continue;
     const name = b.spare ? spares.get(b.id) : b.name;
-    if (b.type === "oct") octPavilion(b, 1, name);
-    else if (b.type === "tower") tower(b);
-    else hall(b, name);
+    const words = plaques?.get(b.id) ?? name;
+    if (b.type === "oct") octPavilion(b, 1, words);
+    else if (b.type === "tower") tower(b, words);
+    else hall(b, words);
   }
   const tb = BUILDINGS.find((b) => b.id === "taihe");
   const ty = tb.platY;
@@ -62269,11 +62451,26 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     const reach = Math.abs(b.x) - (LANE_X - 2) + 5;
     flat(reach, 3, (reach / 2 + LANE_X - 2) * Math.sign(b.x), hz);
   }
+  const waveTex = tex((c, s) => {
+    c.fillStyle = "#7cc3d8";
+    c.fillRect(0, 0, s, s);
+    for (let i = 0; i < 26; i += 1) {
+      const y = (i + 0.5) * s / 26;
+      const w = s * (0.12 + i * 37 % 7 / 28);
+      c.strokeStyle = i % 3 ? "rgba(196,236,247,.5)" : "rgba(63,140,166,.45)";
+      c.lineWidth = i % 3 ? 2.4 : 3.4;
+      c.beginPath();
+      c.moveTo(i * 61 % s - w / 2, y);
+      c.quadraticCurveTo(i * 61 % s, y - 3.2, i * 61 % s + w / 2, y);
+      c.stroke();
+    }
+  }, 256);
+  waveTex.repeat.set(6, 2);
+  const moatMat = toon({ color: 16777215, emissive: 2780550, emissiveIntensity: 0.12, map: waveTex });
+  owned.push(moatMat);
   {
-    const water = toon({ color: 8176600, emissive: 2780550, emissiveIntensity: 0.15 });
-    owned.push(water);
     for (const [w, d, x, z] of [[2 * OX + 16, 5, 0, ON - 5.5], [5, OS - ON + 11, -OX - 5.5, (ON + OS) / 2], [5, OS - ON + 11, OX + 5.5, (ON + OS) / 2]]) {
-      const m = new Mesh(B(w, 0.2, d), water);
+      const m = new Mesh(B(w, 0.2, d), moatMat);
       m.position.set(x, 0.06, z);
       m.receiveShadow = true;
       root.add(m);
@@ -62284,8 +62481,9 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     const f = (x) => 31.5 - x * x / 70;
     const xs = [];
     for (let x = -18; x <= 18; x += 1) xs.push(x);
-    const ribbon = (wd, y, material) => {
+    const ribbon = (wd, y, material, uv = false) => {
       const arr = [];
+      const uvs = [];
       const normal = (x) => {
         const dz = -2 * x / 70;
         const l = Math.hypot(1, dz);
@@ -62301,21 +62499,31 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
         const B1 = [b + nbx * wd, y, f(b) + nbz * wd];
         const B2 = [b - nbx * wd, y, f(b) - nbz * wd];
         arr.push(...A1, ...A2, ...B1, ...B1, ...A2, ...B2);
+        const ua = (a + 18) / 36;
+        const ub = (b + 18) / 36;
+        uvs.push(ua, 0, ua, 1, ub, 0, ub, 0, ua, 1, ub, 1);
       }
       const g = new BufferGeometry();
       g.setAttribute("position", new Float32BufferAttribute(arr, 3));
+      if (uv) g.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
       g.computeVertexNormals();
       const nn = g.attributes.normal;
       for (let i = 0; i < nn.count; i += 1) nn.setXYZ(i, 0, 1, 0);
       const m = new Mesh(g, material);
       m.receiveShadow = true;
       root.add(m);
+      return m;
     };
     const bank = toon({ color: 15986662, side: DoubleSide });
-    const water = toon({ color: 8176600, emissive: 2780550, emissiveIntensity: 0.15, side: DoubleSide });
-    owned.push(bank, water);
+    const riverTex = waveTex.clone();
+    riverTex.needsUpdate = true;
+    riverTex.wrapS = riverTex.wrapT = RepeatWrapping;
+    riverTex.repeat.set(7, 1);
+    riverTex.anisotropy = maxAniso;
+    const water = toon({ color: 16777215, emissive: 2780550, emissiveIntensity: 0.16, side: DoubleSide, map: riverTex });
+    owned.push(bank, water, riverTex);
     ribbon(1.9, 0.08, bank);
-    ribbon(1.45, 0.1, water);
+    river = ribbon(1.45, 0.1, water, true);
     for (const x of [-8, -4, 0, 4, 8]) {
       const z = f(x);
       const g = new Group();
@@ -62332,10 +62540,23 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   for (const x of [-9, 9]) lantern(statics, x, 48.5);
   const lowIco = (r) => new IcosahedronGeometry(r, 0);
   function tree(x, z, s, ci) {
-    const c = CROWNS[ci ?? Math.floor(rnd() * CROWNS.length)];
-    add(statics, C(0.18 * s, 0.28 * s, 1.6 * s, 6), "#8a5a3a", x, 0.8 * s, z);
-    add(statics, lowIco(1.4 * s), c, x, 2.4 * s, z);
-    add(statics, lowIco(0.95 * s), shade(c, 0.06), x + 0.6 * s, 3.1 * s, z - 0.3 * s);
+    const kind = ci ?? Math.floor(rnd() * 9);
+    const c = CROWNS[kind % CROWNS.length];
+    add(statics, C(0.16 * s, 0.3 * s, 1.5 * s, 6), "#7d5133", x, 0.75 * s, z);
+    add(statics, C(0.13 * s, 0.2 * s, 0.55 * s, 6), "#8a5a3a", x, 1.55 * s, z);
+    if (kind % 9 === 7) {
+      for (let i = 0; i < 3; i += 1) {
+        const r = (1.5 - i * 0.3) * s;
+        add(statics, new ConeGeometry(r, 1.4 * s, 7), shade("#3f7d4f", i * 0.05), x, (2.05 + i * 0.72) * s, z);
+      }
+    } else if (kind % 9 === 8) {
+      add(statics, lowIco(1.2 * s), "#f0c3cc", x, 2.35 * s, z);
+      add(statics, lowIco(0.76 * s), "#f8e0e3", x - 0.5 * s, 2.9 * s, z + 0.3 * s);
+    } else {
+      add(statics, lowIco(1.35 * s), c, x, 2.35 * s, z);
+      add(statics, lowIco(0.92 * s), shade(c, 0.07), x + 0.6 * s, 3 * s, z - 0.32 * s);
+      add(statics, lowIco(0.6 * s), shade(c, -0.04), x - 0.56 * s, 2.85 * s, z + 0.28 * s);
+    }
   }
   let placed = 0;
   let guard = 0;
@@ -62439,6 +62660,7 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
     cloudMat,
     grass,
     pave,
+    river,
     throne: { y: ty, z: tz },
     dispose() {
       scene.remove(root);
@@ -62749,6 +62971,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   }
   function assignBuildings(list) {
     const spares = /* @__PURE__ */ new Map();
+    const settler = /* @__PURE__ */ new Map();
     const placed2 = /* @__PURE__ */ new Map();
     const free = [...SPARES];
     const extra = [];
@@ -62761,20 +62984,27 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       if (spare) {
         placed2.set(data.id, spare);
         spares.set(spare, data.office || data.name);
+        settler.set(spare, data);
         continue;
       }
       extra.push(data.id);
     }
-    return { spares, placed: placed2, extra };
+    return { spares, settler, placed: placed2, extra };
   }
   function setPeople(list) {
     const cast = Array.isArray(list) ? list : [];
     const before = new Map([...people].map(([id, p]) => [id, p.state]));
     for (const p of people.values()) removePerson(p);
     people.clear();
-    const { spares, placed: placed2, extra } = assignBuildings(cast);
+    const { spares, settler, placed: placed2, extra } = assignBuildings(cast);
     palace?.dispose();
-    palace = buildPalace(scene, kit, { spares, maxAniso });
+    const plaques = plaquesFor([...cast, CLAUDE].map((data) => ({
+      name: data.name,
+      office: data.office,
+      building: data === CLAUDE ? "nanshufang" : placed2.get(data.id) ?? data.building
+    })));
+    for (const [id, data] of settler) plaques.set(id, plaqueOf(id, [{ name: data.name, office: data.office }]));
+    palace = buildPalace(scene, kit, { spares, maxAniso, plaques });
     roofOriginals.clear();
     applyWeather();
     const homes = /* @__PURE__ */ new Map();
@@ -63578,6 +63808,18 @@ function weatherOf(code) {
   if (code >= 71 && code <= 77 || code === 85 || code === 86) return { kind: "snow", word: code === 75 || code === 86 ? "大雪" : "小雪" };
   if (code >= 95) return { kind: "storm", word: "雷雨" };
   return { kind: "clear", word: "" };
+}
+var LOOKS = {
+  clear: { overcast: 0, fogNear: 170, fogFar: 380, fall: null },
+  cloudy: { overcast: 0.35, fogNear: 150, fogFar: 330, fall: null },
+  fog: { overcast: 0.5, fogNear: 55, fogFar: 210, fall: null },
+  rain: { overcast: 0.75, fogNear: 90, fogFar: 260, fall: { kind: "rain", count: 1600, speed: 55, size: 0.32, opacity: 0.55 } },
+  storm: { overcast: 0.9, fogNear: 70, fogFar: 230, fall: { kind: "rain", count: 2200, speed: 78, size: 0.3, opacity: 0.65 } },
+  snow: { overcast: 0.55, fogNear: 80, fogFar: 250, fall: { kind: "snow", count: 1800, speed: 4.2, size: 0.45, opacity: 0.95, sway: 0.7 } }
+};
+function weatherLook(weather) {
+  const look = LOOKS[weather?.kind] ?? LOOKS.clear;
+  return look.fall ? { ...look, fall: { ...look.fall } } : { ...look };
 }
 async function fetchWeather(fetcher = globalThis.fetch) {
   try {
@@ -76473,7 +76715,7 @@ function readPage(limits) {
     items.push(item);
     return { item, number: items.length, secret };
   };
-  const nameOf3 = (el, text2, secret) => collapse(
+  const nameOf4 = (el, text2, secret) => collapse(
     el.getAttribute("aria-label") || text2 || (el.localName === "input" && !secret && NO_VALUE_TYPES.has(el.type) ? el.value : "") || el.getAttribute("placeholder") || el.title || el.getAttribute("alt") || el.querySelector?.("img[alt]")?.alt || el.getAttribute("name") || ""
   ).slice(0, 80);
   const fenced = (code, lang) => {
@@ -76649,7 +76891,7 @@ ${body2 || "(no text)"}
     const found = itemFor(el, style);
     const mark2 = found ? `[#${found.number}]` : "";
     if (tag === "input" || tag === "textarea" || tag === "select") {
-      if (found) found.item.name = nameOf3(el, tag === "select" ? "" : el.labels?.[0] ? collapse(el.labels[0].textContent) : "", found.secret);
+      if (found) found.item.name = nameOf4(el, tag === "select" ? "" : el.labels?.[0] ? collapse(el.labels[0].textContent) : "", found.secret);
       return mark2 ? ` ${mark2} ` : "";
     }
     let body2;
@@ -76667,7 +76909,7 @@ ${body2 || "(no text)"}
     } else {
       body2 = children(el, { ...next, pre: keepsSpace });
     }
-    if (found) found.item.name = nameOf3(el, oneLine(body2), found.secret);
+    if (found) found.item.name = nameOf4(el, oneLine(body2), found.secret);
     const level = /^h([1-6])$/.exec(tag)?.[1] || (el.getAttribute("role") === "heading" ? el.getAttribute("aria-level") || "2" : "");
     if (level) {
       const title = oneLine(body2);
@@ -78959,10 +79201,10 @@ function apply(ctx) {
   const appComputer = globalThis.dsBotApp;
   if (typeof appComputer?.computer === "function") {
     ctx.effect(() => {
-      const nameOf3 = (id) => roster.getSnapshot().byId[id]?.name ?? "a Bot";
+      const nameOf4 = (id) => roster.getSnapshot().byId[id]?.name ?? "a Bot";
       const sync = () => {
         const live2 = computer.getSnapshot();
-        const name = (id) => nameOf3(id);
+        const name = (id) => nameOf4(id);
         const look = (id) => lookOf(roster.getSnapshot().byId[id]);
         const rows2 = (live2.leases ?? []).map((entry) => ({
           botId: entry.botId,

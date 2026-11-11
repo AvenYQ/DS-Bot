@@ -20,6 +20,27 @@ export function weatherOf(code) {
   return { kind: 'clear', word: '' }
 }
 
+// What each sky costs the renderer: how grey it is, how far the eye reaches, and the
+// fall of rain or snow. `fall.count` is for the high quality; low quality halves it.
+const LOOKS = {
+  clear: { overcast: 0, fogNear: 170, fogFar: 380, fall: null },
+  cloudy: { overcast: 0.35, fogNear: 150, fogFar: 330, fall: null },
+  fog: { overcast: 0.5, fogNear: 55, fogFar: 210, fall: null },
+  rain: { overcast: 0.75, fogNear: 90, fogFar: 260, fall: { kind: 'rain', count: 1600, speed: 55, size: 0.32, opacity: 0.55 } },
+  storm: { overcast: 0.9, fogNear: 70, fogFar: 230, fall: { kind: 'rain', count: 2200, speed: 78, size: 0.3, opacity: 0.65 } },
+  snow: { overcast: 0.55, fogNear: 80, fogFar: 250, fall: { kind: 'snow', count: 1800, speed: 4.2, size: 0.45, opacity: 0.95, sway: 0.7 } },
+}
+
+/**
+ * What the renderer paints for a weather kind: greyness, sight range and the fall.
+ * @returns {{overcast: number, fogNear: number, fogFar: number,
+ *   fall: null | {kind: 'rain'|'snow', count: number, speed: number, size: number, opacity: number, sway?: number}}}
+ */
+export function weatherLook(weather) {
+  const look = LOOKS[weather?.kind] ?? LOOKS.clear
+  return look.fall ? { ...look, fall: { ...look.fall } } : { ...look }
+}
+
 /** The weather now, or null when the service cannot be reached. */
 export async function fetchWeather(fetcher = globalThis.fetch) {
   try {
