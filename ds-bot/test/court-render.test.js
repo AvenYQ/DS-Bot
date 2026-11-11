@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as THREE from 'three'
-import { createRenderKit } from '../src/client/court-board/render.js'
+import { createRenderKit, instanced } from '../src/client/court-board/render.js'
 import { weatherLook } from '../src/client/court-board/weather.js'
 
 function fakeRenderer() {
@@ -184,7 +184,23 @@ test('instanced builds one mesh for many copies', () => {
   const read = new THREE.Matrix4()
   mesh.getMatrixAt(2, read)
   assert.equal(read.elements[12], 4)
+  // palace.js calls it before the kit exists.
+  assert.equal(instanced(geometry, material, matrices).count, 3)
   assert.throws(() => kit.instanced(null, material, matrices), TypeError)
+})
+
+test('refresh takes in materials built after the kit without converting them twice', () => {
+  const world = makeWorld()
+  const kit = createRenderKit({ renderer: fakeRenderer(), scene: world.scene })
+  kit.setClock(12, { kind: 'clear' })
+  const robe = new THREE.MeshToonMaterial({ color: 0xe3a92a })
+  const expected = robe.color.clone()
+  world.scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), robe))
+  assert.equal(kit.refresh(), 1)
+  assert.ok(robe.color.equals(expected), 'refresh never converts a material twice')
+  assert.equal(kit.refresh(), 0)
+  kit.setClock(18.2, { kind: 'clear' })
+  assert.notEqual(robe.color.getHex(), 0xe3a92a, 'the new roof joins the grade')
 })
 
 test('dispose takes the fall and the listeners away', () => {

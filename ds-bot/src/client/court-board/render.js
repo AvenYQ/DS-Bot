@@ -38,6 +38,26 @@ const QUALITY = {
   low: { ratio: 1.25, shadow: 1024, fall: 0.5 },
 }
 
+/**
+ * One draw call for many copies of the same geometry and material. It stands alone
+ * because palace.js builds its roofs, railings and trees before the render kit exists.
+ * @returns {THREE.InstancedMesh} the caller adds it to the scene
+ */
+export function instanced(geometry, material, matrices = []) {
+  if (!geometry || !material) throw new TypeError('instanced() needs a geometry and a material')
+  const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, matrices.length))
+  const matrix = new THREE.Matrix4()
+  matrices.forEach((entry, index) => {
+    if (entry?.isMatrix4) matrix.copy(entry)
+    else matrix.fromArray(entry)
+    mesh.setMatrixAt(index, matrix)
+  })
+  mesh.count = matrices.length
+  mesh.instanceMatrix.needsUpdate = true
+  if (matrices.length > 0) mesh.computeBoundingSphere()
+  return mesh
+}
+
 /** The centre of the city, for the weather volume. */
 const COURT = new THREE.Vector3(0, 0, -14)
 
@@ -49,7 +69,7 @@ const COURT = new THREE.Vector3(0, 0, -14)
  * @param {THREE.Camera} [options.camera] the view, followed for camera motion
  * @param {boolean} [options.still] the reader asked for reduced motion
  * @returns {{setClock: Function, wake: Function, shouldRender: Function,
- *   setQuality: Function, instanced: Function, dispose: Function}}
+ *   setQuality: Function, refresh: Function, instanced: Function, dispose: Function}}
  */
 export function createRenderKit({ renderer, scene, camera, still = false } = {}) {
   if (!renderer || !scene) throw new TypeError('createRenderKit needs a renderer and a scene')
@@ -63,6 +83,7 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
   let fps = 60
   let slow = 0
   let clock = { hour: 12, weather: { kind: 'clear' } }
+  let lastGrade = { kind: 'clear', warm: 0, night: 0 }
   let disposed = false
   let lastCameraMatrix = camera ? new THREE.Matrix4().copy(camera.matrixWorld) : null
   let battery = null
@@ -172,7 +193,8 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
     scene.fog.near = look.fogNear
     scene.fog.far = look.fogFar
 
-    grade(weather?.kind ?? 'clear', warm, night)
+    lastGrade = { kind: weather?.kind ?? 'clear', warm, night }
+    grade(lastGrade.kind, warm, night)
     setFall(look)
     wake(0.4)
   }
@@ -319,20 +341,28 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
   }
 
   // ---------------------------------------------------------------------------
-  // Repeated scenery: one draw call for every copy.
-  function instanced(geometry, material, matrices = []) {
-    if (!geometry || !material) throw new TypeError('instanced() needs a geometry and a material')
-    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, matrices.length))
-    const matrix = new THREE.Matrix4()
-    matrices.forEach((entry, index) => {
-      if (entry?.isMatrix4) matrix.copy(entry)
-      else matrix.fromArray(entry)
-      mesh.setMatrixAt(index, matrix)
+  // Materials built after the kit (a Bot's robe when the cast changes) are taken in by
+  // refresh. They were authored with colour management already on, so they only have to
+  // be registered, never converted a second time.
+  function refresh() {
+    if (disposed) return 0
+    let added = 0
+    scene.traverse((object) => {
+      for (const material of materialsOf(object)) {
+        if (!material.color || materials.has(material.uuid)) continue
+        const family = material.userData?.[FAMILY_FLAG] ?? FAMILIES.get(material.color.getHex()) ?? null
+        materials.set(material.uuid, { material, family, base: material.color.clone() })
+        material.userData = material.userData || {}
+        material.userData[FAMILY_FLAG] = family
+        material.userData[ADOPTED_FLAG] = true
+        for (const map of [material.map, material.emissiveMap]) {
+          if (map && !map.isDataTexture) map.colorSpace = THREE.SRGBColorSpace
+        }
+        added += 1
+      }
     })
-    mesh.count = matrices.length
-    mesh.instanceMatrix.needsUpdate = true
-    if (matrices.length > 0) mesh.computeBoundingSphere()
-    return mesh
+    if (added > 0) grade(lastGrade.kind, lastGrade.warm, lastGrade.night)
+    return added
   }
 
   // ---------------------------------------------------------------------------
@@ -366,5 +396,5 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
 
   watchBattery()
 
-  return { setClock, wake, shouldRender, setQuality, instanced, dispose }
+  return { setClock, wake, shouldRender, setQuality, refresh, instanced, dispose }
 }
