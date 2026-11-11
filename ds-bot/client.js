@@ -3407,7 +3407,10 @@ html[data-platform=darwin] .bt-side-top :is(button,a,[role=button],input){-webki
    column is hidden, as the rail's foot and the open row have theirs. */
 html[data-caption-lights]{--bt-caption-start:64px}
 html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]){padding-top:0}
-html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{box-sizing:border-box;height:var(--dsh-windows-titlebar-height,40px);padding:0 0 0 76px;-webkit-app-region:drag}
+/* 40px is the app's caption band (CAPTION_HEIGHT in app/src/window-frame.mjs), whose lights
+   sit centered on its middle line; the shell's own titlebar variable can resolve shorter
+   inside the page, which left the buttons 2px above the lights. */
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{box-sizing:border-box;height:40px;padding:0 0 0 76px;-webkit-app-region:drag}
 html[data-caption-lights] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
 html[data-caption-lights] .bt-leftcol:not([data-left=rail]) .bt-side-collapse{display:inline-flex}
 html[data-caption-lights] body:has(.bt-leftcol) .bt-title-toggle{display:none}
