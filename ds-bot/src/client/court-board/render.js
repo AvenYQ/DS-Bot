@@ -41,6 +41,13 @@ const GRADE = {
 }
 const SNOW = { roof: 0.6, grass: '#e9eef1', pave: '#f1f3f5' }
 
+// The lit windows and the hanging lanterns, found by the colours palace.js paints them.
+// The kit's switch turns both off; on, they follow the night.
+const GLOW = new Map([
+  [hexOf('#f1d48d'), { low: 0.12, high: 0.9 }],
+  [hexOf('#e2442e'), { low: 0.25, high: 1.1 }],
+])
+
 const QUALITY = {
   high: { ratio: 2, shadow: 2048, fall: 1 },
   low: { ratio: 1.25, shadow: 1024, fall: 0.5 },
@@ -76,13 +83,17 @@ const COURT = new THREE.Vector3(0, 0, -14)
  * @param {THREE.Scene} options.scene the built city
  * @param {THREE.Camera} [options.camera] the view, followed for camera motion
  * @param {boolean} [options.still] the reader asked for reduced motion
+ * @param {boolean} [options.glow] lit windows and lanterns at night, on by default
  * @returns {{setClock: Function, wake: Function, shouldRender: Function,
- *   setQuality: Function, refresh: Function, instanced: Function, dispose: Function}}
+ *   setQuality: Function, refresh: Function, setGlow: Function, instanced: Function,
+ *   dispose: Function}}
  */
-export function createRenderKit({ renderer, scene, camera, still = false } = {}) {
+export function createRenderKit({ renderer, scene, camera, still = false, glow = true } = {}) {
   if (!renderer || !scene) throw new TypeError('createRenderKit needs a renderer and a scene')
 
   const materials = new Map()
+  const glowMaterials = new Map()
+  let glowOn = glow !== false
   let sun = null
   let hemi = null
   let quality = 'high'
@@ -133,6 +144,8 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
         if (!material.color || materials.has(material.uuid)) continue
         const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null
         materials.set(material.uuid, { material, family, base: material.color.clone() })
+        const lit = GLOW.get(material.color.getHex())
+        if (lit) glowMaterials.set(material.uuid, { material, lit })
         if (!material.userData?.[ADOPTED_FLAG]) pending.push(material)
       }
     })
@@ -169,6 +182,19 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
     }
   }
 
+  // Lit windows and lanterns follow the night, and the switch turns the whole glow off.
+  function applyGlow(night) {
+    for (const { material, lit } of glowMaterials.values()) {
+      material.emissiveIntensity = glowOn ? lit.low + lit.high * night : 0
+    }
+  }
+
+  function setGlow(on = true) {
+    glowOn = on !== false
+    applyGlow(lastGrade.night)
+    wake(0.3)
+  }
+
   function setClock(hour = 12, weather = { kind: 'clear' }) {
     if (disposed) return
     clock = { hour, weather }
@@ -203,6 +229,7 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
 
     lastGrade = { kind: weather?.kind ?? 'clear', warm, night }
     grade(lastGrade.kind, warm, night)
+    applyGlow(night)
     setFall(look)
     wake(0.4)
   }
@@ -360,6 +387,8 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
         if (!material.color || materials.has(material.uuid)) continue
         const family = material.userData?.[FAMILY_FLAG] ?? palette().get(material.color.getHex()) ?? null
         materials.set(material.uuid, { material, family, base: material.color.clone() })
+        const lit = GLOW.get(material.color.getHex())
+        if (lit) glowMaterials.set(material.uuid, { material, lit })
         material.userData = material.userData || {}
         material.userData[FAMILY_FLAG] = family
         material.userData[ADOPTED_FLAG] = true
@@ -369,7 +398,10 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
         added += 1
       }
     })
-    if (added > 0) grade(lastGrade.kind, lastGrade.warm, lastGrade.night)
+    if (added > 0) {
+      grade(lastGrade.kind, lastGrade.warm, lastGrade.night)
+      applyGlow(lastGrade.night)
+    }
     return added
   }
 
@@ -404,5 +436,5 @@ export function createRenderKit({ renderer, scene, camera, still = false } = {})
 
   watchBattery()
 
-  return { setClock, wake, shouldRender, setQuality, refresh, instanced, dispose }
+  return { setClock, wake, shouldRender, setQuality, refresh, setGlow, instanced, dispose }
 }

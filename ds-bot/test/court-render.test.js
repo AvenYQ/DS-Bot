@@ -30,10 +30,14 @@ function makeWorld() {
   const roof = new THREE.MeshToonMaterial({ color: 0xf2b630 })
   const wall = new THREE.MeshToonMaterial({ color: 0xc4412e })
   const marble = new THREE.MeshToonMaterial({ color: 0xf3efe6 })
+  const litWindow = new THREE.MeshToonMaterial({ color: 0xf1d48d, emissive: 0xffa53a, emissiveIntensity: 0.2 })
+  const lantern = new THREE.MeshToonMaterial({ color: 0xe2442e, emissive: 0xff5a2a, emissiveIntensity: 0.3 })
   scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), roof))
   scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), wall))
   scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), marble))
-  return { scene, hemi, sun, roof, wall, marble }
+  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), litWindow))
+  scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), lantern))
+  return { scene, hemi, sun, roof, wall, marble, litWindow, lantern }
 }
 
 test('each sky carries its greyness, sight range and fall', () => {
@@ -201,6 +205,31 @@ test('refresh takes in materials built after the kit without converting them twi
   assert.equal(kit.refresh(), 0)
   kit.setClock(18.2, { kind: 'clear' })
   assert.notEqual(robe.color.getHex(), 0xe3a92a, 'the new roof joins the grade')
+})
+
+test('the lit windows and lanterns follow the night, and one switch turns them off', () => {
+  const world = makeWorld()
+  const kit = createRenderKit({ renderer: fakeRenderer(), scene: world.scene })
+  kit.setClock(12, { kind: 'clear' })
+  const noon = world.litWindow.emissiveIntensity
+  kit.setClock(22, { kind: 'clear' })
+  assert.ok(world.litWindow.emissiveIntensity > noon + 0.5)
+  assert.ok(world.lantern.emissiveIntensity > 1)
+  kit.setGlow(false)
+  assert.equal(world.litWindow.emissiveIntensity, 0)
+  assert.equal(world.lantern.emissiveIntensity, 0)
+  kit.setGlow(true)
+  assert.ok(world.litWindow.emissiveIntensity > 0.5)
+})
+
+test('the glow can start switched off, and be switched on later', () => {
+  const world = makeWorld()
+  const kit = createRenderKit({ renderer: fakeRenderer(), scene: world.scene, glow: false })
+  kit.setClock(22, { kind: 'clear' })
+  assert.equal(world.litWindow.emissiveIntensity, 0)
+  assert.equal(world.lantern.emissiveIntensity, 0)
+  kit.setGlow(true)
+  assert.ok(world.lantern.emissiveIntensity > 1)
 })
 
 test('dispose takes the fall and the listeners away', () => {
