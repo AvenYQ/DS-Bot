@@ -12,6 +12,7 @@
 
 | 日期 | 提交 | 内容 |
 | --- | --- | --- |
+| 2026-11-11 | `469b76e` | 合并作者 0.3.2；侧栏顶部按钮与红绿灯合成一行；收起栏去掉滚动条；恢复经典 Agent 模式入口，发布 `0.3.2-aven.6` |
 | 2026-10-31 | `—` | [完整紫禁城与首辅宣旨](../plans/2026-10-31-aven-court-city-and-decree.md) |
 | 2026-10-31 | `—` | [小朝廷主题开关](../plans/2026-10-31-aven-theme-switch.md) |
 | 2026-10-31 | `1686f30` | [值房图动效、印章时机与侧栏拖拽](../plans/2026-10-31-aven-seals-court-board-drag.md)，发布 `0.2.4-aven.4` |
@@ -24,8 +25,8 @@
 
 ```sh
 cd ~/DS-Bot
-git checkout aven/dev
+git checkout aven/custom && git pull
 cd ds-bot && npm test && npm run build && node scripts/build-client.mjs --check && npm run lint
 ```
 
-改完提交到 `aven/dev`，合并进 `aven/custom` 再 push，GitHub Actions 会自动升版本号、跑测试、在 Apple 芯片机器上构建并发布 release。细节和已知坑见交接文档第四节。
+改完直接提交到 `aven/custom`，先 `git pull` 再 push，GitHub Actions 会自动升版本号、跑测试、在 Apple 芯片机器上构建并发布 release。细节和已知坑见交接文档第四节。
