@@ -128,7 +128,7 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:var(--bt-font)}
-.bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0;min-width:0;container-type:inline-size}
+.bt-side-top{display:flex;flex:none;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0;min-width:0;container-type:inline-size}
 .bt-brand{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;overflow:hidden;max-width:240px;transition:max-width .26s cubic-bezier(.32,.72,0,1),opacity .18s ease,transform .26s cubic-bezier(.32,.72,0,1),padding .26s cubic-bezier(.32,.72,0,1);padding:4px 8px 4px 4px;border:0;border-radius:8px;background:none;cursor:pointer;font-family:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--bt-ink);white-space:nowrap}
 .bt-brand-whale{display:inline-flex;color:var(--bt-accent)}
 /* A narrow column folds the name and mark away, never the round buttons: the row's
@@ -149,7 +149,9 @@ html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail
 /* 40px is the app's caption band (CAPTION_HEIGHT in app/src/window-frame.mjs), whose lights
    sit centered on its middle line; the shell's own titlebar variable can resolve shorter
    inside the page, which left the buttons 2px above the lights. */
-html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{box-sizing:border-box;height:40px;padding:0 0 0 76px;-webkit-app-region:drag}
+/* flex:none: the column is a flex column, and a long list would otherwise squeeze this row
+   down to its buttons' height and lift them off the lights' line. */
+html[data-caption-lights]:not([data-fullscreen]) .bt-leftcol:not([data-left=rail]) .bt-side-top{flex:none;box-sizing:border-box;height:40px;padding:0 0 0 76px;-webkit-app-region:drag}
 html[data-caption-lights] .bt-side-top :is(button,a,[role=button],input){-webkit-app-region:no-drag}
 /* In the band the buttons are toolbar glyphs, as macOS draws its own beside the lights:
    28px, no ring or fill until the pointer is over them, on the lights' middle line. The
