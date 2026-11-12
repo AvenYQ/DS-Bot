@@ -79845,7 +79845,7 @@ html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt
 .bt-cb-feed-row[data-kind=done] .c span{color:var(--bt-cinnabar);font-weight:600}
 .bt-cb-feed-row[data-kind=decree] .c span{color:var(--cb-plaque);font-weight:700}
 body[data-ds-dark-theme] .bt-cb-feed-row[data-kind=decree] .c span{color:var(--cb-plaque-gold)}
-.bt-cb-feed-empty{padding:18px 16px;line-height:21px}
+.bt-cb-empty.bt-cb-feed-empty{padding:18px 16px;line-height:21px}
 .bt-cb-roster{overflow:auto;flex:1;min-height:0;padding:4px 8px 10px}
 .bt-cb-grp h4{margin:10px 8px 4px;font-family:${SERIF2};font-size:13px;line-height:18px;font-weight:700;color:var(--bt-ink-2);letter-spacing:.2em}
 .bt-cb-row{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border:0;border-radius:10px;background:none;text-align:left;font:inherit;font-size:13px;line-height:18px;color:var(--bt-ink);cursor:pointer}
