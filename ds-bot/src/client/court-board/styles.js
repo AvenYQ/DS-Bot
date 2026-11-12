@@ -49,6 +49,12 @@ export const COURT_BOARD_CSS = `
 body[data-ds-dark-theme] .bt-cb-pane{${COURT_TOKENS_DARK}}
 .bt-cb-head{position:absolute;z-index:6;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:12px;height:54px;padding:0 8px 0 12px;border-radius:18px;background:var(--cb-glass);box-shadow:0 0 0 .5px var(--cb-glass-line),0 10px 30px var(--cb-shadow);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);-webkit-app-region:drag}
 .bt-cb-head button{-webkit-app-region:no-drag}
+/* macOS: the window's three lights sit at the window's left, and when the board hugs that
+   edge the head runs under them. Its content starts after the room the app already
+   reserves for them (--bt-caption-start), so the lights land on the bar's blank left end
+   and the mark and title step right. Fullscreen has no lights, and an open column keeps
+   its own edge, so neither changes. */
+html[data-platform=darwin]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{padding-left:calc(12px + var(--bt-caption-start,0px))}
 .bt-cb-mark{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:10px;background:var(--bt-tag-bg)}
 .bt-cb-heading{display:flex;flex-direction:column;min-width:0;flex:none}
 .bt-cb-title{font-family:${SERIF};font-size:17px;line-height:22px;font-weight:700;letter-spacing:.08em;white-space:nowrap}

@@ -463,7 +463,13 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     focus(ids[at])
   }
   const panel = state.panel
-  return createPortal(h('div', { className: 'bt-cb-pane', style: { left: paneLeft } },
+  return createPortal(h('div', {
+    className: 'bt-cb-pane',
+    // macOS draws the window's lights at the window's left; the head needs to know when
+    // the board is the thing hugging that edge.
+    'data-edge': paneLeft === 0 ? 'left' : undefined,
+    style: { left: paneLeft },
+  },
     h('div', { className: 'bt-cb-head' },
       h('span', { className: 'bt-cb-mark' }, h(SealIcon, { size: 22 })),
       h('div', { className: 'bt-cb-heading' },
