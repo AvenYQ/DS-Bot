@@ -79901,13 +79901,16 @@ body[data-ds-dark-theme] .bt-cb-feed-row[data-kind=decree] .c span{color:var(--c
 .bt-cb-log .q{font-size:13px;line-height:18px;color:var(--bt-ink-2)}
 .bt-cb-log .a{font-size:13px;line-height:19px;color:var(--bt-ink)}
 .bt-cb-sched .bt-section-title{display:none}
+/* The card's own rows all start at the card's 16px edge: the shared "no tasks" button
+   comes in 12px and grey, so it takes the same size and colour as the line above it. */
+.bt-cb-card .bt-more{padding:6px 0;color:var(--bt-ink-2);font-size:13px;line-height:19px;text-align:left}
 .bt-cb-actions{display:flex;gap:8px;margin-top:16px}
 .bt-cb-btn{flex:1;height:36px;border:0;border-radius:10px;padding:0 12px;background:var(--bt-ink);color:var(--bt-main);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .12s ease,transform .15s ease}
 .bt-cb-btn:hover{opacity:.88}
 .bt-cb-btn:active{transform:scale(.97)}
 .bt-cb-btn[data-kind=urgent]{background:var(--bt-cinnabar);color:var(--bt-paper)}
 .bt-cb-btn[data-kind=plain]{background:var(--bt-tag-bg);color:var(--bt-ink)}
-.bt-cb-empty{padding:6px 16px;color:var(--bt-ink-2);font-size:13px}
+.bt-cb-empty{padding:6px 0;color:var(--bt-ink-2);font-size:13px;line-height:19px}
 
 /* Narrow panes: the sheets give the city room. */
 @media (max-width:1100px){
