@@ -16,6 +16,7 @@ import { BUILDING, BUILDINGS, PATROL, SPARES, WALL_TOP, courtSlot, footOf, homeO
 import { buildPalace, createMaterials, shade } from './palace.js'
 import { plaqueOf, plaquesFor } from './plaques.js'
 import { createRenderKit } from './render.js'
+import { driftX, flowOffset } from './flow.js'
 
 // r128 passed colours through untouched, with no colour management and a linear output.
 // Current three does both by default, so both are switched back off to keep every tone.
@@ -1057,6 +1058,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   // The loop.
   let running = false
   let drawing = true
+  let held = 0
   let frameId = 0
   let last = 0
   let tick = 0
@@ -1235,8 +1237,14 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   function tickFrame(time) {
     if (!running) return
     frameId = requestAnimationFrame(tickFrame)
-    const dt = Math.min(0.05, last ? (time - last) / 1000 : 0.016)
+    const raw = Math.min(0.25, last ? (time - last) / 1000 : 0.016)
     last = time
+    drawing = !render || render.shouldRender(raw)
+    // A frame that is not drawn moves nothing at all: the whole step waits, and the next
+    // drawn frame gets the time that passed in one go, so walking and water keep their speed.
+    if (!drawing) { held = Math.min(0.25, held + raw); return }
+    const dt = Math.min(0.25, held + raw)
+    held = 0
     tick += dt
     if (fly) {
       fly.t += dt
@@ -1265,7 +1273,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       const halo = palace.halo
       halo.material.opacity += ((court || time < proclaimUntil ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3)
       halo.rotation.z += dt * 0.4
-      if (!still) for (const c of palace.clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 190) c.position.x = -190 }
+      if (!still) {
+        const seconds = time / 1000
+        for (const c of palace.clouds) {
+          if (c.userData.x0 === undefined) c.userData.x0 = c.position.x
+          c.position.x = driftX(c.userData.x0, c.userData.v, seconds)
+        }
+      }
     }
     for (const p of people.values()) {
       if (p.say && p.say.until < time) { p.say = null; paintTag(p) }
@@ -1282,12 +1296,9 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       marker.rotation.y += dt * 2
     } else marker.visible = false
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true
-    drawing = !render || render.shouldRender(dt)
-    if (drawing) {
-      if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1
-      renderer.render(scene, camera)
-      placeTags()
-    }
+    if (palace?.river) palace.river.material.map.offset.x = flowOffset(time / 1000)
+    renderer.render(scene, camera)
+    placeTags()
     if (time - clockTick > 1000) {
       clockTick = time
       for (const p of people.values()) if (p.state.kind === 'work' && !p.ambient) p.tag.time.textContent = clock(p.state.since)

@@ -63126,6 +63126,16 @@ function buildPalace(scene, kit, { spares = /* @__PURE__ */ new Map(), maxAniso 
   };
 }
 
+// src/client/court-board/flow.js
+function flowOffset(seconds, rate = 0.02) {
+  const at = Number(seconds) * rate % 1;
+  return at < 0 ? at + 1 : at;
+}
+function driftX(start, speed, seconds, span = 380) {
+  const moved = start + speed * Number(seconds);
+  return ((moved + span / 2) % span + span) % span - span / 2;
+}
+
 // src/client/court-board/scene.js
 ColorManagement.enabled = false;
 var LIGHT_GAIN = Math.PI;
@@ -64224,6 +64234,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   resize();
   let running2 = false;
   let drawing = true;
+  let held = 0;
   let frameId = 0;
   let last = 0;
   let tick = 0;
@@ -64402,8 +64413,15 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   function tickFrame(time) {
     if (!running2) return;
     frameId = requestAnimationFrame(tickFrame);
-    const dt = Math.min(0.05, last ? (time - last) / 1e3 : 0.016);
+    const raw = Math.min(0.25, last ? (time - last) / 1e3 : 0.016);
     last = time;
+    drawing = !render || render.shouldRender(raw);
+    if (!drawing) {
+      held = Math.min(0.25, held + raw);
+      return;
+    }
+    const dt = Math.min(0.25, held + raw);
+    held = 0;
     tick += dt;
     if (fly) {
       fly.t += dt;
@@ -64435,9 +64453,12 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       const halo = palace.halo;
       halo.material.opacity += ((court2 || time < proclaimUntil ? 0.75 : 0) - halo.material.opacity) * Math.min(1, dt * 3);
       halo.rotation.z += dt * 0.4;
-      if (!still) for (const c of palace.clouds) {
-        c.position.x += c.userData.v * dt;
-        if (c.position.x > 190) c.position.x = -190;
+      if (!still) {
+        const seconds = time / 1e3;
+        for (const c of palace.clouds) {
+          if (c.userData.x0 === void 0) c.userData.x0 = c.position.x;
+          c.position.x = driftX(c.userData.x0, c.userData.v, seconds);
+        }
       }
     }
     for (const p of people.values()) {
@@ -64461,12 +64482,9 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       marker.rotation.y += dt * 2;
     } else marker.visible = false;
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true;
-    drawing = !render || render.shouldRender(dt);
-    if (drawing) {
-      if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1;
-      renderer.render(scene, camera);
-      placeTags();
-    }
+    if (palace?.river) palace.river.material.map.offset.x = flowOffset(time / 1e3);
+    renderer.render(scene, camera);
+    placeTags();
     if (time - clockTick > 1e3) {
       clockTick = time;
       for (const p of people.values()) if (p.state.kind === "work" && !p.ambient) p.tag.time.textContent = clock4(p.state.since);
