@@ -62,8 +62,8 @@ body[data-ds-dark-theme] .bt-cb-pane{${COURT_TOKENS_DARK}}
 html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]{--cb-band:40px}
 html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]::before{content:"";position:absolute;z-index:4;top:0;left:0;right:0;height:var(--cb-band);background:linear-gradient(var(--cb-glass-line),transparent 70%);-webkit-app-region:drag}
 html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{top:calc(var(--cb-band) + 12px)}
-html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-side{top:calc(var(--cb-band) + 78px)}
-html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-card{top:calc(var(--cb-band) + 78px)}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-side{top:calc(var(--cb-band) + 78px);max-height:calc(100% - var(--cb-band) - 92px)}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-card{top:calc(var(--cb-band) + 78px);max-height:calc(100% - var(--cb-band) - 92px)}
 .bt-cb-mark{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:10px;background:var(--bt-tag-bg)}
 .bt-cb-heading{display:flex;flex-direction:column;min-width:0;flex:none}
 .bt-cb-title{font-family:${SERIF};font-size:17px;line-height:22px;font-weight:700;letter-spacing:.08em;white-space:nowrap}

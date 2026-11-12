@@ -12,11 +12,13 @@ const shell = read('styles.js')
 const BAND = 'html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]{--cb-band:40px}'
 const HEAD = 'html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{top:calc(var(--cb-band) + 12px)}'
 const DRAG = '.bt-cb-pane[data-edge=left]::before{content:"";position:absolute;z-index:4;top:0;left:0;right:0;height:var(--cb-band)'
+const CAP = 'max-height:calc(100% - var(--cb-band) - 92px)'
 
 test('the board head keeps clear of the window lights, on the flag the app really sets', () => {
   assert.ok(board.includes(BAND), 'the window band exists only where the lights are marked')
   assert.ok(board.includes(HEAD), 'the bar sits below the band')
   assert.ok(board.includes(DRAG), 'and the band itself drags the window')
+  assert.equal(board.split(CAP).length - 1, 2, 'both panels keep their bottom margin under the band')
   assert.ok(!/data-platform=darwin/u.test(board), 'nothing hangs off a platform flag the app never sets')
   assert.ok(!board.includes('data-head'), 'only the one layout is kept')
 })
