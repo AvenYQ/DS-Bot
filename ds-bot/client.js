@@ -64279,7 +64279,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       target = p.path[0];
       speed = WALK;
     } else if (p.mode === "home") {
-      if (kind === "idle" && !bowing && !still && drawing) {
+      if (kind === "idle" && !bowing && !still) {
         p.wt -= dt;
         if (!p.wander || p.wt <= 0) {
           const a = Math.random() * Math.PI * 2;
