@@ -124,27 +124,35 @@ test('snow lies on the roofs and turns the lawn white, then melts', () => {
   assert.notEqual(world.roof.color.getHex(), snowy)
 })
 
-test('nothing moving means no frames, and wake asks for them again', () => {
+test('nothing moving falls to the idle pace, and wake brings the frames back', () => {
   const world = makeWorld()
   const kit = createRenderKit({ renderer: fakeRenderer(), scene: world.scene })
   assert.equal(kit.shouldRender(0.016), true)
-  let last = true
-  for (let i = 0; i < 120; i += 1) last = kit.shouldRender(0.016)
-  assert.equal(last, false)
+  for (let i = 0; i < 100; i += 1) kit.shouldRender(0.016)
+  let frames = 0
+  for (let i = 0; i < 60; i += 1) if (kit.shouldRender(0.016)) frames += 1
+  assert.ok(frames >= 6 && frames <= 12, `an idle board should breathe at about ten frames a second, got ${frames}`)
   kit.wake()
+  assert.equal(kit.shouldRender(0.016), true)
   assert.equal(kit.shouldRender(0.016), true)
 })
 
-test('a moving camera counts as motion', () => {
+test('a camera that truly moves wakes the board, a sub-pixel drift does not', () => {
   const world = makeWorld()
   const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 800)
   camera.position.set(0, 0, 0)
   camera.updateMatrixWorld()
   const kit = createRenderKit({ renderer: fakeRenderer(), scene: world.scene, camera })
-  for (let i = 0; i < 120; i += 1) kit.shouldRender(0.016)
-  assert.equal(kit.shouldRender(0.016), false)
-  camera.position.set(30, 40, 50)
+  for (let i = 0; i < 100; i += 1) kit.shouldRender(0.016)
+  // OrbitControls' damping leaves about this much drift behind; it must stay idle.
+  camera.position.set(0.001, 0, 0)
   camera.updateMatrixWorld()
+  let frames = 0
+  for (let i = 0; i < 40; i += 1) if (kit.shouldRender(0.016)) frames += 1
+  assert.ok(frames <= 8, `a sub-pixel drift must not wake the board, got ${frames} frames`)
+  camera.position.set(12, 8, 20)
+  camera.updateMatrixWorld()
+  assert.equal(kit.shouldRender(0.016), true)
   assert.equal(kit.shouldRender(0.016), true)
 })
 

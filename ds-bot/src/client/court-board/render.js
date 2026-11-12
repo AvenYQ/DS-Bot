@@ -53,6 +53,14 @@ const QUALITY = {
   low: { ratio: 1.25, shadow: 1024, fall: 0.5 },
 }
 
+// The camera counts as still until it moves or turns by more than this: with damping on,
+// OrbitControls leaves a sub-pixel drift every frame that must not count as motion.
+const STILL_MOVE = 0.01
+const STILL_TURN = 1e-6
+// With nothing happening the board still breathes: ten frames a second keep the water,
+// the clouds and the patrol alive without keeping the fan on.
+const IDLE_FPS = 10
+
 /**
  * One draw call for many copies of the same geometry and material. It stands alone
  * because palace.js builds its roofs, railings and trees before the render kit exists.
@@ -104,7 +112,9 @@ export function createRenderKit({ renderer, scene, camera, still = false, glow =
   let clock = { hour: 12, weather: { kind: 'clear' } }
   let lastGrade = { kind: 'clear', warm: 0, night: 0 }
   let disposed = false
-  let lastCameraMatrix = camera ? new THREE.Matrix4().copy(camera.matrixWorld) : null
+  let lastCameraPosition = camera ? camera.position.clone() : null
+  let lastCameraQuaternion = camera ? camera.quaternion.clone() : null
+  let idleWait = 0
   let battery = null
   let batteryListener = null
 
@@ -351,9 +361,12 @@ export function createRenderKit({ renderer, scene, camera, still = false, glow =
   }
 
   function cameraMoved() {
-    if (!camera || !lastCameraMatrix) return false
-    if (lastCameraMatrix.equals(camera.matrixWorld)) return false
-    lastCameraMatrix.copy(camera.matrixWorld)
+    if (!camera || !lastCameraPosition) return false
+    const moved = camera.position.distanceToSquared(lastCameraPosition) > STILL_MOVE * STILL_MOVE
+    const turned = 1 - Math.abs(camera.quaternion.dot(lastCameraQuaternion)) > STILL_TURN
+    if (!moved && !turned) return false
+    lastCameraPosition.copy(camera.position)
+    lastCameraQuaternion.copy(camera.quaternion)
     return true
   }
 
@@ -371,8 +384,22 @@ export function createRenderKit({ renderer, scene, camera, still = false, glow =
     if (cameraMoved()) wake(0.3)
     const moving = fall !== null && !still
     if (moving) advance(step)
-    awake = Math.max(0, awake - step)
-    return moving || awake > 0
+    if (awake > 0) {
+      awake = Math.max(0, awake - step)
+      idleWait = 0
+      return true
+    }
+    if (moving) {
+      idleWait = 0
+      return true
+    }
+    // Nothing needs a full frame: the board keeps its small life at an idle cadence.
+    idleWait += step
+    if (idleWait >= 1 / IDLE_FPS) {
+      idleWait = 0
+      return true
+    }
+    return false
   }
 
   // ---------------------------------------------------------------------------
