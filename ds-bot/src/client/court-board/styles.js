@@ -52,9 +52,10 @@ body[data-ds-dark-theme] .bt-cb-pane{${COURT_TOKENS_DARK}}
 /* macOS: the window's three lights sit at the window's left, and when the board hugs that
    edge the head runs under them. Its content starts after the room the app already
    reserves for them (--bt-caption-start), so the lights land on the bar's blank left end
-   and the mark and title step right. Fullscreen has no lights, and an open column keeps
-   its own edge, so neither changes. */
-html[data-platform=darwin]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{padding-left:calc(12px + var(--bt-caption-start,0px))}
+   and the mark and title step right. The app marks that window with data-caption-lights
+   (preload.cjs) and never sets data-platform, so that is the flag to key on. Fullscreen
+   has no lights, and an open column keeps its own edge, so neither changes. */
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{padding-left:calc(12px + var(--bt-caption-start,0px))}
 .bt-cb-mark{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:10px;background:var(--bt-tag-bg)}
 .bt-cb-heading{display:flex;flex-direction:column;min-width:0;flex:none}
 .bt-cb-title{font-family:${SERIF};font-size:17px;line-height:22px;font-weight:700;letter-spacing:.08em;white-space:nowrap}
