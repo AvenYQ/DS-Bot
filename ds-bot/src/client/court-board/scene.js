@@ -82,6 +82,16 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   controls.maxDistance = 260
   controls.screenSpacePanning = false
   controls.rotateSpeed = 0.6
+  // OrbitControls' damping never quite settles, and a camera that keeps nudging itself
+  // keeps the frame budget awake forever. The controls are only stepped while the reader
+  // is using them (and for a moment after), so a still board really is still.
+  let cameraAwake = 1.4
+  let stepping = false
+  controls.addEventListener('start', () => { cameraAwake = Number.POSITIVE_INFINITY })
+  controls.addEventListener('end', () => { cameraAwake = 1.2 })
+  controls.addEventListener('change', () => {
+    if (!stepping) cameraAwake = Math.max(cameraAwake, 0.6)
+  })
 
   const hemi = new THREE.HemisphereLight(0xdff2ff, 0xb9a782, 0.6 * LIGHT_GAIN)
   scene.add(hemi)
@@ -1046,6 +1056,7 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
   // ---------------------------------------------------------------------------
   // The loop.
   let running = false
+  let drawing = true
   let frameId = 0
   let last = 0
   let tick = 0
@@ -1091,12 +1102,13 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     if (patrolling && !p.patrol) p.patrol = { s: 4 }
     if (!patrolling && p.patrol) { p.patrol = null; g.position.copy(p.home) }
 
+    const strolling = kind === 'idle' && p.mode === 'home' && !p.path.length
     let target = null
     let speed = 0
     if (p.patrol) patrolStep(p, dt)
     else if (p.path.length > 0) { target = p.path[0]; speed = WALK }
     else if (p.mode === 'home') {
-      if (kind === 'idle' && !bowing && !still) {
+      if (kind === 'idle' && !bowing && !still && drawing) {
         p.wt -= dt
         if (!p.wander || p.wt <= 0) {
           const a = Math.random() * Math.PI * 2
@@ -1108,17 +1120,19 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
         speed = 1.3
       } else { target = p.home; speed = 2 }
     }
+    // A guard on his round is background life: the idle beat draws it, it does not hold
+    // the board at full frames.
     let moving = !!p.patrol
-    if (moving) render?.wake(0.4)
+    if (moving && !p.patrol) render?.wake(0.4)
     if (target) {
       tmp.set(target.x - g.position.x, 0, target.z - g.position.z)
       const dl = tmp.length()
       if (dl > 0.05) {
-        render?.wake(0.4)
+        if (!strolling) render?.wake(0.4)
         const step = Math.min(dl, speed * dt)
         g.position.addScaledVector(tmp.normalize(), step)
         g.position.y = 0
-        moving = speed > 3 || dl > 0.3
+        moving = !strolling && (speed > 3 || dl > 0.3)
         p.rot = angLerp(p.rot, Math.atan2(tmp.x, tmp.z), Math.min(1, dt * 10))
       } else if (p.path.length > 0) {
         p.path.shift()
@@ -1239,7 +1253,12 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
     controls.target.x = Math.max(-80, Math.min(80, controls.target.x))
     controls.target.z = Math.max(-90, Math.min(70, controls.target.z))
     controls.target.y = Math.max(0, Math.min(12, controls.target.y))
-    controls.update()
+    if (fly || cameraAwake > 0) {
+      stepping = true
+      controls.update()
+      stepping = false
+      if (cameraAwake !== Number.POSITIVE_INFINITY) cameraAwake -= dt
+    }
     if (palace) {
       let court = false
       for (const p of people.values()) if (p.mode === 'court' || p.mode === 'toCourt') { court = true; break }
@@ -1263,7 +1282,8 @@ export function createCourtScene({ container, tags, onSelect, onOpen, words = {}
       marker.rotation.y += dt * 2
     } else marker.visible = false
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true
-    if (!render || render.shouldRender(dt)) {
+    drawing = !render || render.shouldRender(dt)
+    if (drawing) {
       if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1
       renderer.render(scene, camera)
       placeTags()

@@ -61968,6 +61968,9 @@ var QUALITY = {
   high: { ratio: 2, shadow: 2048, fall: 1 },
   low: { ratio: 1.25, shadow: 1024, fall: 0.5 }
 };
+var STILL_MOVE = 0.01;
+var STILL_TURN = 1e-6;
+var IDLE_FPS = 10;
 function instanced(geometry, material, matrices = []) {
   if (!geometry || !material) throw new TypeError("instanced() needs a geometry and a material");
   const mesh = new InstancedMesh(geometry, material, Math.max(1, matrices.length));
@@ -61998,7 +62001,9 @@ function createRenderKit({ renderer, scene, camera, still = false, glow = true }
   let clock4 = { hour: 12, weather: { kind: "clear" } };
   let lastGrade = { kind: "clear", warm: 0, night: 0 };
   let disposed = false;
-  let lastCameraMatrix = camera ? new Matrix4().copy(camera.matrixWorld) : null;
+  let lastCameraPosition = camera ? camera.position.clone() : null;
+  let lastCameraQuaternion = camera ? camera.quaternion.clone() : null;
+  let idleWait = 0;
   let battery = null;
   let batteryListener = null;
   scene.traverse((object) => {
@@ -62206,9 +62211,12 @@ function createRenderKit({ renderer, scene, camera, still = false, glow = true }
     awake = Math.max(awake, seconds);
   }
   function cameraMoved() {
-    if (!camera || !lastCameraMatrix) return false;
-    if (lastCameraMatrix.equals(camera.matrixWorld)) return false;
-    lastCameraMatrix.copy(camera.matrixWorld);
+    if (!camera || !lastCameraPosition) return false;
+    const moved = camera.position.distanceToSquared(lastCameraPosition) > STILL_MOVE * STILL_MOVE;
+    const turned = 1 - Math.abs(camera.quaternion.dot(lastCameraQuaternion)) > STILL_TURN;
+    if (!moved && !turned) return false;
+    lastCameraPosition.copy(camera.position);
+    lastCameraQuaternion.copy(camera.quaternion);
     return true;
   }
   function shouldRender(dt = 0.016) {
@@ -62225,8 +62233,21 @@ function createRenderKit({ renderer, scene, camera, still = false, glow = true }
     if (cameraMoved()) wake(0.3);
     const moving = fall !== null && !still;
     if (moving) advance(step);
-    awake = Math.max(0, awake - step);
-    return moving || awake > 0;
+    if (awake > 0) {
+      awake = Math.max(0, awake - step);
+      idleWait = 0;
+      return true;
+    }
+    if (moving) {
+      idleWait = 0;
+      return true;
+    }
+    idleWait += step;
+    if (idleWait >= 1 / IDLE_FPS) {
+      idleWait = 0;
+      return true;
+    }
+    return false;
   }
   function refresh() {
     if (disposed) return 0;
@@ -63163,6 +63184,17 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   controls.maxDistance = 260;
   controls.screenSpacePanning = false;
   controls.rotateSpeed = 0.6;
+  let cameraAwake = 1.4;
+  let stepping = false;
+  controls.addEventListener("start", () => {
+    cameraAwake = Number.POSITIVE_INFINITY;
+  });
+  controls.addEventListener("end", () => {
+    cameraAwake = 1.2;
+  });
+  controls.addEventListener("change", () => {
+    if (!stepping) cameraAwake = Math.max(cameraAwake, 0.6);
+  });
   const hemi = new HemisphereLight(14676735, 12167042, 0.6 * LIGHT_GAIN);
   scene.add(hemi);
   const sun = new DirectionalLight(16777215, 0.9 * LIGHT_GAIN);
@@ -64191,6 +64223,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
   observer?.observe(container);
   resize();
   let running2 = false;
+  let drawing = true;
   let frameId = 0;
   let last = 0;
   let tick = 0;
@@ -64238,6 +64271,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       p.patrol = null;
       g.position.copy(p.home);
     }
+    const strolling = kind === "idle" && p.mode === "home" && !p.path.length;
     let target = null;
     let speed = 0;
     if (p.patrol) patrolStep(p, dt);
@@ -64245,7 +64279,7 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       target = p.path[0];
       speed = WALK;
     } else if (p.mode === "home") {
-      if (kind === "idle" && !bowing && !still) {
+      if (kind === "idle" && !bowing && !still && drawing) {
         p.wt -= dt;
         if (!p.wander || p.wt <= 0) {
           const a = Math.random() * Math.PI * 2;
@@ -64261,16 +64295,16 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       }
     }
     let moving = !!p.patrol;
-    if (moving) render?.wake(0.4);
+    if (moving && !p.patrol) render?.wake(0.4);
     if (target) {
       tmp3.set(target.x - g.position.x, 0, target.z - g.position.z);
       const dl = tmp3.length();
       if (dl > 0.05) {
-        render?.wake(0.4);
+        if (!strolling) render?.wake(0.4);
         const step = Math.min(dl, speed * dt);
         g.position.addScaledVector(tmp3.normalize(), step);
         g.position.y = 0;
-        moving = speed > 3 || dl > 0.3;
+        moving = !strolling && (speed > 3 || dl > 0.3);
         p.rot = angLerp(p.rot, Math.atan2(tmp3.x, tmp3.z), Math.min(1, dt * 10));
       } else if (p.path.length > 0) {
         p.path.shift();
@@ -64386,7 +64420,12 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
     controls.target.x = Math.max(-80, Math.min(80, controls.target.x));
     controls.target.z = Math.max(-90, Math.min(70, controls.target.z));
     controls.target.y = Math.max(0, Math.min(12, controls.target.y));
-    controls.update();
+    if (fly || cameraAwake > 0) {
+      stepping = true;
+      controls.update();
+      stepping = false;
+      if (cameraAwake !== Number.POSITIVE_INFINITY) cameraAwake -= dt;
+    }
     if (palace) {
       let court2 = false;
       for (const p of people.values()) if (p.mode === "court" || p.mode === "toCourt") {
@@ -64422,7 +64461,8 @@ function createCourtScene({ container, tags, onSelect, onOpen, words = {}, rende
       marker.rotation.y += dt * 2;
     } else marker.visible = false;
     if (!proclaim.hidden && time > proclaimUntil) proclaim.hidden = true;
-    if (!render || render.shouldRender(dt)) {
+    drawing = !render || render.shouldRender(dt);
+    if (drawing) {
       if (palace?.river) palace.river.material.map.offset.x = (palace.river.material.map.offset.x + dt * 0.02) % 1;
       renderer.render(scene, camera);
       placeTags();
