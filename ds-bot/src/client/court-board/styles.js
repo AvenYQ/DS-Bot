@@ -55,7 +55,15 @@ body[data-ds-dark-theme] .bt-cb-pane{${COURT_TOKENS_DARK}}
    and the mark and title step right. The app marks that window with data-caption-lights
    (preload.cjs) and never sets data-platform, so that is the flag to key on. Fullscreen
    has no lights, and an open column keeps its own edge, so neither changes. */
-html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{padding-left:calc(12px + var(--bt-caption-start,0px))}
+/* Under the macOS lights: a 40px window band, the lights on its middle line, the bar and
+   the panels below it. The band is the pane's own ground with a whisper of a scrim, so the
+   city shows through and no hard strip appears; it drags the window, and the scene under it
+   keeps its pointer. An open column and fullscreen have no lights there, so neither moves. */
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]{--cb-band:40px}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]::before{content:"";position:absolute;z-index:4;top:0;left:0;right:0;height:var(--cb-band);background:linear-gradient(var(--cb-glass-line),transparent 70%);-webkit-app-region:drag}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{top:calc(var(--cb-band) + 12px)}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-side{top:calc(var(--cb-band) + 78px)}
+html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-card{top:calc(var(--cb-band) + 78px)}
 .bt-cb-mark{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:10px;background:var(--bt-tag-bg)}
 .bt-cb-heading{display:flex;flex-direction:column;min-width:0;flex:none}
 .bt-cb-title{font-family:${SERIF};font-size:17px;line-height:22px;font-weight:700;letter-spacing:.08em;white-space:nowrap}
@@ -159,7 +167,7 @@ html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt
 .bt-cb-side-head{display:flex;align-items:baseline;gap:8px;padding:14px 16px 10px;border-bottom:.5px solid var(--cb-glass-line);flex:none}
 .bt-cb-side-title{font-family:${SERIF};font-size:16px;line-height:22px;font-weight:700;letter-spacing:.1em}
 .bt-cb-side-sub{font-size:13px;color:var(--bt-ink-2);font-variant-numeric:tabular-nums}
-.bt-cb-feed{list-style:none;margin:0;padding:6px 8px 10px;overflow:auto;flex:1;min-height:0}
+.bt-cb-feed{list-style:none;margin:0;padding:6px 16px 10px;overflow:auto;flex:1;min-height:0}
 .bt-cb-feed-row{--cb-dot:var(--cb-idle);display:grid;grid-template-columns:42px 10px 1fr;align-items:start;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .bt-cb-feed-row:hover:not(:disabled){background:var(--bt-hover)}
 .bt-cb-feed-row:disabled{cursor:default}
@@ -235,7 +243,7 @@ body[data-ds-dark-theme] .bt-cb-feed-row[data-kind=decree] .c span{color:var(--c
 .bt-cb-btn:active{transform:scale(.97)}
 .bt-cb-btn[data-kind=urgent]{background:var(--bt-cinnabar);color:var(--bt-paper)}
 .bt-cb-btn[data-kind=plain]{background:var(--bt-tag-bg);color:var(--bt-ink)}
-.bt-cb-empty{padding:6px 0;color:var(--bt-ink-2);font-size:13px}
+.bt-cb-empty{padding:6px 16px;color:var(--bt-ink-2);font-size:13px}
 
 /* Narrow panes: the sheets give the city room. */
 @media (max-width:1100px){

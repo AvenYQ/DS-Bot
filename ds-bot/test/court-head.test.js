@@ -9,14 +9,19 @@ const read = name => readFileSync(new URL(`../src/client/${name}`, import.meta.u
 const board = read('court-board/styles.js')
 const shell = read('styles.js')
 
-const RULE = 'html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{padding-left:calc(12px + var(--bt-caption-start,0px))}'
+const BAND = 'html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left]{--cb-band:40px}'
+const HEAD = 'html[data-caption-lights]:not([data-fullscreen]) .bt-cb-pane[data-edge=left] .bt-cb-head{top:calc(var(--cb-band) + 12px)}'
+const DRAG = '.bt-cb-pane[data-edge=left]::before{content:"";position:absolute;z-index:4;top:0;left:0;right:0;height:var(--cb-band)'
 
 test('the board head keeps clear of the window lights, on the flag the app really sets', () => {
-  assert.ok(board.includes(RULE), 'the rule hangs off data-caption-lights, outside fullscreen')
-  assert.ok(!/data-platform=darwin\][^{}]*\.bt-cb-head/u.test(board), 'and not off a platform flag the app never sets')
+  assert.ok(board.includes(BAND), 'the window band exists only where the lights are marked')
+  assert.ok(board.includes(HEAD), 'the bar sits below the band')
+  assert.ok(board.includes(DRAG), 'and the band itself drags the window')
+  assert.ok(!/data-platform=darwin/u.test(board), 'nothing hangs off a platform flag the app never sets')
+  assert.ok(!board.includes('data-head'), 'only the one layout is kept')
 })
 
-test('the room the rule spends is the app’s own caption-start', () => {
-  assert.ok(/html\[data-caption-lights\]\{--bt-caption-start:64px\}/u.test(shell), 'the variable exists where the rule is used')
-  assert.ok(RULE.includes('var(--bt-caption-start,0px)'), 'and the rule spends that variable, not a number of its own')
+test('the band is the height the app gives its caption band', () => {
+  assert.ok(/html\[data-caption-lights\]\{--bt-caption-start:64px\}/u.test(shell), 'the app still marks the lights it draws')
+  assert.ok(board.includes('--cb-band:40px'), 'the band is 40px, the app’s own caption height')
 })
