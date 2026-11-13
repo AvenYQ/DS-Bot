@@ -248,6 +248,65 @@ export function DutyCard({ name, duty, onClose }) {
   duty?.task ? h('p', { style: { margin: '8px 0 0', color: 'var(--bt-ink-2)' } }, duty.task) : null)
 }
 
+/**
+ * 换个地方: the small card behind the weather line. It searches a city, or asks for the
+ * reader's own position; the words are lines.js's, the search and the position come from
+ * place.js through the callbacks.
+ */
+export function CityPicker({ city, results = [], busy = false, onSearch, onPick, onUseLocation, onClose }) {
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    const onKey = (event) => { if (event.key === 'Escape') { event.stopPropagation(); onClose?.() } }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [onClose])
+  return h('div', {
+    className: 'cb-city', role: 'dialog', 'aria-modal': 'false', 'aria-label': t('Choose a city'),
+    style: {
+      position: 'absolute', zIndex: 7, left: '18px', top: '74px', width: '296px',
+      padding: '14px', borderRadius: '16px', background: 'var(--bt-card)',
+      boxShadow: '0 0 0 .5px var(--bt-line-2), 0 12px 28px var(--bt-egg-scrim)',
+      color: 'var(--bt-ink)', fontSize: '13px', lineHeight: '20px', outline: 'none',
+    },
+  },
+  h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' } },
+    h('b', { style: { fontSize: '13px', fontWeight: 600 } }, t('Choose a city')),
+    h('span', { style: { flex: '1' } }),
+    h('button', {
+      type: 'button', onClick: onClose, 'aria-label': t('Close'), title: t('Close'),
+      style: { width: '24px', height: '24px', border: 0, borderRadius: '999px', cursor: 'pointer', background: 'var(--bt-hover)', color: 'var(--bt-ink-2)', fontSize: '13px' },
+    }, '×')),
+  h('input', {
+    type: 'search', value: query, placeholder: t('Search for a city'), 'aria-label': t('Search for a city'),
+    onChange: (event) => { setQuery(event.target.value); onSearch?.(event.target.value) },
+    style: {
+      width: '100%', boxSizing: 'border-box', height: '32px', padding: '0 10px', border: 0, borderRadius: '10px',
+      background: 'var(--bt-tag-bg)', color: 'var(--bt-ink)', font: 'inherit', fontSize: '13px',
+    },
+  }),
+  results.length > 0
+    ? h('div', { role: 'list', style: { margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: '2px' } },
+      results.slice(0, 6).map((place, index) => h('button', {
+        key: `${place.lat},${place.lon},${index}`, type: 'button', role: 'listitem',
+        onClick: () => onPick?.(place),
+        style: {
+          textAlign: 'left', border: 0, borderRadius: '8px', padding: '6px 8px', cursor: 'pointer',
+          background: 'none', color: 'var(--bt-ink)', font: 'inherit', fontSize: '13px',
+        },
+      }, `${place.city}${place.region ? ` · ${place.region}` : ''}`)))
+    : null,
+  h('button', {
+    type: 'button', onClick: onUseLocation, disabled: busy,
+    style: {
+      marginTop: '10px', width: '100%', height: '30px', border: 0, borderRadius: '999px', cursor: busy ? 'default' : 'pointer',
+      background: 'var(--bt-hover)', color: 'var(--bt-ink)', font: 'inherit', fontSize: '13px', opacity: busy ? 0.6 : 1,
+    },
+  }, t('Use my location')),
+  h('p', { style: { margin: '10px 0 0', color: 'var(--bt-ink-2)' } },
+    t('Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.')),
+  city ? h('p', { style: { margin: '6px 0 0', color: 'var(--bt-ink-2)' } }, city) : null)
+}
+
 /** The confirmation card itself: 准奏 sends, 且慢 only closes. */
 export function DispatchCard({ copy, error = '', busy = false, onConfirm, onCancel }) {
   if (!copy) return null

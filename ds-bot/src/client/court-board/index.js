@@ -19,10 +19,11 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
-import { CourtEgg, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
+import { CourtEgg, CityPicker, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { createSound } from './sound.js'
 import { fetchWeather } from './weather.js'
+import { clearManualPlace, forgetLocationDenial, readManualPlace, resolvePlace, searchPlaces, setManualPlace } from './place.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
 // React sees a new snapshot.
@@ -135,7 +136,12 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const stage = useRef(null)
   const tags = useRef(null)
   const scene = useRef(null)
-  const hour = useHour()
+  const [place, setPlace] = useState(() => readManualPlace())
+  const [picker, setPicker] = useState(false)
+  const [found, setFound] = useState([])
+  const [locating, setLocating] = useState(false)
+  const [denied, setDenied] = useState(false)
+  const hour = useHour(place?.timeZone)
   const [broken, setBroken] = useState(false)
   const playedDecree = useRef({})
   const decreeUntil = useRef(0)
@@ -220,16 +226,23 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return value
   }, [roster, heldStates, hour])
 
-  // Nanjing's weather, checked while the board is open.
+  useEffect(() => {
+    if (!state.open) return undefined
+    let stopped = false
+    resolvePlace().then((next) => { if (!stopped && next) setPlace(next) }).catch(() => {})
+    return () => { stopped = true }
+  }, [state.open])
+
+  // The place's weather, checked while the board is open.
   const [weather, setWeather] = useState(null)
   useEffect(() => {
     if (!state.open) return undefined
     let stopped = false
-    const load = () => fetchWeather().then((next) => { if (!stopped && next) setWeather(next) })
+    const load = () => fetchWeather(place ?? {}).then((next) => { if (!stopped && next) setWeather(next) })
     load()
     const timer = setInterval(load, 30 * 60 * 1000)
     return () => { stopped = true; clearInterval(timer) }
-  }, [state.open])
+  }, [state.open, place?.lat, place?.lon])
   useEffect(() => { if (weather) scene.current?.setWeather(weather) }, [weather])
 
   // The 奏事簿 notes every change of state, open or not.
@@ -316,7 +329,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   // 晨钟暮鼓: once each, on the hour, while the board is open and the sound is on.
   useEffect(() => {
     if (!state.open || !soundOn) return
-    const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+    const day = new Date().toLocaleDateString('en-CA', { timeZone: place?.timeZone || 'Asia/Shanghai' })
     for (const [name, from] of [['bell', 6], ['drum', 17]]) {
       if (hour < from || hour >= from + 1) continue
       const key = `${day}:${name}`
@@ -324,7 +337,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       rang.current[key] = true
       sound.current?.play?.(name)
     }
-  }, [hour, state.open, soundOn])
+  }, [hour, state.open, soundOn, place?.timeZone])
 
   // bridge.js reads what each official has in hand from this snapshot, and sends only
   // through the host's own action after the confirmation card.
@@ -474,7 +487,11 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       h('span', { className: 'bt-cb-mark' }, h(SealIcon, { size: 22 })),
       h('div', { className: 'bt-cb-heading' },
         h('span', { className: 'bt-cb-title' }, t('小朝廷值房')),
-        h('span', { className: 'bt-cb-sub' }, `${dateLine()} · ${shichen(hour)}${weather?.word ? ` · ${t('南京')} ${weather.word} ${weather.temp}°C` : ''}`)),
+        h('button', {
+          type: 'button', className: 'bt-cb-sub', title: t('Change the city'), 'aria-label': t('Change the city'),
+          onClick: () => { setPicker(true); setFound([]); setDenied(false) },
+          style: { border: 0, padding: 0, background: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left' },
+        }, `${dateLine(place?.timeZone)} · ${shichen(hour)}${weather?.word ? ` · ${place?.city || t('This place')} ${weather.word} ${weather.temp}°C` : ''}`)),
       h('div', { className: 'bt-cb-tallies', role: 'group', 'aria-label': t('朝堂态势') },
         tallies.map(({ kind, ids }) => h('button', {
           key: kind, type: 'button', className: 'bt-cb-tally', 'data-kind': kind, disabled: ids.length === 0,
@@ -522,6 +539,36 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       h('div', { ref: tags, className: 'bt-cb-tags' }),
       broken ? h('div', { className: 'bt-cb-broken' }, t('这台机器没有可用的 WebGL，值房图显示不出来；奏事簿、名册和官员卡片照常可用。')) : null,
       !broken ? h(CourtMinimap, { world: scene, selected }) : null,
+      picker ? h(CityPicker, {
+        city: place?.city || '',
+        results: found,
+        busy: locating,
+        onSearch: (query) => {
+          const text = query.trim()
+          if (text.length < 1) { setFound([]); return }
+          searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]))
+        },
+        onPick: (chosen) => {
+          setManualPlace(chosen)
+          setPlace(chosen)
+          setPicker(false)
+          setDenied(false)
+        },
+        onUseLocation: async () => {
+          setLocating(true)
+          forgetLocationDenial()
+          clearManualPlace()
+          const next = await resolvePlace().catch(() => null)
+          setLocating(false)
+          if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
+          else { setPlace(next); setDenied(true) }
+        },
+        onClose: () => setPicker(false),
+      }) : null,
+      picker && denied ? h('div', {
+        role: 'status',
+        style: { position: 'absolute', zIndex: 7, left: '18px', top: '366px', width: '296px', padding: '10px 14px', borderRadius: '12px', background: 'var(--bt-card)', color: 'var(--bt-ink-2)', fontSize: '13px', lineHeight: '19px', boxShadow: '0 0 0 .5px var(--bt-line-2)' },
+      }, t('No location. Pick a city instead.')) : null,
       egg !== null ? h(CourtEgg, { hall: egg, onClose: () => setEgg(null) }) : null,
       duty !== null ? h(DutyCard, { name: roster.byId?.[duty]?.name ?? '', duty: readDuty(duty), onClose: () => setDuty(null) }) : null,
       docket !== null ? h(DispatchCard, {
@@ -646,23 +693,24 @@ function useExitValue(value) {
 }
 
 // The clock the board shows, in the officials' time zone; the sky follows it.
-function useHour() {
-  const [hour, setHour] = useState(nowHour)
+function useHour(timeZone) {
+  const [hour, setHour] = useState(() => nowHour(timeZone))
   useEffect(() => {
-    const timer = setInterval(() => setHour(nowHour()), 30000)
+    setHour(nowHour(timeZone))
+    const timer = setInterval(() => setHour(nowHour(timeZone)), 30000)
     return () => clearInterval(timer)
-  }, [])
+  }, [timeZone])
   return hour
 }
 
-function nowHour() {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
+function nowHour(timeZone = 'Asia/Shanghai') {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
   const pick = key => Number(parts.find(part => part.type === key)?.value ?? 0)
   return pick('hour') % 24 + pick('minute') / 60
 }
 
-const dateLine = () => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric', weekday: 'short' }).format(new Date())
-const timeOf = at => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(at))
+const dateLine = (timeZone = 'Asia/Shanghai') => new Intl.DateTimeFormat('zh-CN', { timeZone, month: 'long', day: 'numeric', weekday: 'short' }).format(new Date())
+const timeOf = (at, timeZone = 'Asia/Shanghai') => new Intl.DateTimeFormat('zh-CN', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(at))
 
 // Ticks once a second while a timer is on screen.
 function useSecond(on) {

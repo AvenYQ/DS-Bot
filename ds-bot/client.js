@@ -61901,8 +61901,194 @@ function plaquesFor(cast = []) {
   return plaques;
 }
 
+// src/client/court-board/place.js
+var MANUAL_KEY = "ds-bot:court-place";
+var DENIED_KEY = "ds-bot:court-geo-denied";
+var CACHE_KEY = "ds-bot:court-place-system";
+var CACHE_MS = 30 * 60 * 1e3;
+var GEO_OPTIONS = { enableHighAccuracy: false, timeout: 8e3, maximumAge: 10 * 60 * 1e3 };
+var CITY_LOOKUP = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+var CITY_SEARCH = "https://geocoding-api.open-meteo.com/v1/search";
+var DEFAULT_PLACE = Object.freeze({
+  city: "南京",
+  lat: 32.06,
+  lon: 118.8,
+  timeZone: "Asia/Shanghai",
+  source: "default"
+});
+var round2 = (value) => Math.round(Number(value) * 100) / 100;
+function defaultStorage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+function readJson(storage, key) {
+  try {
+    const raw = storage?.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function writeJson(storage, key, value) {
+  try {
+    storage?.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function removeKey(storage, key) {
+  try {
+    storage?.removeItem(key);
+  } catch {
+  }
+}
+function readFlag(storage, key) {
+  try {
+    return storage?.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeFlag(storage, key, on) {
+  try {
+    storage?.setItem(key, on ? "1" : "0");
+  } catch {
+  }
+}
+function systemTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_PLACE.timeZone;
+  } catch {
+    return DEFAULT_PLACE.timeZone;
+  }
+}
+function normalisePlace(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const city = typeof raw.city === "string" ? raw.city.trim() : "";
+  const lat = Number(raw.lat);
+  const lon = Number(raw.lon);
+  const timeZone = typeof raw.timeZone === "string" ? raw.timeZone.trim() : "";
+  if (city === "" || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { city, lat: round2(lat), lon: round2(lon), timeZone: timeZone || systemTimeZone() };
+}
+function normaliseCache(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const lat = Number(raw.lat);
+  const lon = Number(raw.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  const city = typeof raw.city === "string" ? raw.city.trim() : "";
+  const timeZone = typeof raw.timeZone === "string" && raw.timeZone ? raw.timeZone : systemTimeZone();
+  return { city, lat: round2(lat), lon: round2(lon), timeZone };
+}
+function readManualPlace({ storage = defaultStorage() } = {}) {
+  return normalisePlace(readJson(storage, MANUAL_KEY));
+}
+function setManualPlace(place, { storage = defaultStorage() } = {}) {
+  const normal = normalisePlace(place);
+  if (!normal) return null;
+  writeJson(storage, MANUAL_KEY, normal);
+  return { ...normal, source: "manual" };
+}
+function clearManualPlace({ storage = defaultStorage() } = {}) {
+  removeKey(storage, MANUAL_KEY);
+}
+function forgetLocationDenial({ storage = defaultStorage() } = {}) {
+  removeKey(storage, DENIED_KEY);
+}
+function clearPlaceCache({ storage = defaultStorage() } = {}) {
+  removeKey(storage, CACHE_KEY);
+}
+function locate(geolocation) {
+  return new Promise((resolve2) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve2(value);
+    };
+    try {
+      geolocation.getCurrentPosition(
+        (position) => settle({ latitude: position?.coords?.latitude, longitude: position?.coords?.longitude }),
+        (error2) => settle({ error: Number(error2?.code) || 0 }),
+        GEO_OPTIONS
+      );
+    } catch {
+      settle({ error: 0 });
+    }
+  });
+}
+async function reverseCity(lat, lon, fetchImpl) {
+  if (typeof fetchImpl !== "function") return "";
+  try {
+    const response = await fetchImpl(`${CITY_LOOKUP}?latitude=${lat}&longitude=${lon}&localityLanguage=zh`);
+    if (!response?.ok) return "";
+    const body = await response.json();
+    const name = body?.city ?? body?.locality ?? body?.principalSubdivision ?? "";
+    return typeof name === "string" ? name.trim() : "";
+  } catch {
+    return "";
+  }
+}
+async function resolvePlace({
+  storage = defaultStorage(),
+  geolocation = globalThis.navigator?.geolocation,
+  fetchImpl = globalThis.fetch,
+  now = Date.now()
+} = {}) {
+  const manual = readManualPlace({ storage });
+  if (manual) return { ...manual, source: "manual" };
+  const cached = readJson(storage, CACHE_KEY);
+  if (cached && Number.isFinite(cached.at) && now - cached.at >= 0 && now - cached.at < CACHE_MS) {
+    const place = normaliseCache(cached);
+    if (place) return { ...place, source: "system" };
+  }
+  if (!readFlag(storage, DENIED_KEY) && typeof geolocation?.getCurrentPosition === "function") {
+    const found = await locate(geolocation);
+    if (found && found.error === void 0 && Number.isFinite(found.latitude) && Number.isFinite(found.longitude)) {
+      const lat = round2(found.latitude);
+      const lon = round2(found.longitude);
+      const city = await reverseCity(lat, lon, fetchImpl);
+      const place = { city, lat, lon, timeZone: systemTimeZone(), source: "system" };
+      writeJson(storage, CACHE_KEY, { ...place, at: now });
+      return place;
+    }
+    if (found?.error === 1) writeFlag(storage, DENIED_KEY, true);
+  }
+  return { ...DEFAULT_PLACE };
+}
+async function searchPlaces(query, { fetchImpl = globalThis.fetch, language: language2 = "zh", count = 6 } = {}) {
+  const name = typeof query === "string" ? query.trim() : "";
+  if (name === "" || typeof fetchImpl !== "function") return [];
+  try {
+    const url = `${CITY_SEARCH}?name=${encodeURIComponent(name)}&count=${count}&language=${language2}&format=json`;
+    const response = await fetchImpl(url);
+    if (!response?.ok) return [];
+    const body = await response.json();
+    const results = Array.isArray(body?.results) ? body.results : [];
+    return results.map((item) => ({
+      city: String(item?.name ?? "").trim(),
+      region: String(item?.admin1 ?? "").trim(),
+      lat: round2(item?.latitude),
+      lon: round2(item?.longitude),
+      timeZone: String(item?.timezone ?? "").trim() || systemTimeZone()
+    })).filter((place) => place.city !== "" && Number.isFinite(place.lat) && Number.isFinite(place.lon));
+  } catch {
+    return [];
+  }
+}
+
 // src/client/court-board/weather.js
-var URL2 = "https://api.open-meteo.com/v1/forecast?latitude=32.06&longitude=118.8&current=temperature_2m,weather_code&timezone=Asia%2FShanghai";
+var WEATHER = "https://api.open-meteo.com/v1/forecast";
+function weatherUrl(place) {
+  const lat = Number.isFinite(Number(place?.lat)) ? Number(place.lat) : DEFAULT_PLACE.lat;
+  const lon = Number.isFinite(Number(place?.lon)) ? Number(place.lon) : DEFAULT_PLACE.lon;
+  const timeZone = typeof place?.timeZone === "string" && place.timeZone ? place.timeZone : DEFAULT_PLACE.timeZone;
+  return `${WEATHER}?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(timeZone)}`;
+}
 function weatherOf(code) {
   if (code === 0 || code === 1) return { kind: "clear", word: "晴" };
   if (code === 2) return { kind: "cloudy", word: "多云" };
@@ -61928,9 +62114,9 @@ function weatherLook(weather) {
   const look = LOOKS[weather?.kind] ?? LOOKS.clear;
   return look.fall ? { ...look, fall: { ...look.fall } } : { ...look };
 }
-async function fetchWeather(fetcher = globalThis.fetch) {
+async function fetchWeather(place = {}, fetcher = globalThis.fetch) {
   try {
-    const response = await fetcher(URL2);
+    const response = await fetcher(weatherUrl(place));
     if (!response.ok) return null;
     const body = await response.json();
     const current = body?.current;
@@ -65052,6 +65238,123 @@ function DutyCard({ name, duty, onClose }) {
     duty?.task ? (0, import_react37.createElement)("p", { style: { margin: "8px 0 0", color: "var(--bt-ink-2)" } }, duty.task) : null
   );
 }
+function CityPicker({ city, results = [], busy = false, onSearch, onPick, onUseLocation, onClose }) {
+  const [query, setQuery] = (0, import_react37.useState)("");
+  (0, import_react37.useEffect)(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return (0, import_react37.createElement)(
+    "div",
+    {
+      className: "cb-city",
+      role: "dialog",
+      "aria-modal": "false",
+      "aria-label": t("Choose a city"),
+      style: {
+        position: "absolute",
+        zIndex: 7,
+        left: "18px",
+        top: "74px",
+        width: "296px",
+        padding: "14px",
+        borderRadius: "16px",
+        background: "var(--bt-card)",
+        boxShadow: "0 0 0 .5px var(--bt-line-2), 0 12px 28px var(--bt-egg-scrim)",
+        color: "var(--bt-ink)",
+        fontSize: "13px",
+        lineHeight: "20px",
+        outline: "none"
+      }
+    },
+    (0, import_react37.createElement)(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" } },
+      (0, import_react37.createElement)("b", { style: { fontSize: "13px", fontWeight: 600 } }, t("Choose a city")),
+      (0, import_react37.createElement)("span", { style: { flex: "1" } }),
+      (0, import_react37.createElement)("button", {
+        type: "button",
+        onClick: onClose,
+        "aria-label": t("Close"),
+        title: t("Close"),
+        style: { width: "24px", height: "24px", border: 0, borderRadius: "999px", cursor: "pointer", background: "var(--bt-hover)", color: "var(--bt-ink-2)", fontSize: "13px" }
+      }, "×")
+    ),
+    (0, import_react37.createElement)("input", {
+      type: "search",
+      value: query,
+      placeholder: t("Search for a city"),
+      "aria-label": t("Search for a city"),
+      onChange: (event) => {
+        setQuery(event.target.value);
+        onSearch?.(event.target.value);
+      },
+      style: {
+        width: "100%",
+        boxSizing: "border-box",
+        height: "32px",
+        padding: "0 10px",
+        border: 0,
+        borderRadius: "10px",
+        background: "var(--bt-tag-bg)",
+        color: "var(--bt-ink)",
+        font: "inherit",
+        fontSize: "13px"
+      }
+    }),
+    results.length > 0 ? (0, import_react37.createElement)(
+      "div",
+      { role: "list", style: { margin: "8px 0 0", display: "flex", flexDirection: "column", gap: "2px" } },
+      results.slice(0, 6).map((place, index) => (0, import_react37.createElement)("button", {
+        key: `${place.lat},${place.lon},${index}`,
+        type: "button",
+        role: "listitem",
+        onClick: () => onPick?.(place),
+        style: {
+          textAlign: "left",
+          border: 0,
+          borderRadius: "8px",
+          padding: "6px 8px",
+          cursor: "pointer",
+          background: "none",
+          color: "var(--bt-ink)",
+          font: "inherit",
+          fontSize: "13px"
+        }
+      }, `${place.city}${place.region ? ` · ${place.region}` : ""}`))
+    ) : null,
+    (0, import_react37.createElement)("button", {
+      type: "button",
+      onClick: onUseLocation,
+      disabled: busy,
+      style: {
+        marginTop: "10px",
+        width: "100%",
+        height: "30px",
+        border: 0,
+        borderRadius: "999px",
+        cursor: busy ? "default" : "pointer",
+        background: "var(--bt-hover)",
+        color: "var(--bt-ink)",
+        font: "inherit",
+        fontSize: "13px",
+        opacity: busy ? 0.6 : 1
+      }
+    }, t("Use my location")),
+    (0, import_react37.createElement)(
+      "p",
+      { style: { margin: "10px 0 0", color: "var(--bt-ink-2)" } },
+      t("Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.")
+    ),
+    city ? (0, import_react37.createElement)("p", { style: { margin: "6px 0 0", color: "var(--bt-ink-2)" } }, city) : null
+  );
+}
 function DispatchCard({ copy: copy2, error: error2 = "", busy = false, onConfirm, onCancel }) {
   if (!copy2) return null;
   return (0, import_react37.createElement)(
@@ -65214,7 +65517,7 @@ var VOICES = {
     { type: "square", frequency: 1318.5, decay: 0.06, gain: 0.026, delay: 0.28 }
   ]
 };
-function defaultStorage() {
+function defaultStorage2() {
   try {
     return globalThis.localStorage ?? null;
   } catch {
@@ -65250,7 +65553,7 @@ function schedule(context, master, voice, at) {
   oscillator.start(at);
   oscillator.stop(at + voice.decay + 0.02);
 }
-function createSound({ storage = defaultStorage(), AudioContextClass } = {}) {
+function createSound({ storage = defaultStorage2(), AudioContextClass } = {}) {
   let on = readStored(storage);
   let context = null;
   let master = null;
@@ -65426,7 +65729,12 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const stage = (0, import_react38.useRef)(null);
   const tags = (0, import_react38.useRef)(null);
   const scene = (0, import_react38.useRef)(null);
-  const hour = useHour();
+  const [place, setPlace] = (0, import_react38.useState)(() => readManualPlace());
+  const [picker, setPicker] = (0, import_react38.useState)(false);
+  const [found, setFound] = (0, import_react38.useState)([]);
+  const [locating, setLocating] = (0, import_react38.useState)(false);
+  const [denied, setDenied] = (0, import_react38.useState)(false);
+  const hour = useHour(place?.timeZone);
   const [broken, setBroken] = (0, import_react38.useState)(false);
   const playedDecree = (0, import_react38.useRef)({});
   const decreeUntil = (0, import_react38.useRef)(0);
@@ -65509,11 +65817,22 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     }
     return value;
   }, [roster, heldStates, hour]);
+  (0, import_react38.useEffect)(() => {
+    if (!state.open) return void 0;
+    let stopped = false;
+    resolvePlace().then((next) => {
+      if (!stopped && next) setPlace(next);
+    }).catch(() => {
+    });
+    return () => {
+      stopped = true;
+    };
+  }, [state.open]);
   const [weather, setWeather] = (0, import_react38.useState)(null);
   (0, import_react38.useEffect)(() => {
     if (!state.open) return void 0;
     let stopped = false;
-    const load = () => fetchWeather().then((next) => {
+    const load = () => fetchWeather(place ?? {}).then((next) => {
       if (!stopped && next) setWeather(next);
     });
     load();
@@ -65522,7 +65841,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       stopped = true;
       clearInterval(timer);
     };
-  }, [state.open]);
+  }, [state.open, place?.lat, place?.lon]);
   (0, import_react38.useEffect)(() => {
     if (weather) scene.current?.setWeather(weather);
   }, [weather]);
@@ -65626,7 +65945,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   }, []);
   (0, import_react38.useEffect)(() => {
     if (!state.open || !soundOn) return;
-    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { timeZone: place?.timeZone || "Asia/Shanghai" });
     for (const [name, from] of [["bell", 6], ["drum", 17]]) {
       if (hour < from || hour >= from + 1) continue;
       const key = `${day}:${name}`;
@@ -65634,7 +65953,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       rang.current[key] = true;
       sound.current?.play?.(name);
     }
-  }, [hour, state.open, soundOn]);
+  }, [hour, state.open, soundOn, place?.timeZone]);
   (0, import_react38.useEffect)(() => {
     wireBridge({
       roster,
@@ -65784,7 +66103,18 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
         "div",
         { className: "bt-cb-heading" },
         (0, import_react38.createElement)("span", { className: "bt-cb-title" }, t("小朝廷值房")),
-        (0, import_react38.createElement)("span", { className: "bt-cb-sub" }, `${dateLine()} · ${shichen(hour)}${weather?.word ? ` · ${t("南京")} ${weather.word} ${weather.temp}°C` : ""}`)
+        (0, import_react38.createElement)("button", {
+          type: "button",
+          className: "bt-cb-sub",
+          title: t("Change the city"),
+          "aria-label": t("Change the city"),
+          onClick: () => {
+            setPicker(true);
+            setFound([]);
+            setDenied(false);
+          },
+          style: { border: 0, padding: 0, background: "none", font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }
+        }, `${dateLine(place?.timeZone)} · ${shichen(hour)}${weather?.word ? ` · ${place?.city || t("This place")} ${weather.word} ${weather.temp}°C` : ""}`)
       ),
       (0, import_react38.createElement)(
         "div",
@@ -65868,6 +66198,45 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       (0, import_react38.createElement)("div", { ref: tags, className: "bt-cb-tags" }),
       broken ? (0, import_react38.createElement)("div", { className: "bt-cb-broken" }, t("这台机器没有可用的 WebGL，值房图显示不出来；奏事簿、名册和官员卡片照常可用。")) : null,
       !broken ? (0, import_react38.createElement)(CourtMinimap, { world: scene, selected }) : null,
+      picker ? (0, import_react38.createElement)(CityPicker, {
+        city: place?.city || "",
+        results: found,
+        busy: locating,
+        onSearch: (query) => {
+          const text = query.trim();
+          if (text.length < 1) {
+            setFound([]);
+            return;
+          }
+          searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]));
+        },
+        onPick: (chosen) => {
+          setManualPlace(chosen);
+          setPlace(chosen);
+          setPicker(false);
+          setDenied(false);
+        },
+        onUseLocation: async () => {
+          setLocating(true);
+          forgetLocationDenial();
+          clearManualPlace();
+          const next = await resolvePlace().catch(() => null);
+          setLocating(false);
+          if (next && next.source === "system") {
+            setPlace(next);
+            setPicker(false);
+            setDenied(false);
+          } else {
+            setPlace(next);
+            setDenied(true);
+          }
+        },
+        onClose: () => setPicker(false)
+      }) : null,
+      picker && denied ? (0, import_react38.createElement)("div", {
+        role: "status",
+        style: { position: "absolute", zIndex: 7, left: "18px", top: "366px", width: "296px", padding: "10px 14px", borderRadius: "12px", background: "var(--bt-card)", color: "var(--bt-ink-2)", fontSize: "13px", lineHeight: "19px", boxShadow: "0 0 0 .5px var(--bt-line-2)" }
+      }, t("No location. Pick a city instead.")) : null,
       egg !== null ? (0, import_react38.createElement)(CourtEgg, { hall: egg, onClose: () => setEgg(null) }) : null,
       duty !== null ? (0, import_react38.createElement)(DutyCard, { name: roster.byId?.[duty]?.name ?? "", duty: readDuty(duty), onClose: () => setDuty(null) }) : null,
       docket !== null ? (0, import_react38.createElement)(DispatchCard, {
@@ -66018,21 +66387,22 @@ function useExitValue(value) {
   }, [value]);
   return value ?? retained;
 }
-function useHour() {
-  const [hour, setHour] = (0, import_react38.useState)(nowHour);
+function useHour(timeZone) {
+  const [hour, setHour] = (0, import_react38.useState)(() => nowHour(timeZone));
   (0, import_react38.useEffect)(() => {
-    const timer = setInterval(() => setHour(nowHour()), 3e4);
+    setHour(nowHour(timeZone));
+    const timer = setInterval(() => setHour(nowHour(timeZone)), 3e4);
     return () => clearInterval(timer);
-  }, []);
+  }, [timeZone]);
   return hour;
 }
-function nowHour() {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(/* @__PURE__ */ new Date());
+function nowHour(timeZone = "Asia/Shanghai") {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(/* @__PURE__ */ new Date());
   const pick2 = (key) => Number(parts.find((part) => part.type === key)?.value ?? 0);
   return pick2("hour") % 24 + pick2("minute") / 60;
 }
-var dateLine = () => new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "long", day: "numeric", weekday: "short" }).format(/* @__PURE__ */ new Date());
-var timeOf = (at) => new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(at));
+var dateLine = (timeZone = "Asia/Shanghai") => new Intl.DateTimeFormat("zh-CN", { timeZone, month: "long", day: "numeric", weekday: "short" }).format(/* @__PURE__ */ new Date());
+var timeOf = (at, timeZone = "Asia/Shanghai") => new Intl.DateTimeFormat("zh-CN", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(at));
 function useSecond(on) {
   const [, setTick] = (0, import_react38.useState)(0);
   (0, import_react38.useEffect)(() => {
