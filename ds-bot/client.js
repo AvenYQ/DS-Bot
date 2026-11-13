@@ -1605,7 +1605,7 @@ var ZH = {
   "Use my location": "用当前位置",
   "No location. Pick a city instead.": "没拿到定位，皇上选个城市就成。",
   "This place": "当地",
-  "Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.": "坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名；本地不存，也不发给别处。"
+  "Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.": "系统定位的坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名，本地不存；皇上手选的城市连同坐标会记在本机，下次直接用。"
 };
 var HOST_ERRORS = [
   [/^Could not reach the mail server at (.+)\. Check the server address\.$/, "连不上邮件服务器 $1，请检查服务器地址。"],
@@ -65407,6 +65407,18 @@ function DispatchCard({ copy: copy2, error: error2 = "", busy = false, onConfirm
     )
   );
 }
+function createTicket() {
+  let held = 0;
+  return {
+    issue() {
+      held += 1;
+      return held;
+    },
+    valid(ticket) {
+      return ticket === held;
+    }
+  };
+}
 function nextPick(counts2, id) {
   const at = (counts2[id] ?? 0) + 1;
   counts2[id] = at;
@@ -65414,6 +65426,18 @@ function nextPick(counts2, id) {
 }
 function eggOf(building) {
   return Object.hasOwn(EGGS, building) ? building : null;
+}
+
+// src/client/court-board/clock.js
+function hourIn(timeZone, at = Date.now()) {
+  const zone = timeZone || "Asia/Shanghai";
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(at));
+  const pick2 = (key) => Number(parts.find((part) => part.type === key)?.value ?? 0);
+  return pick2("hour") % 24 + pick2("minute") / 60;
+}
+function dateIn(timeZone, at = Date.now()) {
+  const zone = timeZone || "Asia/Shanghai";
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: zone, month: "long", day: "numeric", weekday: "short" }).format(new Date(at));
 }
 
 // src/client/court-board/bridge.js
@@ -65736,6 +65760,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const [found, setFound] = (0, import_react38.useState)([]);
   const [locating, setLocating] = (0, import_react38.useState)(false);
   const [denied, setDenied] = (0, import_react38.useState)(false);
+  const tickets = (0, import_react38.useRef)(null);
+  if (tickets.current === null) tickets.current = createTicket();
   const hour = useHour(place?.timeZone);
   const [broken, setBroken] = (0, import_react38.useState)(false);
   const playedDecree = (0, import_react38.useRef)({});
@@ -65824,8 +65850,9 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     let stopped = false;
     const take = (fresh) => {
       if (readManualPlace()) return;
+      const ticket = tickets.current.issue();
       resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
-        if (!stopped && next) setPlace(next);
+        if (!stopped && next && tickets.current.valid(ticket) && !readManualPlace()) setPlace(next);
       }).catch(() => {
       });
     };
@@ -65839,6 +65866,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       stopped = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      clearPlaceCache();
     };
   }, [state.open]);
   const [weather, setWeather] = (0, import_react38.useState)(null);
@@ -66224,6 +66252,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]));
         },
         onPick: (chosen) => {
+          tickets.current.issue();
           setManualPlace(chosen);
           setPlace(chosen);
           setPicker(false);
@@ -66231,10 +66260,12 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
         },
         onUseLocation: async () => {
           setLocating(true);
+          const ticket = tickets.current.issue();
           forgetLocationDenial();
           clearManualPlace();
-          const next = await resolvePlace().catch(() => null);
+          const next = await resolvePlace({ fresh: true }).catch(() => null);
           setLocating(false);
+          if (!tickets.current.valid(ticket)) return;
           if (next && next.source === "system") {
             setPlace(next);
             setPicker(false);
@@ -66410,12 +66441,10 @@ function useHour(timeZone) {
   }, [timeZone]);
   return hour;
 }
-function nowHour(timeZone = "Asia/Shanghai") {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(/* @__PURE__ */ new Date());
-  const pick2 = (key) => Number(parts.find((part) => part.type === key)?.value ?? 0);
-  return pick2("hour") % 24 + pick2("minute") / 60;
+function nowHour(timeZone) {
+  return hourIn(timeZone);
 }
-var dateLine = (timeZone = "Asia/Shanghai") => new Intl.DateTimeFormat("zh-CN", { timeZone, month: "long", day: "numeric", weekday: "short" }).format(/* @__PURE__ */ new Date());
+var dateLine = (timeZone) => dateIn(timeZone);
 var timeOf = (at, timeZone = "Asia/Shanghai") => new Intl.DateTimeFormat("zh-CN", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(at));
 function useSecond(on) {
   const [, setTick] = (0, import_react38.useState)(0);

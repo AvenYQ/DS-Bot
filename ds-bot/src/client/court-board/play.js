@@ -335,6 +335,18 @@ export function DispatchCard({ copy, error = '', busy = false, onConfirm, onCanc
     }, busy ? t('Sending the memorial…') : error ? t('Try sending it again') : copy.confirm)))
 }
 
+/**
+ * A ticket for an answer that may arrive late: picking a city by hand takes a new ticket,
+ * and any answer issued before it is dropped instead of overwriting the choice.
+ */
+export function createTicket() {
+  let held = 0
+  return {
+    issue() { held += 1; return held },
+    valid(ticket) { return ticket === held },
+  }
+}
+
 /** How many times this official has been picked: the greeting walks its lines with it. */
 export function nextPick(counts, id) {
   const at = (counts[id] ?? 0) + 1

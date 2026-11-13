@@ -17,7 +17,7 @@ runInNewContext(outputFiles[0].text, {
     ? { createElement: () => null, useEffect: () => {}, useRef: () => ({ current: null }), useState: () => [null, () => {}] }
     : {}),
 })
-const { createDispatch, greetingOf, nextPick } = bundled.exports
+const { createDispatch, createTicket, greetingOf, nextPick } = bundled.exports
 
 const bot = { id: 'zgf', name: '曾国藩' }
 
@@ -70,6 +70,16 @@ test('a failed send keeps the 折子, so 再试一次 sends it again and it goes
   assert.equal(calls, 2, 'the retry is the second send, not a third')
   assert.equal(card.pending(), null)
   assert.equal((await card.confirm()).ok, false, 'nothing left to send')
+})
+
+test('a place answer that arrives late cannot undo a city the reader picked', () => {
+  const tickets = createTicket()
+  const inflight = tickets.issue()
+  assert.equal(tickets.valid(inflight), true)
+  tickets.issue()                       // the reader picks a city while it is in flight
+  assert.equal(tickets.valid(inflight), false, 'the late answer is dropped')
+  const next = tickets.issue()
+  assert.equal(tickets.valid(next), true, 'and the newest answer still lands')
 })
 
 test('the greeting changes on every pick, even for the same official', () => {

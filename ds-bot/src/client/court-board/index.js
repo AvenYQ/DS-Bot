@@ -19,11 +19,12 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
-import { CourtEgg, CityPicker, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
+import { CourtEgg, CityPicker, createTicket, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
+import { dateIn, hourIn } from './clock.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { createSound } from './sound.js'
 import { fetchWeather } from './weather.js'
-import { clearManualPlace, forgetLocationDenial, readManualPlace, resolvePlace, searchPlaces, setManualPlace } from './place.js'
+import { clearManualPlace, clearPlaceCache, forgetLocationDenial, readManualPlace, resolvePlace, searchPlaces, setManualPlace } from './place.js'
 
 // Open state, shared by the sidebar's button and the pane. Replaced on every change so
 // React sees a new snapshot.
@@ -141,6 +142,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const [found, setFound] = useState([])
   const [locating, setLocating] = useState(false)
   const [denied, setDenied] = useState(false)
+  const tickets = useRef(null)
+  if (tickets.current === null) tickets.current = createTicket()
   const hour = useHour(place?.timeZone)
   const [broken, setBroken] = useState(false)
   const playedDecree = useRef({})
@@ -234,7 +237,11 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     let stopped = false
     const take = (fresh) => {
       if (readManualPlace()) return
-      resolvePlace(fresh ? { fresh: true } : {}).then((next) => { if (!stopped && next) setPlace(next) }).catch(() => {})
+      const ticket = tickets.current.issue()
+      resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
+        // a city picked while this was in flight wins over the answer
+        if (!stopped && next && tickets.current.valid(ticket) && !readManualPlace()) setPlace(next)
+      }).catch(() => {})
     }
     take(false)
     const timer = setInterval(() => take(true), PLACE_REFRESH_MS)
@@ -244,6 +251,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       stopped = true
       clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      // nothing about where the reader was stays behind once the board is put away
+      clearPlaceCache()
     }
   }, [state.open])
 
@@ -563,6 +572,7 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]))
         },
         onPick: (chosen) => {
+          tickets.current.issue()
           setManualPlace(chosen)
           setPlace(chosen)
           setPicker(false)
@@ -570,10 +580,12 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
         },
         onUseLocation: async () => {
           setLocating(true)
+          const ticket = tickets.current.issue()
           forgetLocationDenial()
           clearManualPlace()
-          const next = await resolvePlace().catch(() => null)
+          const next = await resolvePlace({ fresh: true }).catch(() => null)
           setLocating(false)
+          if (!tickets.current.valid(ticket)) return
           if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
           else { setPlace(next); setDenied(true) }
         },
@@ -721,13 +733,11 @@ function useHour(timeZone) {
   return hour
 }
 
-function nowHour(timeZone = 'Asia/Shanghai') {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
-  const pick = key => Number(parts.find(part => part.type === key)?.value ?? 0)
-  return pick('hour') % 24 + pick('minute') / 60
+function nowHour(timeZone) {
+  return hourIn(timeZone)
 }
 
-const dateLine = (timeZone = 'Asia/Shanghai') => new Intl.DateTimeFormat('zh-CN', { timeZone, month: 'long', day: 'numeric', weekday: 'short' }).format(new Date())
+const dateLine = timeZone => dateIn(timeZone)
 const timeOf = (at, timeZone = 'Asia/Shanghai') => new Intl.DateTimeFormat('zh-CN', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(at))
 
 // Ticks once a second while a timer is on screen.
