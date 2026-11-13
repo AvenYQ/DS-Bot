@@ -226,11 +226,25 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     return value
   }, [roster, heldStates, hour])
 
+  // Where the reader is, read once and then kept up while the board is open: walking to
+  // another city changes the clock, the 时辰 and the weather with it. A city the reader
+  // picked by hand is never overridden; everything else is asked again, past the cache.
   useEffect(() => {
     if (!state.open) return undefined
     let stopped = false
-    resolvePlace().then((next) => { if (!stopped && next) setPlace(next) }).catch(() => {})
-    return () => { stopped = true }
+    const take = (fresh) => {
+      if (readManualPlace()) return
+      resolvePlace(fresh ? { fresh: true } : {}).then((next) => { if (!stopped && next) setPlace(next) }).catch(() => {})
+    }
+    take(false)
+    const timer = setInterval(() => take(true), PLACE_REFRESH_MS)
+    const onVisible = () => { if (!document.hidden) take(true) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [state.open])
 
   // The place's weather, checked while the board is open.
@@ -693,6 +707,10 @@ function useExitValue(value) {
 }
 
 // The clock the board shows, in the officials' time zone; the sky follows it.
+// How often the board looks again at where the reader is. Half an hour, the same beat as
+// the weather: the look is forced past place.js's own cache, so a move is picked up.
+const PLACE_REFRESH_MS = 30 * 60 * 1000
+
 function useHour(timeZone) {
   const [hour, setHour] = useState(() => nowHour(timeZone))
   useEffect(() => {

@@ -61904,8 +61904,9 @@ function plaquesFor(cast = []) {
 // src/client/court-board/place.js
 var MANUAL_KEY = "ds-bot:court-place";
 var DENIED_KEY = "ds-bot:court-geo-denied";
-var CACHE_KEY = "ds-bot:court-place-system";
+var LEGACY_CACHE_KEY = "ds-bot:court-place-system";
 var CACHE_MS = 30 * 60 * 1e3;
+var cachedFix = null;
 var GEO_OPTIONS = { enableHighAccuracy: false, timeout: 8e3, maximumAge: 10 * 60 * 1e3 };
 var CITY_LOOKUP = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 var CITY_SEARCH = "https://geocoding-api.open-meteo.com/v1/search";
@@ -62000,7 +62001,8 @@ function forgetLocationDenial({ storage = defaultStorage() } = {}) {
   removeKey(storage, DENIED_KEY);
 }
 function clearPlaceCache({ storage = defaultStorage() } = {}) {
-  removeKey(storage, CACHE_KEY);
+  cachedFix = null;
+  removeKey(storage, LEGACY_CACHE_KEY);
 }
 function locate(geolocation) {
   return new Promise((resolve2) => {
@@ -62037,13 +62039,13 @@ async function resolvePlace({
   storage = defaultStorage(),
   geolocation = globalThis.navigator?.geolocation,
   fetchImpl = globalThis.fetch,
-  now = Date.now()
+  now = Date.now(),
+  fresh = false
 } = {}) {
   const manual = readManualPlace({ storage });
   if (manual) return { ...manual, source: "manual" };
-  const cached = readJson(storage, CACHE_KEY);
-  if (cached && Number.isFinite(cached.at) && now - cached.at >= 0 && now - cached.at < CACHE_MS) {
-    const place = normaliseCache(cached);
+  if (!fresh && cachedFix && now - cachedFix.at >= 0 && now - cachedFix.at < CACHE_MS) {
+    const place = normaliseCache(cachedFix);
     if (place) return { ...place, source: "system" };
   }
   if (!readFlag(storage, DENIED_KEY) && typeof geolocation?.getCurrentPosition === "function") {
@@ -62053,7 +62055,7 @@ async function resolvePlace({
       const lon = round2(found.longitude);
       const city = await reverseCity(lat, lon, fetchImpl);
       const place = { city, lat, lon, timeZone: systemTimeZone(), source: "system" };
-      writeJson(storage, CACHE_KEY, { ...place, at: now });
+      cachedFix = { ...place, at: now };
       return place;
     }
     if (found?.error === 1) writeFlag(storage, DENIED_KEY, true);
@@ -65820,12 +65822,23 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   (0, import_react38.useEffect)(() => {
     if (!state.open) return void 0;
     let stopped = false;
-    resolvePlace().then((next) => {
-      if (!stopped && next) setPlace(next);
-    }).catch(() => {
-    });
+    const take = (fresh) => {
+      if (readManualPlace()) return;
+      resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
+        if (!stopped && next) setPlace(next);
+      }).catch(() => {
+      });
+    };
+    take(false);
+    const timer = setInterval(() => take(true), PLACE_REFRESH_MS);
+    const onVisible = () => {
+      if (!document.hidden) take(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [state.open]);
   const [weather, setWeather] = (0, import_react38.useState)(null);
@@ -66387,6 +66400,7 @@ function useExitValue(value) {
   }, [value]);
   return value ?? retained;
 }
+var PLACE_REFRESH_MS = 30 * 60 * 1e3;
 function useHour(timeZone) {
   const [hour, setHour] = (0, import_react38.useState)(() => nowHour(timeZone));
   (0, import_react38.useEffect)(() => {
