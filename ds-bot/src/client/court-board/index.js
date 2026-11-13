@@ -251,7 +251,9 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       stopped = true
       clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
-      // nothing about where the reader was stays behind once the board is put away
+      // nothing about where the reader was stays behind once the board is put away, and
+      // a position still in flight when it closed lands nowhere
+      tickets.current.issue()
       clearPlaceCache()
     }
   }, [state.open])

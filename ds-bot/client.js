@@ -1605,7 +1605,7 @@ var ZH = {
   "Use my location": "用当前位置",
   "No location. Pick a city instead.": "没拿到定位，皇上选个城市就成。",
   "This place": "当地",
-  "Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.": "系统定位的坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名，本地不存；皇上手选的城市连同坐标会记在本机，下次直接用。"
+  "The Mac’s location goes only to Open-Meteo for the weather and BigDataCloud for the city name, and is not kept here; a city you pick yourself is remembered on this machine, coordinates included.": "系统定位的坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名，本地不存；皇上手选的城市连同坐标会记在本机，下次直接用。"
 };
 var HOST_ERRORS = [
   [/^Could not reach the mail server at (.+)\. Check the server address\.$/, "连不上邮件服务器 $1，请检查服务器地址。"],
@@ -61907,6 +61907,7 @@ var DENIED_KEY = "ds-bot:court-geo-denied";
 var LEGACY_CACHE_KEY = "ds-bot:court-place-system";
 var CACHE_MS = 30 * 60 * 1e3;
 var cachedFix = null;
+var fixVersion = 0;
 var GEO_OPTIONS = { enableHighAccuracy: false, timeout: 8e3, maximumAge: 10 * 60 * 1e3 };
 var CITY_LOOKUP = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 var CITY_SEARCH = "https://geocoding-api.open-meteo.com/v1/search";
@@ -61991,16 +61992,20 @@ function readManualPlace({ storage = defaultStorage() } = {}) {
 function setManualPlace(place, { storage = defaultStorage() } = {}) {
   const normal = normalisePlace(place);
   if (!normal) return null;
+  fixVersion += 1;
   writeJson(storage, MANUAL_KEY, normal);
   return { ...normal, source: "manual" };
 }
 function clearManualPlace({ storage = defaultStorage() } = {}) {
+  fixVersion += 1;
   removeKey(storage, MANUAL_KEY);
 }
 function forgetLocationDenial({ storage = defaultStorage() } = {}) {
+  fixVersion += 1;
   removeKey(storage, DENIED_KEY);
 }
 function clearPlaceCache({ storage = defaultStorage() } = {}) {
+  fixVersion += 1;
   cachedFix = null;
   removeKey(storage, LEGACY_CACHE_KEY);
 }
@@ -62049,13 +62054,14 @@ async function resolvePlace({
     if (place) return { ...place, source: "system" };
   }
   if (!readFlag(storage, DENIED_KEY) && typeof geolocation?.getCurrentPosition === "function") {
+    const version = fixVersion;
     const found = await locate(geolocation);
     if (found && found.error === void 0 && Number.isFinite(found.latitude) && Number.isFinite(found.longitude)) {
       const lat = round2(found.latitude);
       const lon = round2(found.longitude);
       const city = await reverseCity(lat, lon, fetchImpl);
       const place = { city, lat, lon, timeZone: systemTimeZone(), source: "system" };
-      cachedFix = { ...place, at: now };
+      if (version === fixVersion) cachedFix = { ...place, at: now };
       return place;
     }
     if (found?.error === 1) writeFlag(storage, DENIED_KEY, true);
@@ -65352,7 +65358,7 @@ function CityPicker({ city, results = [], busy = false, onSearch, onPick, onUseL
     (0, import_react37.createElement)(
       "p",
       { style: { margin: "10px 0 0", color: "var(--bt-ink-2)" } },
-      t("Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.")
+      t("The Mac’s location goes only to Open-Meteo for the weather and BigDataCloud for the city name, and is not kept here; a city you pick yourself is remembered on this machine, coordinates included.")
     ),
     city ? (0, import_react37.createElement)("p", { style: { margin: "6px 0 0", color: "var(--bt-ink-2)" } }, city) : null
   );
@@ -65866,6 +65872,7 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       stopped = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      tickets.current.issue();
       clearPlaceCache();
     };
   }, [state.open]);
