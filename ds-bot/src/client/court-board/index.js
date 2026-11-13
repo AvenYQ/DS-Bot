@@ -586,8 +586,10 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           forgetLocationDenial()
           clearManualPlace()
           const next = await resolvePlace({ fresh: true }).catch(() => null)
-          setLocating(false)
+          // the ticket is checked before any state is touched: a request from a closed
+          // board must not clear the waiting state of a newer one
           if (!tickets.current.valid(ticket)) return
+          setLocating(false)
           if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
           else { setPlace(next); setDenied(true) }
         },

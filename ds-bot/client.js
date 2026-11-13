@@ -66271,8 +66271,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           forgetLocationDenial();
           clearManualPlace();
           const next = await resolvePlace({ fresh: true }).catch(() => null);
-          setLocating(false);
           if (!tickets.current.valid(ticket)) return;
+          setLocating(false);
           if (next && next.source === "system") {
             setPlace(next);
             setPicker(false);
