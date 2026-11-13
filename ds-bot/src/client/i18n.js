@@ -1552,7 +1552,14 @@ const ZH = {
   'Sending the memorial…': '送信中…',
   'Sound is on': '音效开着，点一下关掉',
   'Sound is off': '音效关着，点一下打开',
-
+  // 定位与天气: the place chooser behind the title bar's date line.
+  'Change the city': '换个地方',
+  'Choose a city': '选个城市',
+  'Search for a city': '搜城市，比如南京',
+  'Use my location': '用当前位置',
+  'No location. Pick a city instead.': '没拿到定位，皇上选个城市就成。',
+  'This place': '当地',
+  'Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.': '坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名；本地不存，也不发给别处。',
 }
 
 // Host errors stay English, since Bots read them too; they are translated where the
