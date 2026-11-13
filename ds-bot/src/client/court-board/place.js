@@ -1,12 +1,14 @@
 // Where the Emperor is right now: the Mac's own location when he allows it, the city he
 // picked, or Nanjing. Only coordinates (rounded to about a kilometre) leave the machine,
-// to Open-Meteo for the weather and BigDataCloud for the city's name. Nothing is kept
-// except the choice itself and a short-lived cache of the last fix.
+// to Open-Meteo for the weather and BigDataCloud for the city's name. The last fix stays
+// in memory only; the one thing written down is the city the reader picked.
 
 const MANUAL_KEY = 'ds-bot:court-place'
 const DENIED_KEY = 'ds-bot:court-geo-denied'
-const CACHE_KEY = 'ds-bot:court-place-system'
+// A cache some earlier build wrote to disk; cleared whenever the fix is dropped.
+const LEGACY_CACHE_KEY = 'ds-bot:court-place-system'
 const CACHE_MS = 30 * 60 * 1000
+let cachedFix = null
 const GEO_OPTIONS = { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
 const CITY_LOOKUP = 'https://api.bigdatacloud.net/data/reverse-geocode-client'
 const CITY_SEARCH = 'https://geocoding-api.open-meteo.com/v1/search'
@@ -128,7 +130,8 @@ export function forgetLocationDenial({ storage = defaultStorage() } = {}) {
 
 /** Throw away the cached fix, so the next resolve asks the Mac again. */
 export function clearPlaceCache({ storage = defaultStorage() } = {}) {
-  removeKey(storage, CACHE_KEY)
+  cachedFix = null
+  removeKey(storage, LEGACY_CACHE_KEY)
 }
 
 function locate(geolocation) {
@@ -168,6 +171,7 @@ async function reverseCity(lat, lon, fetchImpl) {
  * Where the Emperor is: the city he picked, else the Mac's location, else Nanjing.
  * A refused location is remembered, so the board asks the system only once.
  * @param {object} [options] injected for tests
+ * @param {boolean} [options.fresh] ask the Mac again even when a recent fix is cached
  * @returns {Promise<{city: string, lat: number, lon: number, timeZone: string,
  *   source: 'system'|'manual'|'default'}>}
  */
@@ -176,13 +180,13 @@ export async function resolvePlace({
   geolocation = globalThis.navigator?.geolocation,
   fetchImpl = globalThis.fetch,
   now = Date.now(),
+  fresh = false,
 } = {}) {
   const manual = readManualPlace({ storage })
   if (manual) return { ...manual, source: 'manual' }
 
-  const cached = readJson(storage, CACHE_KEY)
-  if (cached && Number.isFinite(cached.at) && now - cached.at >= 0 && now - cached.at < CACHE_MS) {
-    const place = normaliseCache(cached)
+  if (!fresh && cachedFix && now - cachedFix.at >= 0 && now - cachedFix.at < CACHE_MS) {
+    const place = normaliseCache(cachedFix)
     if (place) return { ...place, source: 'system' }
   }
 
@@ -193,7 +197,7 @@ export async function resolvePlace({
       const lon = round2(found.longitude)
       const city = await reverseCity(lat, lon, fetchImpl)
       const place = { city, lat, lon, timeZone: systemTimeZone(), source: 'system' }
-      writeJson(storage, CACHE_KEY, { ...place, at: now })
+      cachedFix = { ...place, at: now }
       return place
     }
     // 1 is PERMISSION_DENIED; a timeout or a missing fix is worth another try next time.

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { beforeEach, test } from 'node:test'
 import {
   DEFAULT_PLACE,
   clearManualPlace,
@@ -47,6 +47,8 @@ function fakeFetch(routes) {
   fetcher.seen = seen
   return fetcher
 }
+
+beforeEach(() => clearPlaceCache())
 
 const CITY = { match: 'https://api.bigdatacloud.net/data/reverse-geocode-client', body: { city: '南京市', locality: '玄武区' } }
 const SEARCH = {
@@ -143,6 +145,28 @@ test('a picked city that is not usable is refused', () => {
   assert.equal(setManualPlace({ city: '', lat: 1, lon: 1 }, { storage: memoryStorage() }), null)
   assert.equal(setManualPlace({ city: 'x', lat: 200, lon: 1 }, { storage: memoryStorage() }), null)
   assert.equal(setManualPlace(null, { storage: memoryStorage() }), null)
+})
+
+test('the fix itself never touches local storage', async () => {
+  const storage = memoryStorage()
+  await resolvePlace({
+    storage,
+    geolocation: fakeGeolocation([{ lat: 32.06, lon: 118.8 }]),
+    fetchImpl: fakeFetch([CITY]),
+    now: 1000,
+  })
+  assert.equal(storage.data['ds-bot:court-place-system'], undefined, 'no coordinates on disk')
+  assert.equal(storage.data['ds-bot:court-place'], undefined, 'no place written without a pick')
+})
+
+test('a moving board can ask for a fresh fix past the cached one', async () => {
+  const storage = memoryStorage()
+  const geolocation = fakeGeolocation([{ lat: 32.06, lon: 118.8 }, { lat: 31.3, lon: 120.6 }])
+  const first = await resolvePlace({ storage, geolocation, fetchImpl: fakeFetch([CITY]), now: 1000 })
+  assert.equal(first.lat, 32.06)
+  const second = await resolvePlace({ storage, geolocation, fetchImpl: fakeFetch([CITY]), now: 2000, fresh: true })
+  assert.equal(second.lat, 31.3, 'the fresh fix wins over the cached one')
+  assert.equal(geolocation.calls, 2)
 })
 
 test('without a location API the board falls back to Nanjing', async () => {
