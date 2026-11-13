@@ -65425,6 +65425,11 @@ function createTicket() {
     }
   };
 }
+function settleLocate(ticket, tickets, apply2) {
+  if (!tickets?.valid?.(ticket)) return false;
+  apply2?.();
+  return true;
+}
 function nextPick(counts2, id) {
   const at = (counts2[id] ?? 0) + 1;
   counts2[id] = at;
@@ -65858,7 +65863,10 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       if (readManualPlace()) return;
       const ticket = tickets.current.issue();
       resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
-        if (!stopped && next && tickets.current.valid(ticket) && !readManualPlace()) setPlace(next);
+        if (stopped || !next) return;
+        settleLocate(ticket, tickets.current, () => {
+          if (!readManualPlace()) setPlace(next);
+        });
       }).catch(() => {
       });
     };
@@ -65873,6 +65881,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       tickets.current.issue();
+      setLocating(false);
+      setPicker(false);
       clearPlaceCache();
     };
   }, [state.open]);
@@ -66271,16 +66281,17 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           forgetLocationDenial();
           clearManualPlace();
           const next = await resolvePlace({ fresh: true }).catch(() => null);
-          if (!tickets.current.valid(ticket)) return;
-          setLocating(false);
-          if (next && next.source === "system") {
-            setPlace(next);
-            setPicker(false);
-            setDenied(false);
-          } else {
-            setPlace(next);
-            setDenied(true);
-          }
+          settleLocate(ticket, tickets.current, () => {
+            setLocating(false);
+            if (next && next.source === "system") {
+              setPlace(next);
+              setPicker(false);
+              setDenied(false);
+            } else {
+              setPlace(next);
+              setDenied(true);
+            }
+          });
         },
         onClose: () => setPicker(false)
       }) : null,

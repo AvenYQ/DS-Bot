@@ -347,6 +347,20 @@ export function createTicket() {
   }
 }
 
+/**
+ * Apply a locate answer only when its ticket is still the current one: an answer that
+ * arrives after the board closed, or after a newer locate began, changes nothing.
+ * @param {number} ticket what the request took when it started
+ * @param {object} tickets createTicket()'s handle
+ * @param {Function} [apply] what to do with the answer when it is still current
+ * @returns {boolean} whether it was applied
+ */
+export function settleLocate(ticket, tickets, apply) {
+  if (!tickets?.valid?.(ticket)) return false
+  apply?.()
+  return true
+}
+
 /** How many times this official has been picked: the greeting walks its lines with it. */
 export function nextPick(counts, id) {
   const at = (counts[id] ?? 0) + 1

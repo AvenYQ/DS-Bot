@@ -17,7 +17,7 @@ runInNewContext(outputFiles[0].text, {
     ? { createElement: () => null, useEffect: () => {}, useRef: () => ({ current: null }), useState: () => [null, () => {}] }
     : {}),
 })
-const { createDispatch, createTicket, greetingOf, nextPick } = bundled.exports
+const { createDispatch, createTicket, greetingOf, nextPick, settleLocate } = bundled.exports
 
 const bot = { id: 'zgf', name: '曾国藩' }
 
@@ -80,6 +80,26 @@ test('a place answer that arrives late cannot undo a city the reader picked', ()
   assert.equal(tickets.valid(inflight), false, 'the late answer is dropped')
   const next = tickets.issue()
   assert.equal(tickets.valid(next), true, 'and the newest answer still lands')
+})
+
+test('an older locate answer cannot clear the wait of a newer one', () => {
+  const tickets = createTicket()
+  const older = tickets.issue()
+  const newer = tickets.issue()          // the board reopened and asked again
+  let applied = 0
+  assert.equal(settleLocate(older, tickets, () => { applied += 1 }), false, 'the older answer lands nowhere')
+  assert.equal(applied, 0, 'and nothing is touched, so the newer wait stays')
+  assert.equal(settleLocate(newer, tickets, () => { applied += 1 }), true, 'the newer answer still applies')
+  assert.equal(applied, 1)
+})
+
+test('closing the board puts the wait away, and a late answer changes nothing', () => {
+  const tickets = createTicket()
+  const inFlight = tickets.issue()
+  tickets.issue()                        // closing: the ticket moves on
+  let applied = 0
+  assert.equal(settleLocate(inFlight, tickets, () => { applied += 1 }), false)
+  assert.equal(applied, 0)
 })
 
 test('the greeting changes on every pick, even for the same official', () => {

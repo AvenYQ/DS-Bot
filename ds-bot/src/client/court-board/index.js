@@ -19,7 +19,7 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
-import { CourtEgg, CityPicker, createTicket, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
+import { CourtEgg, CityPicker, createTicket, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick, settleLocate } from './play.js'
 import { dateIn, hourIn } from './clock.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { createSound } from './sound.js'
@@ -240,7 +240,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       const ticket = tickets.current.issue()
       resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
         // a city picked while this was in flight wins over the answer
-        if (!stopped && next && tickets.current.valid(ticket) && !readManualPlace()) setPlace(next)
+        if (stopped || !next) return
+        settleLocate(ticket, tickets.current, () => { if (!readManualPlace()) setPlace(next) })
       }).catch(() => {})
     }
     take(false)
@@ -254,6 +255,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       // nothing about where the reader was stays behind once the board is put away, and
       // a position still in flight when it closed lands nowhere
       tickets.current.issue()
+      setLocating(false)
+      setPicker(false)
       clearPlaceCache()
     }
   }, [state.open])
@@ -586,12 +589,13 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           forgetLocationDenial()
           clearManualPlace()
           const next = await resolvePlace({ fresh: true }).catch(() => null)
-          // the ticket is checked before any state is touched: a request from a closed
-          // board must not clear the waiting state of a newer one
-          if (!tickets.current.valid(ticket)) return
-          setLocating(false)
-          if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
-          else { setPlace(next); setDenied(true) }
+          // the gate comes first: a request from a closed board must not clear the waiting
+          // state of a newer one, nor move the city
+          settleLocate(ticket, tickets.current, () => {
+            setLocating(false)
+            if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
+            else { setPlace(next); setDenied(true) }
+          })
         },
         onClose: () => setPicker(false),
       }) : null,
