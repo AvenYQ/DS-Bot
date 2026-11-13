@@ -38,6 +38,8 @@ export const state = {
   rejectLoads: false,
   // The cookies of the browser: the Host's address keeps one after the launch URL was used.
   cookies: [],
+  // The session's permission handlers, as main.mjs bound them.
+  permissions: { check: null, request: null },
   paths: {},
   dock: { setIcon: () => {} },
 }
@@ -255,7 +257,11 @@ const cookieJar = {
 }
 
 export const session = {
-  defaultSession: Object.assign(new EventEmitter(), { cookies: cookieJar }),
+  defaultSession: Object.assign(new EventEmitter(), {
+    cookies: cookieJar,
+    setPermissionCheckHandler: handler => { state.permissions.check = handler },
+    setPermissionRequestHandler: handler => { state.permissions.request = handler },
+  }),
   fromPartition: () => Object.assign(new EventEmitter(), { cookies: cookieJar }),
 }
 

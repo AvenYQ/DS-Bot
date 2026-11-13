@@ -21,6 +21,24 @@ test('the app starts with a window and a tray', async () => {
   assert.equal(state.quits, 0, 'the app goes on')
 })
 
+test('only the board window may ask for the location; every other permission stays as it was', async () => {
+  await waitFor(() => state.permissions.check !== null && state.permissions.request !== null, 'bind the session permissions')
+  const board = window().webContents
+  const other = { id: 'a login page' }
+  assert.equal(state.permissions.check(board, 'geolocation'), true, 'the board page may use the Mac place')
+  assert.equal(state.permissions.check(other, 'geolocation'), false, 'another page may not')
+  assert.equal(state.permissions.check(undefined, 'geolocation'), false, 'a nameless contents may not')
+  for (const candidate of [board, other, undefined]) {
+    assert.equal(state.permissions.check(candidate, 'notifications'), true, 'other permissions are untouched')
+  }
+  const asked = []
+  state.permissions.request(board, 'geolocation', allowed => asked.push(allowed))
+  state.permissions.request(other, 'geolocation', allowed => asked.push(allowed))
+  state.permissions.request(undefined, 'geolocation', allowed => asked.push(allowed))
+  state.permissions.request(other, 'notifications', allowed => asked.push(allowed))
+  assert.deepEqual(asked, [true, false, false, true])
+})
+
 test('places saved before the free space at the start was kept keep it from this start on', async () => {
   const saved = () => JSON.parse(readFileSync(join(paths.userData, 'locations.json'), 'utf8'))
   await waitFor(() => saved().freeAtStart > 0, 'keep the free space of the data\'s drive')

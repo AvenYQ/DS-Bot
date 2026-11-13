@@ -1338,15 +1338,18 @@ function createWindow() {
   // The tabs that outlived the last window join this one.
   botViews.attach(win)
   const contents = win.webContents
-  // Only this window's page may ask for permissions at all, so the court board's location
-  // request is the only geolocation the session grants; tabs and pages that load anything
-  // else are refused. The app's own page keeps the permissions it had before.
+  // The board's location is the only permission this session scopes: it is granted to the
+  // team window's own page and to nothing else. Every other permission, and pages that were
+  // allowed before (the start window, a login page), stay exactly as permissive as they were.
   if (!permissionsBound) {
     permissionsBound = true
     const own = session.defaultSession
-    const isMainPage = candidate => candidate !== undefined && candidate !== null && candidate === mainWindow?.webContents
-    own.setPermissionCheckHandler?.(candidate => isMainPage(candidate))
-    own.setPermissionRequestHandler?.((candidate, _permission, callback) => callback(isMainPage(candidate)))
+    const allows = (candidate, permission) => {
+      if (permission !== 'geolocation') return true
+      return candidate !== undefined && candidate !== null && candidate === mainWindow?.webContents
+    }
+    own.setPermissionCheckHandler?.((candidate, permission) => allows(candidate, permission))
+    own.setPermissionRequestHandler?.((candidate, permission, callback) => callback(allows(candidate, permission)))
   }
   // The session is the same for every window of the app, so the handler is bound once.
   if (!downloadsBound) {
