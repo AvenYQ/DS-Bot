@@ -17,7 +17,7 @@ runInNewContext(outputFiles[0].text, {
     ? { createElement: () => null, useEffect: () => {}, useRef: () => ({ current: null }), useState: () => [null, () => {}] }
     : {}),
 })
-const { createDispatch, createTicket, greetingOf, nextPick, settleLocate } = bundled.exports
+const { createDispatch, createLocateGate, createTicket, greetingOf, nextPick } = bundled.exports
 
 const bot = { id: 'zgf', name: '曾国藩' }
 
@@ -83,23 +83,40 @@ test('a place answer that arrives late cannot undo a city the reader picked', ()
 })
 
 test('an older locate answer cannot clear the wait of a newer one', () => {
-  const tickets = createTicket()
-  const older = tickets.issue()
-  const newer = tickets.issue()          // the board reopened and asked again
+  const gate = createLocateGate()
+  const older = gate.begin()
+  const newer = gate.begin()            // the reader pressed again while the first ran
   let applied = 0
-  assert.equal(settleLocate(older, tickets, () => { applied += 1 }), false, 'the older answer lands nowhere')
-  assert.equal(applied, 0, 'and nothing is touched, so the newer wait stays')
-  assert.equal(settleLocate(newer, tickets, () => { applied += 1 }), true, 'the newer answer still applies')
-  assert.equal(applied, 1)
+  assert.equal(gate.settle(older, () => { applied += 1 }), false, 'the older answer lands nowhere')
+  assert.equal(applied, 0)
+  assert.equal(gate.waiting(), true, 'the newer wait is still standing')
+  assert.equal(gate.settle(newer, () => { applied += 1 }), true)
+  assert.equal(gate.waiting(), false, 'and only its own answer ends it')
 })
 
-test('closing the board puts the wait away, and a late answer changes nothing', () => {
-  const tickets = createTicket()
-  const inFlight = tickets.issue()
-  tickets.issue()                        // closing: the ticket moves on
+test('closing the board during a look puts the wait away, and reopening starts clean', () => {
+  const gate = createLocateGate()
+  const inFlight = gate.begin()
+  assert.equal(gate.waiting(), true, 'the card shows a wait')
+  gate.close()                          // the board is put away mid-look
+  assert.equal(gate.waiting(), false, 'reopening does not sit in a wait nobody will end')
   let applied = 0
-  assert.equal(settleLocate(inFlight, tickets, () => { applied += 1 }), false)
+  assert.equal(gate.settle(inFlight, () => { applied += 1 }), false, 'and the late answer changes nothing')
   assert.equal(applied, 0)
+  const next = gate.begin()             // reopened, the reader asks again
+  assert.equal(gate.waiting(), true)
+  assert.equal(gate.settle(next), true)
+  assert.equal(gate.waiting(), false)
+})
+
+test('a background look never shows or ends the wait', () => {
+  const gate = createLocateGate()
+  const mine = gate.begin()
+  const look = gate.look()              // the half-hour look starts while the reader waits
+  assert.equal(gate.accept(look), true, 'the background answer is taken')
+  assert.equal(gate.waiting(), true, 'but the reader’s own wait is untouched')
+  assert.equal(gate.settle(mine), true, 'and its own answer still ends it')
+  assert.equal(gate.waiting(), false)
 })
 
 test('the greeting changes on every pick, even for the same official', () => {

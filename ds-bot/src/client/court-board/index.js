@@ -19,7 +19,7 @@ import { BUILDINGS, WALL } from './layout.js'
 import { decreeFor } from './decree.js'
 import { feedEvents, feedKey, shichen } from './feed.js'
 import { CEREMONY_MS, createCourtScene } from './scene.js'
-import { CourtEgg, CityPicker, createTicket, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick, settleLocate } from './play.js'
+import { CourtEgg, CityPicker, createLocateGate, createTour, createDispatch, DispatchCard, DocketChip, DutyCard, eggOf, greetingOf, nextPick } from './play.js'
 import { dateIn, hourIn } from './clock.js'
 import { dispatch, readDuty, unwireBridge, wireBridge } from './bridge.js'
 import { createSound } from './sound.js'
@@ -142,8 +142,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
   const [found, setFound] = useState([])
   const [locating, setLocating] = useState(false)
   const [denied, setDenied] = useState(false)
-  const tickets = useRef(null)
-  if (tickets.current === null) tickets.current = createTicket()
+  const gate = useRef(null)
+  if (gate.current === null) gate.current = createLocateGate()
   const hour = useHour(place?.timeZone)
   const [broken, setBroken] = useState(false)
   const playedDecree = useRef({})
@@ -237,11 +237,11 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
     let stopped = false
     const take = (fresh) => {
       if (readManualPlace()) return
-      const ticket = tickets.current.issue()
+      const ticket = gate.current.look()
       resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
         // a city picked while this was in flight wins over the answer
         if (stopped || !next) return
-        settleLocate(ticket, tickets.current, () => { if (!readManualPlace()) setPlace(next) })
+        gate.current.accept(ticket, () => { if (!readManualPlace()) setPlace(next) })
       }).catch(() => {})
     }
     take(false)
@@ -254,8 +254,8 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
       document.removeEventListener('visibilitychange', onVisible)
       // nothing about where the reader was stays behind once the board is put away, and
       // a position still in flight when it closed lands nowhere
-      tickets.current.issue()
-      setLocating(false)
+      gate.current.close()
+      setLocating(gate.current.waiting())
       setPicker(false)
       clearPlaceCache()
     }
@@ -577,22 +577,22 @@ export function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useA
           searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]))
         },
         onPick: (chosen) => {
-          tickets.current.issue()
+          gate.current.close()
           setManualPlace(chosen)
           setPlace(chosen)
           setPicker(false)
           setDenied(false)
         },
         onUseLocation: async () => {
-          setLocating(true)
-          const ticket = tickets.current.issue()
+          const ticket = gate.current.begin()
+          setLocating(gate.current.waiting())
           forgetLocationDenial()
           clearManualPlace()
           const next = await resolvePlace({ fresh: true }).catch(() => null)
           // the gate comes first: a request from a closed board must not clear the waiting
           // state of a newer one, nor move the city
-          settleLocate(ticket, tickets.current, () => {
-            setLocating(false)
+          gate.current.settle(ticket, () => {
+            setLocating(gate.current.waiting())
             if (next && next.source === 'system') { setPlace(next); setPicker(false); setDenied(false) }
             else { setPlace(next); setDenied(true) }
           })

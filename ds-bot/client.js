@@ -65425,10 +65425,42 @@ function createTicket() {
     }
   };
 }
-function settleLocate(ticket, tickets, apply2) {
-  if (!tickets?.valid?.(ticket)) return false;
-  apply2?.();
-  return true;
+function createLocateGate() {
+  const own = createTicket();
+  const looks = createTicket();
+  let waiting = false;
+  return {
+    // The reader pressed 用当前位置: show the wait and take the newest own ticket.
+    begin() {
+      waiting = true;
+      return own.issue();
+    },
+    // A background look: it takes a ticket but shows no wait.
+    look() {
+      return looks.issue();
+    },
+    // The reader's own look answered: only the newest own ticket may end the wait.
+    settle(ticket, apply2) {
+      if (!own.valid(ticket)) return false;
+      waiting = false;
+      apply2?.();
+      return true;
+    },
+    // A background look answered: it never touches the wait.
+    accept(ticket, apply2) {
+      if (!looks.valid(ticket)) return false;
+      apply2?.();
+      return true;
+    },
+    // The board closed, or a city was picked: nothing is waited for, and every answer
+    // still in flight lands nowhere.
+    close() {
+      own.issue();
+      looks.issue();
+      waiting = false;
+    },
+    waiting: () => waiting
+  };
 }
 function nextPick(counts2, id) {
   const at = (counts2[id] ?? 0) + 1;
@@ -65771,8 +65803,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
   const [found, setFound] = (0, import_react38.useState)([]);
   const [locating, setLocating] = (0, import_react38.useState)(false);
   const [denied, setDenied] = (0, import_react38.useState)(false);
-  const tickets = (0, import_react38.useRef)(null);
-  if (tickets.current === null) tickets.current = createTicket();
+  const gate = (0, import_react38.useRef)(null);
+  if (gate.current === null) gate.current = createLocateGate();
   const hour = useHour(place?.timeZone);
   const [broken, setBroken] = (0, import_react38.useState)(false);
   const playedDecree = (0, import_react38.useRef)({});
@@ -65861,10 +65893,10 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
     let stopped = false;
     const take = (fresh) => {
       if (readManualPlace()) return;
-      const ticket = tickets.current.issue();
+      const ticket = gate.current.look();
       resolvePlace(fresh ? { fresh: true } : {}).then((next) => {
         if (stopped || !next) return;
-        settleLocate(ticket, tickets.current, () => {
+        gate.current.accept(ticket, () => {
           if (!readManualPlace()) setPlace(next);
         });
       }).catch(() => {
@@ -65880,8 +65912,8 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
       stopped = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      tickets.current.issue();
-      setLocating(false);
+      gate.current.close();
+      setLocating(gate.current.waiting());
       setPicker(false);
       clearPlaceCache();
     };
@@ -66269,20 +66301,20 @@ function CourtBoardLayer({ useRoster, useSessions, useSessionStatus, useActivity
           searchPlaces(text).then((list) => setFound(list ?? [])).catch(() => setFound([]));
         },
         onPick: (chosen) => {
-          tickets.current.issue();
+          gate.current.close();
           setManualPlace(chosen);
           setPlace(chosen);
           setPicker(false);
           setDenied(false);
         },
         onUseLocation: async () => {
-          setLocating(true);
-          const ticket = tickets.current.issue();
+          const ticket = gate.current.begin();
+          setLocating(gate.current.waiting());
           forgetLocationDenial();
           clearManualPlace();
           const next = await resolvePlace({ fresh: true }).catch(() => null);
-          settleLocate(ticket, tickets.current, () => {
-            setLocating(false);
+          gate.current.settle(ticket, () => {
+            setLocating(gate.current.waiting());
             if (next && next.source === "system") {
               setPlace(next);
               setPicker(false);

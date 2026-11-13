@@ -348,17 +348,40 @@ export function createTicket() {
 }
 
 /**
- * Apply a locate answer only when its ticket is still the current one: an answer that
- * arrives after the board closed, or after a newer locate began, changes nothing.
- * @param {number} ticket what the request took when it started
- * @param {object} tickets createTicket()'s handle
- * @param {Function} [apply] what to do with the answer when it is still current
- * @returns {boolean} whether it was applied
+ * The gate in front of the little city card's waiting state. It owns one ticket and one
+ * "waiting" flag: a look starts a ticket, only the newest ticket may finish it, and
+ * closing the board puts the flag away and moves the ticket on, so a request still in
+ * flight lands nowhere and a reopened board does not sit in a wait nobody will end.
  */
-export function settleLocate(ticket, tickets, apply) {
-  if (!tickets?.valid?.(ticket)) return false
-  apply?.()
-  return true
+export function createLocateGate() {
+  // The reader's own looks and the background ones take tickets from separate runs: a
+  // background look must never cancel the wait the reader is looking at.
+  const own = createTicket()
+  const looks = createTicket()
+  let waiting = false
+  return {
+    // The reader pressed 用当前位置: show the wait and take the newest own ticket.
+    begin() { waiting = true; return own.issue() },
+    // A background look: it takes a ticket but shows no wait.
+    look() { return looks.issue() },
+    // The reader's own look answered: only the newest own ticket may end the wait.
+    settle(ticket, apply) {
+      if (!own.valid(ticket)) return false
+      waiting = false
+      apply?.()
+      return true
+    },
+    // A background look answered: it never touches the wait.
+    accept(ticket, apply) {
+      if (!looks.valid(ticket)) return false
+      apply?.()
+      return true
+    },
+    // The board closed, or a city was picked: nothing is waited for, and every answer
+    // still in flight lands nowhere.
+    close() { own.issue(); looks.issue(); waiting = false },
+    waiting: () => waiting,
+  }
 }
 
 /** How many times this official has been picked: the greeting walks its lines with it. */
