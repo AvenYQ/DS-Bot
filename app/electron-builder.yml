@@ -85,6 +85,9 @@ mac:
   # blocks LAN connections from tool processes outright ("No route to host").
   extendInfo:
     NSLocalNetworkUsageDescription: DS Bot runs commands that connect to devices on your local network.
+    # The court board asks for the Mac's location to show its own time and weather; macOS
+    # only shows the permission prompt to an app that explains itself here.
+    NSLocationWhenInUseUsageDescription: 用于查值房图当地的天气和时间，不作别的用途。
 linux:
   # The Linux Host uses the payload's plain Node, which cannot read asar archives.
   asar: false

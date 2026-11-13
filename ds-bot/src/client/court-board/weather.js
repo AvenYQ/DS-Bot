@@ -1,6 +1,15 @@
-// Nanjing's weather for the court board: the sky over the palace follows the city's.
-// Open-Meteo needs no key; when it cannot be reached the board simply keeps fair skies.
-const URL = 'https://api.open-meteo.com/v1/forecast?latitude=32.06&longitude=118.8&current=temperature_2m,weather_code&timezone=Asia%2FShanghai'
+// The weather over the board: Open-Meteo needs no key, and the place's own coordinates and
+// time zone decide where the sky is read. When it cannot be reached the board keeps fair skies.
+import { DEFAULT_PLACE } from './place.js'
+
+const WEATHER = 'https://api.open-meteo.com/v1/forecast'
+
+function weatherUrl(place) {
+  const lat = Number.isFinite(Number(place?.lat)) ? Number(place.lat) : DEFAULT_PLACE.lat
+  const lon = Number.isFinite(Number(place?.lon)) ? Number(place.lon) : DEFAULT_PLACE.lon
+  const timeZone = typeof place?.timeZone === 'string' && place.timeZone ? place.timeZone : DEFAULT_PLACE.timeZone
+  return `${WEATHER}?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(timeZone)}`
+}
 
 /**
  * What the scene paints for a WMO weather code, and the word for it.
@@ -42,9 +51,10 @@ export function weatherLook(weather) {
 }
 
 /** The weather now, or null when the service cannot be reached. */
-export async function fetchWeather(fetcher = globalThis.fetch) {
+/** The weather now for a place, or null when the service cannot be reached. */
+export async function fetchWeather(place = {}, fetcher = globalThis.fetch) {
   try {
-    const response = await fetcher(URL)
+    const response = await fetcher(weatherUrl(place))
     if (!response.ok) return null
     const body = await response.json()
     const current = body?.current

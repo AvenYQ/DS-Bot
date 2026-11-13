@@ -134,6 +134,8 @@ let bootstrap
 let tokenSpent = false
 // The download handler of the app's session is bound once, not once per window.
 let downloadsBound = false
+// The permission handlers of the app's session are bound once too.
+let permissionsBound = false
 // Quitting during the first run's import (its card or its copy) or a data move waits for it to
 // stop at a safe point, so that it leaves no half team and no temporary copy.
 let copying
@@ -1336,6 +1338,16 @@ function createWindow() {
   // The tabs that outlived the last window join this one.
   botViews.attach(win)
   const contents = win.webContents
+  // Only this window's page may ask for permissions at all, so the court board's location
+  // request is the only geolocation the session grants; tabs and pages that load anything
+  // else are refused. The app's own page keeps the permissions it had before.
+  if (!permissionsBound) {
+    permissionsBound = true
+    const own = session.defaultSession
+    const isMainPage = candidate => candidate !== undefined && candidate !== null && candidate === mainWindow?.webContents
+    own.setPermissionCheckHandler?.(candidate => isMainPage(candidate))
+    own.setPermissionRequestHandler?.((candidate, _permission, callback) => callback(isMainPage(candidate)))
+  }
   // The session is the same for every window of the app, so the handler is bound once.
   if (!downloadsBound) {
     downloadsBound = true
