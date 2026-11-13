@@ -303,7 +303,7 @@ export function CityPicker({ city, results = [], busy = false, onSearch, onPick,
     },
   }, t('Use my location')),
   h('p', { style: { margin: '10px 0 0', color: 'var(--bt-ink-2)' } },
-    t('Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.')),
+    t('The Mac’s location goes only to Open-Meteo for the weather and BigDataCloud for the city name, and is not kept here; a city you pick yourself is remembered on this machine, coordinates included.')),
   city ? h('p', { style: { margin: '6px 0 0', color: 'var(--bt-ink-2)' } }, city) : null)
 }
 

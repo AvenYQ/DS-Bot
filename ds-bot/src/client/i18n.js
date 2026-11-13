@@ -1559,7 +1559,7 @@ const ZH = {
   'Use my location': '用当前位置',
   'No location. Pick a city instead.': '没拿到定位，皇上选个城市就成。',
   'This place': '当地',
-  'Your coordinates go only to Open-Meteo and BigDataCloud, for the weather and the city name. Nothing is kept here.': '系统定位的坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名，本地不存；皇上手选的城市连同坐标会记在本机，下次直接用。',
+  'The Mac’s location goes only to Open-Meteo for the weather and BigDataCloud for the city name, and is not kept here; a city you pick yourself is remembered on this machine, coordinates included.': '系统定位的坐标只发给 Open-Meteo 查天气、BigDataCloud 查城市名，本地不存；皇上手选的城市连同坐标会记在本机，下次直接用。',
 }
 
 // Host errors stay English, since Bots read them too; they are translated where the
