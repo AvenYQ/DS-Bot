@@ -9,6 +9,9 @@ const DENIED_KEY = 'ds-bot:court-geo-denied'
 const LEGACY_CACHE_KEY = 'ds-bot:court-place-system'
 const CACHE_MS = 30 * 60 * 1000
 let cachedFix = null
+// Bumped whenever the fix in flight stops being wanted: the board closed, or the reader
+// picked a city. A request that comes back under an old number must not seed the cache.
+let fixVersion = 0
 const GEO_OPTIONS = { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
 const CITY_LOOKUP = 'https://api.bigdatacloud.net/data/reverse-geocode-client'
 const CITY_SEARCH = 'https://geocoding-api.open-meteo.com/v1/search'
@@ -114,22 +117,26 @@ export function readManualPlace({ storage = defaultStorage() } = {}) {
 export function setManualPlace(place, { storage = defaultStorage() } = {}) {
   const normal = normalisePlace(place)
   if (!normal) return null
+  fixVersion += 1
   writeJson(storage, MANUAL_KEY, normal)
   return { ...normal, source: 'manual' }
 }
 
 /** Go back to following the Mac's location. */
 export function clearManualPlace({ storage = defaultStorage() } = {}) {
+  fixVersion += 1
   removeKey(storage, MANUAL_KEY)
 }
 
 /** Ask for the location again after the reader pressed "use my location". */
 export function forgetLocationDenial({ storage = defaultStorage() } = {}) {
+  fixVersion += 1
   removeKey(storage, DENIED_KEY)
 }
 
 /** Throw away the cached fix, so the next resolve asks the Mac again. */
 export function clearPlaceCache({ storage = defaultStorage() } = {}) {
+  fixVersion += 1
   cachedFix = null
   removeKey(storage, LEGACY_CACHE_KEY)
 }
@@ -191,13 +198,15 @@ export async function resolvePlace({
   }
 
   if (!readFlag(storage, DENIED_KEY) && typeof geolocation?.getCurrentPosition === 'function') {
+    const version = fixVersion
     const found = await locate(geolocation)
     if (found && found.error === undefined && Number.isFinite(found.latitude) && Number.isFinite(found.longitude)) {
       const lat = round2(found.latitude)
       const lon = round2(found.longitude)
       const city = await reverseCity(lat, lon, fetchImpl)
       const place = { city, lat, lon, timeZone: systemTimeZone(), source: 'system' }
-      cachedFix = { ...place, at: now }
+      // The board may have closed, or the reader picked a city, while this was in flight.
+      if (version === fixVersion) cachedFix = { ...place, at: now }
       return place
     }
     // 1 is PERMISSION_DENIED; a timeout or a missing fix is worth another try next time.

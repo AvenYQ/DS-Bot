@@ -36,6 +36,16 @@ function fakeGeolocation(outcomes) {
   }
 }
 
+// A position request whose answer the test hands over when it wants.
+function deferredGeolocation() {
+  const state = { calls: 0, ok: null }
+  return {
+    get calls() { return state.calls },
+    getCurrentPosition(ok) { state.calls += 1; state.ok = ok },
+    arrive(lat, lon) { state.ok?.({ coords: { latitude: lat, longitude: lon } }) },
+  }
+}
+
 function fakeFetch(routes) {
   const seen = []
   const fetcher = async (url) => {
@@ -167,6 +177,34 @@ test('a moving board can ask for a fresh fix past the cached one', async () => {
   const second = await resolvePlace({ storage, geolocation, fetchImpl: fakeFetch([CITY]), now: 2000, fresh: true })
   assert.equal(second.lat, 31.3, 'the fresh fix wins over the cached one')
   assert.equal(geolocation.calls, 2)
+})
+
+test('a fix that comes back after the board closed does not seed the cache', async () => {
+  const storage = memoryStorage()
+  const geolocation = deferredGeolocation()
+  const pending = resolvePlace({ storage, geolocation, fetchImpl: fakeFetch([CITY]), now: 1000 })
+  clearPlaceCache()
+  geolocation.arrive(32.06, 118.8)
+  const late = await pending
+  assert.equal(late.source, 'system', 'the caller still gets its answer')
+  const working = fakeGeolocation([{ lat: 31.3, lon: 120.6 }])
+  const next = await resolvePlace({ storage, geolocation: working, fetchImpl: fakeFetch([CITY]), now: 2000 })
+  assert.equal(working.calls, 1, 'the late fix was thrown away')
+  assert.equal(next.lat, 31.3)
+})
+
+test('a fix that comes back after the reader picked a city does not seed the cache', async () => {
+  const storage = memoryStorage()
+  const geolocation = deferredGeolocation()
+  const pending = resolvePlace({ storage, geolocation, fetchImpl: fakeFetch([CITY]), now: 1000 })
+  setManualPlace({ city: '苏州', lat: 31.3, lon: 120.6, timeZone: 'Asia/Shanghai' }, { storage })
+  geolocation.arrive(32.06, 118.8)
+  await pending
+  clearManualPlace({ storage })
+  const working = fakeGeolocation([{ lat: 39.9, lon: 116.4 }])
+  const next = await resolvePlace({ storage, geolocation: working, fetchImpl: fakeFetch([CITY]), now: 2000 })
+  assert.equal(working.calls, 1, 'the fix of the old choice was thrown away')
+  assert.equal(next.lat, 39.9)
 })
 
 test('without a location API the board falls back to Nanjing', async () => {
